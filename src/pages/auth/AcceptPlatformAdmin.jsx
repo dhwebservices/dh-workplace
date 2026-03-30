@@ -50,41 +50,53 @@ export default function AcceptPlatformAdmin() {
     setError('')
     try {
       let authUser = null
-      const signUpRes = await supabase.auth.signUp({
+      const signInRes = await supabase.auth.signInWithPassword({
         email: invite.email,
         password: form.password,
       })
 
-      if (signUpRes.error && !/already registered|already been registered/i.test(signUpRes.error.message || '')) {
-        throw signUpRes.error
-      }
-
-      if (signUpRes.data?.user?.id) {
-        authUser = signUpRes.data.user
+      if (!signInRes.error && signInRes.data?.user?.id) {
+        authUser = signInRes.data.user
       } else {
-        const signInRes = await supabase.auth.signInWithPassword({
+        const createRes = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'platform_admin_accept',
+            data: {
+              token,
+              password: form.password,
+            },
+          }),
+        })
+        const createJson = await createRes.json()
+        if (!createRes.ok) throw new Error(createJson.error || 'Unable to create your platform admin account')
+
+        const confirmSignInRes = await supabase.auth.signInWithPassword({
           email: invite.email,
           password: form.password,
         })
-        if (signInRes.error) throw new Error('This email already has an account. Sign in with that password to accept platform access.')
-        authUser = signInRes.data.user
+        if (confirmSignInRes.error) throw confirmSignInRes.error
+        authUser = confirmSignInRes.data.user
       }
 
       if (!authUser?.id) throw new Error('Unable to create or load your account')
 
-      const acceptRes = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'platform_admin_accept',
-          data: {
-            token,
-            user_id: authUser.id,
-          },
-        }),
-      })
-      const acceptJson = await acceptRes.json()
-      if (!acceptRes.ok) throw new Error(acceptJson.error || 'Unable to accept platform access')
+      if (invite.status !== 'active') {
+        const acceptRes = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'platform_admin_accept',
+            data: {
+              token,
+              user_id: authUser.id,
+            },
+          }),
+        })
+        const acceptJson = await acceptRes.json()
+        if (!acceptRes.ok) throw new Error(acceptJson.error || 'Unable to accept platform access')
+      }
 
       navigate('/superadmin')
     } catch (e) {

@@ -516,13 +516,47 @@ async function handlePlatformAdminAction(type, data, env) {
     const existing = existingData?.[0]
     if (!existing) throw new Error('Platform admin invitation not found')
 
+    let resolvedUserId = data.user_id || null
+
+    if (!resolvedUserId) {
+      if (!data.password || data.password.length < 8) {
+        throw new Error('A valid password is required to create this account')
+      }
+
+      const createRes = await fetch(`${sbUrl}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          apikey: sbKey,
+          Authorization: `Bearer ${sbKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: payload.email,
+          password: data.password,
+          email_confirm: true,
+        }),
+      })
+      const createJson = await createRes.json()
+      if (!createRes.ok) {
+        const message = createJson?.msg || createJson?.error_description || createJson?.error || 'Unable to create platform admin account'
+        if (/already|exists|registered/i.test(message)) {
+          throw new Error('This email already has an account. Sign in with that password to accept platform access.')
+        }
+        throw new Error(message)
+      }
+
+      resolvedUserId = createJson?.user?.id
+    }
+
+    if (!resolvedUserId) throw new Error('Unable to resolve a platform admin account for this invitation')
+
     await fetch(`${sbUrl}/rest/v1/platform_admins?id=eq.${existing.id}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ user_id: data.user_id }),
+      body: JSON.stringify({ user_id: resolvedUserId }),
     })
 
-    return { ok: true }
+    return { ok: true, user_id: resolvedUserId }
   }
 
   throw new Error(`Unknown platform admin action: ${type}`)
