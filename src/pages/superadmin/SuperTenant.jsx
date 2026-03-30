@@ -269,6 +269,19 @@ export default function SuperTenant() {
         </div>
         <span className={`badge badge-${statusBadge}`} style={{textTransform:'capitalize',fontSize:13}}>{tenant.status}</span>
       </div>
+      <div className="table-toolbar" style={{ alignItems:'center' }}>
+        <div className="compact-note">Use the quick actions below to handle access, billing posture, and tenant recovery without leaving this record.</div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {tenant.status === 'blocked' ? (
+            <button className="btn btn-outline btn-sm" onClick={() => updateTenant({ status:'active' })} disabled={saving}>Unblock tenant</button>
+          ) : (
+            <button className="btn btn-outline btn-sm" onClick={() => updateTenant({ status:'blocked' })} disabled={saving}>Block tenant</button>
+          )}
+          <button className="btn btn-outline btn-sm" onClick={() => extendTrial(7)} disabled={saving}>Extend trial 7 days</button>
+          <button className="btn btn-outline btn-sm" onClick={() => updateTenant({ status:'active', grace_period_ends_at:null })} disabled={saving}>Mark billing healthy</button>
+          <button className="btn btn-outline btn-sm" onClick={load} disabled={saving}>Refresh tenant</button>
+        </div>
+      </div>
       <div className="kpi-strip">
         <div className="kpi-cell">
           <div className="kpi-cell-label">Plan</div>
