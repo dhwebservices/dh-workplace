@@ -39,12 +39,12 @@ export default function SuperTenants() {
           <span className="search-icon" />
         </div>
         <div className="filter-pills">
-          {['all','trialing','active','overdue','suspended'].map(s=>(
+          {['all','trialing','active','overdue','suspended','blocked'].map(s=>(
             <button key={s} onClick={()=>setFilter(s)} className={`btn btn-sm ${filter===s?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize'}}>{s}</button>
           ))}
         </div>
         <div className="compact-note">
-          {['trialing','active','overdue','suspended'].map(status => `${status}: ${tenants.filter(t => t.status === status).length}`).join(' · ')}
+          {['trialing','active','overdue','suspended','blocked'].map(status => `${status}: ${tenants.filter(t => t.status === status).length}`).join(' · ')}
         </div>
       </div>
       <div className="card card-pad table-card">
@@ -57,7 +57,7 @@ export default function SuperTenants() {
                 <tr key={t.id} style={{cursor:'pointer'}} onClick={()=>navigate(`/superadmin/tenants/${t.id}`)}>
                   <td className="t-main">{t.name}</td>
                   <td><span className="badge badge-blue" style={{textTransform:'capitalize'}}>{t.plan}</span></td>
-                  <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue'?'red':'grey'}`} style={{textTransform:'capitalize'}}>{t.status}</span></td>
+                  <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{textTransform:'capitalize'}}>{t.status}</span></td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{t.owner_email}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
                   <td><button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();navigate(`/superadmin/tenants/${t.id}`)}}>View</button></td>

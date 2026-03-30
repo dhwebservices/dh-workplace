@@ -56,6 +56,8 @@ export function isAccessBlocked(tenant) {
     return true
   }
   if (tenant.status === 'suspended') return true
+  if (tenant.status === 'blocked') return true
+  if (tenant.status === 'cancelled') return true
   return false
 }
 

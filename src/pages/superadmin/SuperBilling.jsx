@@ -17,7 +17,7 @@ export default function SuperBilling() {
   },0)
   const arr = mrr*12
   const avgRevPerTenant = active.length ? (mrr/active.length).toFixed(2) : 0
-  const churnRisk = tenants.filter(t=>t.status==='overdue').length
+  const churnRisk = tenants.filter(t=>t.status==='overdue' || t.status === 'blocked').length
 
   return (
     <div className="fade-in page-stack">
@@ -72,9 +72,9 @@ export default function SuperBilling() {
               <div className="panel-sub">How the tenant base is split across billing states</div>
             </div>
           </div>
-          {['trialing','active','overdue','suspended'].map(status=>{
+          {['trialing','active','overdue','suspended','blocked'].map(status=>{
             const count = tenants.filter(t=>t.status===status).length
-            const colours = {trialing:'var(--amber)',active:'var(--green)',overdue:'var(--red)',suspended:'var(--faint)'}
+            const colours = {trialing:'var(--amber)',active:'var(--green)',overdue:'var(--red)',suspended:'var(--faint)',blocked:'var(--red)'}
             return (
               <div key={status} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border2)'}}>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>

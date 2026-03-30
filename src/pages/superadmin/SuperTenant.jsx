@@ -171,12 +171,13 @@ export default function SuperTenant() {
     !tenant.gc_mandate_id && tenant.status !== 'cancelled' ? 'No billing mandate on file' : null,
     trialEndsSoon ? 'Trial ends within 3 days' : null,
     tenant.status === 'overdue' ? 'Payment issue requires attention' : null,
+    tenant.status === 'blocked' ? 'Workspace is blocked from signing in' : null,
     seatUsage >= (tenant.seat_limit || 5) ? 'Seat limit reached' : null,
     activeUsers <= 1 ? 'Only one active user on this tenant' : null,
   ].filter(Boolean)
   const supportNotes = logs.filter(log => log.action === 'support_note_added')
   const recentActivity = logs.filter(log => log.action !== 'support_note_added')
-  const statusBadge = tenant.status === 'active' ? 'green' : tenant.status === 'trialing' ? 'amber' : tenant.status === 'overdue' ? 'red' : 'grey'
+  const statusBadge = tenant.status === 'active' ? 'green' : tenant.status === 'trialing' ? 'amber' : tenant.status === 'overdue' || tenant.status === 'blocked' ? 'red' : 'grey'
   const openInvoices = stats.invoices
 
   return (
@@ -307,7 +308,7 @@ export default function SuperTenant() {
               <div>
                 <label className="lbl">Change Status</label>
                 <select className="inp" value={tenant.status} onChange={e=>updateTenant({status:e.target.value})} disabled={saving}>
-                  {['trialing','active','overdue','suspended','cancelled'].map(s=><option key={s} value={s} style={{textTransform:'capitalize'}}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                  {['trialing','active','overdue','suspended','blocked','cancelled'].map(s=><option key={s} value={s} style={{textTransform:'capitalize'}}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
                 </select>
               </div>
               <div>

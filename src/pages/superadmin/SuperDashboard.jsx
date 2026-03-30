@@ -17,7 +17,7 @@ export default function SuperDashboard() {
     total:    tenants.length,
     active:   tenants.filter(t => t.status === 'active').length,
     trialing: tenants.filter(t => t.status === 'trialing').length,
-    overdue:  tenants.filter(t => t.status === 'overdue' || t.status === 'suspended').length,
+    overdue:  tenants.filter(t => t.status === 'overdue' || t.status === 'suspended' || t.status === 'blocked').length,
     mrr:      tenants.filter(t => t.status === 'active').reduce((sum, t) => {
       const prices = { starter: 9, growth: 24, business: 59 }
       return sum + (prices[t.plan] || 0)
@@ -75,7 +75,7 @@ export default function SuperDashboard() {
                 <tr key={t.id}>
                   <td className="t-main">{t.name}</td>
                   <td><span className="badge badge-blue" style={{ textTransform:'capitalize' }}>{t.plan}</span></td>
-                  <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue'?'red':'grey'}`} style={{ textTransform:'capitalize' }}>{t.status}</span></td>
+                  <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{ textTransform:'capitalize' }}>{t.status}</span></td>
                   <td style={{ fontSize:12, color:'var(--faint)' }}>{t.owner_email}</td>
                   <td style={{ fontSize:12, fontFamily:'var(--font-mono)', color:'var(--faint)' }}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
                   <td><Link to={`/superadmin/tenants/${t.id}`} className="btn btn-outline btn-sm">View</Link></td>

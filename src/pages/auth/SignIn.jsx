@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../utils/supabase'
+import { sbGet, supabase } from '../../utils/supabase'
 
 export default function SignIn() {
   const navigate = useNavigate()
@@ -11,8 +11,40 @@ export default function SignIn() {
   const submit = async (e) => {
     e.preventDefault()
     setLoading(true); setError('')
-    const { error: err } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
     if (err) { setError(err.message); setLoading(false); return }
+
+    try {
+      const authUser = data?.user
+      if (authUser) {
+        const [tenantUser, platformAdmin] = await Promise.all([
+          sbGet('tenant_users', `user_id=eq.${authUser.id}`),
+          sbGet('platform_admins', `user_id=eq.${authUser.id}`),
+        ])
+
+        if (tenantUser && !platformAdmin) {
+          const tenant = await sbGet('tenants', `id=eq.${tenantUser.tenant_id}`)
+          if (tenant?.status === 'blocked' || tenant?.status === 'suspended') {
+            await supabase.auth.signOut()
+            setError('This workspace has been blocked. Please contact DH Workplace support.')
+            setLoading(false)
+            return
+          }
+          if (tenant?.status === 'cancelled') {
+            await supabase.auth.signOut()
+            setError('This workspace is no longer active. Please contact support if you believe this is a mistake.')
+            setLoading(false)
+            return
+          }
+        }
+      }
+    } catch (checkError) {
+      await supabase.auth.signOut()
+      setError('We could not verify your workspace access. Please try again.')
+      setLoading(false)
+      return
+    }
+
     navigate('/')
   }
 
