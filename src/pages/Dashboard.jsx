@@ -32,65 +32,21 @@ export default function Dashboard() {
       <div className="page-hd">
         <div>
           <h1 className="page-title">{greeting}{tenantUser?.full_name ? `, ${tenantUser.full_name.split(' ')[0]}` : ''}</h1>
-          <p className="page-sub">{new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })} · Everything important in one place</p>
-        </div>
-      </div>
-
-      <div className="hero-grid">
-        <div className="hero-panel">
-          <div className="hero-kicker">Workspace health</div>
-          <div className="hero-title">{tenant?.name || 'Your workspace'} is moving.</div>
-          <div className="hero-copy">
-            Track people, client work, billing readiness, and operational follow-through from a single command centre.
-          </div>
-          <div className="status-band">
-            <span className="badge badge-blue" style={{ textTransform:'capitalize' }}>{tenant?.plan || 'starter'} plan</span>
-            <span className={`badge badge-${tenant?.status === 'trialing' ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`}>{activeStatus}</span>
-            <span className="status-pill">{stats.staff} of {tenant?.seat_limit || 5} seats in use</span>
-          </div>
-          <div className="hero-actions">
-            <Link to="/team" className="btn btn-primary">Manage team</Link>
-            <Link to="/billing" className="btn btn-outline">{tenant?.gc_mandate_id ? 'Review billing' : 'Set up billing'}</Link>
-            <Link to="/tasks" className="btn btn-outline">Open task board</Link>
-          </div>
-        </div>
-        <div className="hero-panel">
-          <div className="hero-kicker">At a glance</div>
-          <div className="hero-list">
-            <div className="hero-list-item">
-              <span className="hero-list-label">Team health</span>
-              <span className="hero-list-value">{stats.staff} active records</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Client workload</span>
-              <span className="hero-list-value">{stats.tasks} open tasks across {stats.clients} clients</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Approvals</span>
-              <span className="hero-list-value">{stats.leaves} leave request{stats.leaves !== 1 ? 's' : ''} pending</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Billing state</span>
-              <span className="hero-list-value">{tenant?.gc_subscription_id ? 'Subscription live' : tenant?.gc_mandate_id ? 'Mandate saved' : 'Direct Debit not set'}</span>
-            </div>
-          </div>
+          <p className="page-sub">{new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</p>
         </div>
       </div>
 
       {tenant?.status === 'trialing' && (
-        <div className="card card-pad" style={{ borderColor:'var(--gold-border)', background:'linear-gradient(180deg, rgba(185,150,63,0.12), rgba(255,255,255,0.9))' }}>
+        <div className="card card-pad" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
           <div>
-            <div style={{ fontSize:14, fontWeight:600, color:'var(--gold)' }}>
+            <div style={{ fontSize:14, fontWeight:700, color:'var(--blue)' }}>
               {trialDays > 0 ? `${trialDays} days left in your free trial` : 'Your free trial has ended'}
             </div>
-            <div style={{ fontSize:13, color:'var(--sub)', marginTop:2 }}>
-              Set up Direct Debit to keep access — Founding Member price: <strong>£9/mo</strong>
+            <div style={{ fontSize:13, color:'var(--sub)', marginTop:4 }}>
+              Set up Direct Debit before trial ends to keep access.
             </div>
           </div>
-          <div className="hero-actions" style={{ marginTop:14 }}>
-            <Link to="/billing" className="btn btn-gold btn-sm">Set up billing</Link>
-            <Link to="/billing" className="btn btn-outline btn-sm">Compare plans</Link>
-          </div>
+          <Link to="/billing" className="btn btn-primary btn-sm">Set up billing</Link>
         </div>
       )}
 
@@ -110,7 +66,6 @@ export default function Dashboard() {
                 : <div className="stat-val" style={{ color: s.colour }}>{s.val}</div>
               }
               <div className="stat-lbl">{s.label}</div>
-              <div style={{ marginTop:10, fontSize:13, color:'var(--sub)' }}>Open</div>
             </div>
           </Link>
         ))}

@@ -38,48 +38,6 @@ const SUPER_NAV = [
   ]},
 ]
 
-const PAGE_TITLES = {
-  '/': 'Dashboard',
-  '/staff': 'Staff Directory',
-  '/leave': 'Leave',
-  '/documents': 'Documents',
-  '/policies': 'Policies',
-  '/timesheets': 'Timesheets',
-  '/onboarding-hr': 'Onboarding',
-  '/clients': 'Clients',
-  '/tasks': 'Tasks',
-  '/pipeline': 'Pipeline',
-  '/outreach': 'Outreach',
-  '/team': 'Team',
-  '/billing': 'Billing',
-  '/settings': 'Settings',
-  '/audit': 'Audit Log',
-  '/superadmin': 'Platform',
-  '/superadmin/tenants': 'Tenants',
-  '/superadmin/billing': 'Billing',
-}
-
-const PAGE_CONTEXT = {
-  '/': 'Workspace command centre',
-  '/staff': 'People, roles, and access',
-  '/leave': 'Requests, approvals, and coverage',
-  '/documents': 'Shared files and internal records',
-  '/policies': 'Policies and company guidance',
-  '/timesheets': 'Tracked hours and approvals',
-  '/onboarding-hr': 'New starter workflows',
-  '/clients': 'Client accounts and relationships',
-  '/tasks': 'Operational work across teams',
-  '/pipeline': 'Sales stages and deal momentum',
-  '/outreach': 'Prospecting activity and responses',
-  '/team': 'Seats, invites, and lifecycle controls',
-  '/billing': 'Plans, mandates, and subscription health',
-  '/settings': 'Brand, workspace, and account settings',
-  '/audit': 'Operational event history',
-  '/superadmin': 'Tenant performance and platform health',
-  '/superadmin/tenants': 'Every workspace across the platform',
-  '/superadmin/billing': 'Revenue, billing, and churn watch',
-}
-
 export default function AppShell({ superAdmin = false }) {
   const { tenant, tenantUser, signOut } = useAuth()
   const navigate = useNavigate()
@@ -139,8 +97,6 @@ export default function AppShell({ superAdmin = false }) {
   }, [notificationsEnabled, tenantUser?.id])
 
   const unreadCount = useMemo(() => notifications.filter(item => !item.read).length, [notifications])
-  const pageTitle = PAGE_TITLES[location.pathname] || 'Workspace'
-  const pageContext = PAGE_CONTEXT[location.pathname] || (superAdmin ? 'Platform management' : 'Operational workspace')
   const workspaceStatus = superAdmin
     ? `${unreadCount} alert${unreadCount === 1 ? '' : 's'}`
     : isTrial
@@ -171,8 +127,7 @@ export default function AppShell({ superAdmin = false }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-kicker">{superAdmin ? 'Platform console' : 'DH Website Services'}</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05 }}>DH Workplace</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05, fontWeight: 700 }}>DH Workplace</div>
           {tenant && !superAdmin && (
             <>
               <div className="sidebar-brand-name">{tenant.name}</div>
@@ -186,20 +141,6 @@ export default function AppShell({ superAdmin = false }) {
           )}
           {superAdmin && <div style={{ fontSize: 11, color: 'var(--blue)', marginTop: 6, fontWeight: 700, letterSpacing: '0.08em' }}>SUPER ADMIN</div>}
         </div>
-
-        {!superAdmin && isTrial && (
-          <div className="sidebar-callout">
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}>
-              {trialDays === 0 ? 'Trial expires today' : `${trialDays} day${trialDays !== 1 ? 's' : ''} left in your trial`}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--sub)', marginTop: 4 }}>
-              You can explore every feature during trial before choosing a plan.
-            </div>
-            <button onClick={() => navigate('/billing')} className="sidebar-callout-link">
-              Compare plans
-            </button>
-          </div>
-        )}
 
         <div style={{ flex: 1, overflow: 'auto', padding: '10px 0' }}>
           {nav.map(section => (
@@ -246,11 +187,7 @@ export default function AppShell({ superAdmin = false }) {
 
       <main className="main-content">
         <div className="topbar">
-          <div className="topbar-copy">
-            <div className="topbar-eyebrow">{superAdmin ? 'DH Website Services' : tenant?.name || 'Workspace'}</div>
-            <div className="topbar-title">{pageTitle}</div>
-            <div className="topbar-sub">{pageContext}</div>
-          </div>
+          <div />
           <div className="topbar-actions">
             <div className="workspace-health">
               <span className={`workspace-health-dot ${superAdmin ? 'platform' : isTrial ? 'trial' : tenant?.gc_subscription_id ? 'active' : 'attention'}`} />
