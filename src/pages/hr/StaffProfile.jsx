@@ -35,7 +35,13 @@ export default function StaffProfile() {
   const save = async () => {
     setSaving(true)
     try {
-      const payload = { ...hrProfile, tenant_id:tenant.id, tenant_user_id:userId, updated_at:new Date().toISOString() }
+      const payload = {
+        ...hrProfile,
+        start_date: hrProfile.start_date || null,
+        tenant_id: tenant.id,
+        tenant_user_id: userId,
+        updated_at: new Date().toISOString(),
+      }
       if (hrId) {
         await sbUpdate('hr_profiles', `id=eq.${hrId}`, payload)
       } else {
@@ -65,6 +71,7 @@ export default function StaffProfile() {
   if (!member) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Staff member not found.</p></div>
 
   const canEdit = isAdmin || tenantUser?.id === userId
+  const showHrSave = canEdit && tab !== 'access'
 
   return (
     <div className="fade-in">
@@ -86,7 +93,7 @@ export default function StaffProfile() {
         <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
           <span className={`badge badge-${member.status==='active'?'green':'amber'}`} style={{textTransform:'capitalize'}}>{member.status}</span>
           <span className="badge badge-blue" style={{textTransform:'capitalize'}}>{member.role}</span>
-          {canEdit&&(
+          {showHrSave&&(
             <div style={{display:'flex',gap:6}}>
               {saved&&<span style={{fontSize:13,color:'var(--green)',alignSelf:'center'}}>✓ Saved</span>}
               <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving?'Saving...':'Save Changes'}</button>
