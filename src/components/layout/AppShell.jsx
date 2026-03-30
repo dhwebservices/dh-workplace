@@ -171,7 +171,7 @@ export default function AppShell({ superAdmin = false }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-kicker">{superAdmin ? 'Platform console' : 'Executive workspace'}</div>
+          <div className="brand-kicker">{superAdmin ? 'Platform console' : 'DH Website Services'}</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05 }}>DH Workplace</div>
           {tenant && !superAdmin && (
             <>
@@ -184,7 +184,7 @@ export default function AppShell({ superAdmin = false }) {
               </div>
             </>
           )}
-          {superAdmin && <div style={{ fontSize: 11, color: 'var(--gold)', marginTop: 6, fontWeight: 700, letterSpacing: '0.08em' }}>SUPER ADMIN</div>}
+          {superAdmin && <div style={{ fontSize: 11, color: 'var(--blue)', marginTop: 6, fontWeight: 700, letterSpacing: '0.08em' }}>SUPER ADMIN</div>}
         </div>
 
         {!superAdmin && isTrial && (
