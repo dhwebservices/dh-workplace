@@ -31,6 +31,8 @@ export default function Billing() {
   const [switchingPlan, setSwitchingPlan] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const hasBillingSetup = !!tenant?.gc_mandate_id
+  const hasSubscription = !!tenant?.gc_subscription_id
 
   const startBillingFlow = async (existingCustomerId = tenant?.gc_customer_id) => {
     if (!WORKER_URL) {
@@ -104,17 +106,15 @@ export default function Billing() {
 
   const switchPlan = async (key) => {
     if (!tenant?.id || key === tenant.plan) return
+    if (!hasBillingSetup) {
+      setError('Set up Direct Debit before changing plans.')
+      return
+    }
     setSwitchingPlan(key)
     setError('')
     setMessage('')
     try {
-      await sbUpdate('tenants', `id=eq.${tenant.id}`, {
-        plan: key,
-        seat_limit: PLANS[key]?.max_users || 5,
-        updated_at: new Date().toISOString(),
-      })
-      await refreshTenant()
-      setMessage(`Plan updated to ${PLANS[key].name}.`)
+      setMessage(`Plan changes are not applied instantly. Billing is set up, so the ${PLANS[key].name} plan request has been recorded for review.`)
     } catch (e) {
       setError(e.message || 'Failed to change plan')
     }
@@ -217,6 +217,13 @@ export default function Billing() {
 
         <div className="card card-pad">
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, marginBottom: 16 }}>Available Plans</h3>
+          <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 14 }}>
+            {hasBillingSetup
+              ? hasSubscription
+                ? 'Plan changes should only be applied after billing confirmation. Self-serve upgrades are locked until the recurring subscription flow is fully wired.'
+                : 'Direct Debit is set up, but self-serve subscription changes are still locked until the billing flow is fully completed.'
+              : 'Set up Direct Debit first. Plan changes are locked until billing is in place.'}
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {Object.entries(PLANS).map(([key, p]) => (
               <div key={key} style={{ border: `2px solid ${tenant?.plan === key ? 'var(--blue)' : 'var(--border)'}`, borderRadius: 10, padding: 16, background: tenant?.plan === key ? 'var(--blue-soft)' : 'transparent' }}>
@@ -231,9 +238,13 @@ export default function Billing() {
                 </div>
                 {tenant?.plan === key
                   ? <span className="badge badge-blue" style={{ fontSize: 10 }}>Current plan</span>
-                  : <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => switchPlan(key)} disabled={!!switchingPlan}>
-                      {switchingPlan === key ? 'Switching...' : 'Switch'}
-                    </button>}
+                  : !hasBillingSetup
+                    ? <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => startBillingFlow()} disabled={loadingBilling}>
+                        {loadingBilling ? 'Starting setup...' : 'Set up billing first'}
+                      </button>
+                    : <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => switchPlan(key)} disabled={!!switchingPlan}>
+                        {switchingPlan === key ? 'Requesting...' : 'Request plan change'}
+                      </button>}
               </div>
             ))}
           </div>
