@@ -180,7 +180,7 @@ export default function SuperTenant() {
   const openInvoices = stats.invoices
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div style={{marginBottom:20}}>
         <button onClick={()=>navigate('/superadmin/tenants')} className="btn btn-outline btn-sm">← All Tenants</button>
       </div>
@@ -190,6 +190,41 @@ export default function SuperTenant() {
           <p className="page-sub">{tenant.owner_email} · Joined {new Date(tenant.created_at).toLocaleDateString('en-GB')}</p>
         </div>
         <span className={`badge badge-${statusBadge}`} style={{textTransform:'capitalize',fontSize:13}}>{tenant.status}</span>
+      </div>
+      <div className="hero-grid">
+        <div className="hero-panel">
+          <div className="hero-kicker">Tenant console</div>
+          <div className="hero-title">{tenant.name} at a glance.</div>
+          <div className="hero-copy">
+            Review billing, user lifecycle, support context, and workspace signals without leaving the tenant record.
+          </div>
+          <div className="status-band">
+            <span className="badge badge-blue" style={{ textTransform:'capitalize' }}>{tenant.plan}</span>
+            <span className={`badge badge-${statusBadge}`} style={{ textTransform:'capitalize' }}>{tenant.status}</span>
+            <span className="status-pill">{seatUsage}/{tenant.seat_limit || 5} seats in use</span>
+          </div>
+        </div>
+        <div className="hero-panel">
+          <div className="hero-kicker">Support summary</div>
+          <div className="hero-list">
+            <div className="hero-list-item">
+              <span className="hero-list-label">Owner</span>
+              <span className="hero-list-value">{tenant.owner_email}</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Billing</span>
+              <span className="hero-list-value">{tenant.gc_subscription_id ? 'Subscription active' : tenant.gc_mandate_id ? 'Mandate only' : 'No billing setup'}</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Users</span>
+              <span className="hero-list-value">{activeUsers} active · {invitedUsers} invited</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Latest issue</span>
+              <span className="hero-list-value">{healthFlags[0] || 'No current risk flags'}</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:20}}>
         {[

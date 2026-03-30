@@ -103,7 +103,7 @@ export default function Team() {
   const billableSeats = staff.filter(s => s.status !== 'suspended').length
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Team</h1>
@@ -111,13 +111,53 @@ export default function Team() {
         </div>
         {isOwner&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Invite Member</button>}
       </div>
-      <div style={{marginBottom:16}}>
-        <div style={{height:6,background:'var(--border)',borderRadius:100,overflow:'hidden'}}>
+      <div className="hero-grid">
+        <div className="hero-panel">
+          <div className="hero-kicker">People operations</div>
+          <div className="hero-title">Keep the right people active, and remove access safely.</div>
+          <div className="hero-copy">
+            Invitations, seats, suspensions, and permanent deletion are all managed from one place with history-aware safeguards.
+          </div>
+          <div className="status-band">
+            <span className="badge badge-blue">{billableSeats} seats in use</span>
+            <span className="status-pill">{staff.filter(member => member.status === 'invited').length} pending invite{staff.filter(member => member.status === 'invited').length !== 1 ? 's' : ''}</span>
+            <span className="status-pill">{staff.filter(member => member.status === 'suspended').length} suspended</span>
+          </div>
+        </div>
+        <div className="hero-panel">
+          <div className="hero-kicker">Seat capacity</div>
+          <div style={{height:8,background:'var(--border)',borderRadius:100,overflow:'hidden',marginBottom:12}}>
+            <div style={{width:`${Math.min(100,(billableSeats/(tenant?.seat_limit||5))*100)}%`,height:'100%',background:billableSeats>=(tenant?.seat_limit||5)?'var(--red)':'var(--green)',transition:'width 0.3s'}}/>
+          </div>
+          <div className="hero-list">
+            <div className="hero-list-item">
+              <span className="hero-list-label">Current use</span>
+              <span className="hero-list-value">{billableSeats} of {tenant?.seat_limit||5} seats</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Suspended members</span>
+              <span className="hero-list-value">{staff.filter(member => member.status === 'suspended').length}</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Pending invites</span>
+              <span className="hero-list-value">{staff.filter(member => member.status === 'invited').length}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="card card-pad table-card">
+        <div className="section-head">
+          <div>
+            <h3 className="panel-title">Team directory</h3>
+            <div className="panel-sub">Roles, status, and access management across the workspace</div>
+          </div>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{height:6,background:'var(--border)',borderRadius:100,overflow:'hidden'}}>
           <div style={{width:`${Math.min(100,(billableSeats/(tenant?.seat_limit||5))*100)}%`,height:'100%',background:billableSeats>=(tenant?.seat_limit||5)?'var(--red)':'var(--green)',transition:'width 0.3s'}}/>
         </div>
         <div style={{fontSize:12,color:'var(--faint)',marginTop:4}}>{billableSeats} of {tenant?.seat_limit||5} seats used</div>
       </div>
-      <div className="card" style={{overflow:'hidden'}}>
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:64,marginBottom:8,borderRadius:8}}/>)}</div>
         : <table className="tbl">
             <thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Status</th>{isOwner&&<th>Actions</th>}</tr></thead>

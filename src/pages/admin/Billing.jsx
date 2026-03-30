@@ -242,27 +242,76 @@ export default function Billing() {
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Billing</h1>
-          <p className="page-sub">Manage your subscription</p>
+          <p className="page-sub">Plans, mandates, and subscription readiness</p>
         </div>
       </div>
-      <div style={{ maxWidth: 920, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="hero-grid">
+        <div className="hero-panel">
+          <div className="hero-kicker">Subscription overview</div>
+          <div className="hero-title">{plan?.name || 'Starter'} keeps your workspace running.</div>
+          <div className="hero-copy">
+            Billing is designed around Direct Debit. Access should only expand once a real mandate and subscription exist.
+          </div>
+          <div className="status-band">
+            <span className={`badge badge-${tenant?.status === 'trialing' ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`}>{tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}</span>
+            <span className="status-pill">{hasBillingSetup ? 'Direct Debit ready' : 'Direct Debit not set'}</span>
+            <span className="status-pill">{hasSubscription ? 'Subscription active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'No live subscription'}</span>
+          </div>
+          <div className="hero-actions">
+            {!tenant?.gc_mandate_id ? (
+              <button className="btn btn-gold" onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
+                {loadingBilling ? 'Starting setup...' : 'Set up Direct Debit'}
+              </button>
+            ) : (
+              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>
+                Update payment method
+              </button>
+            )}
+            {tenant?.gc_subscription_id && (
+              <button className="btn btn-outline" style={{ color:'var(--red)' }} onClick={cancelSubscription} disabled={loadingBilling || !tenant?.gc_subscription_id}>
+                Cancel subscription
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="hero-panel">
+          <div className="hero-kicker">Billing state</div>
+          <div className="hero-list">
+            {[
+              ['Trial ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
+              ['Seats included', plan?.max_users || 5],
+              ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],
+              ['Subscription', tenant?.gc_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
+              ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
+              ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
+            ].map(([label, value]) => (
+              <div key={label} className="hero-list-item">
+                <span className="hero-list-label">{label}</span>
+                <span className="hero-list-value">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1120, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {!!error && <div style={{ fontSize: 13, color: 'var(--red)', background: 'var(--red-soft)', padding: '10px 14px', borderRadius: 8 }}>{error}</div>}
         {!!message && <div style={{ fontSize: 13, color: 'var(--green)', background: 'var(--green-soft)', padding: '10px 14px', borderRadius: 8 }}>{message}</div>}
 
         <div className="card card-pad">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, gap: 16 }}>
+          <div className="section-head">
             <div>
-              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, marginBottom: 4 }}>{plan?.name || 'Starter'} Plan</h3>
+              <h3 className="panel-title">{plan?.name || 'Starter'} plan</h3>
+              <div className="panel-sub">Your live entitlement and current commercial state</div>
+            </div>
+            <div>
               <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--gold)' }}>£{plan?.launch_price || 9}<span style={{ fontSize: 14, color: 'var(--faint)', fontWeight: 400 }}>/mo</span></div>
               <div style={{ fontSize: 12, color: 'var(--faint)', textDecoration: 'line-through' }}>Normal price: £{plan?.normal_price || 19}/mo</div>
             </div>
-            <span className={`badge badge-${tenant?.status === 'trialing' ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`} style={{ textTransform: 'capitalize', fontSize: 12 }}>
-              {tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}
-            </span>
           </div>
 
           {tenant?.status === 'trialing' && (
@@ -272,7 +321,7 @@ export default function Billing() {
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+          <div className="stack-sm" style={{ marginBottom: 20 }}>
             {[
               ['Trial ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
               ['Seats included', plan?.max_users || 5],
@@ -281,9 +330,9 @@ export default function Billing() {
               ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
               ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
             ].map(([label, val]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border2)' }}>
-                <span style={{ fontSize: 13, color: 'var(--faint)' }}>{label}</span>
-                <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)' }}>{val}</span>
+              <div key={label} className="detail-row" style={{ padding: '8px 0', borderBottom: '1px solid var(--border2)' }}>
+                <span className="detail-row-label">{label}</span>
+                <span className="detail-row-value" style={{ fontFamily: 'var(--font-mono)' }}>{val}</span>
               </div>
             ))}
           </div>
@@ -292,7 +341,7 @@ export default function Billing() {
             <div>
               <p style={{ fontSize: 13, color: 'var(--sub)', marginBottom: 12 }}>Set up Direct Debit to activate your subscription. UK businesses only, via GoCardless.</p>
               <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
-                {loadingBilling ? 'Starting setup...' : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''} →`}
+                {loadingBilling ? 'Starting setup...' : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''}`}
               </button>
             </div>
           ) : (
@@ -304,7 +353,12 @@ export default function Billing() {
         </div>
 
         <div className="card card-pad">
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, marginBottom: 16 }}>Available Plans</h3>
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Available plans</h3>
+              <div className="panel-sub">Choose the level of access the workspace should graduate to</div>
+            </div>
+          </div>
           <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 14 }}>
             {hasBillingSetup
               ? hasSubscription
@@ -314,7 +368,7 @@ export default function Billing() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {Object.entries(PLANS).map(([key, p]) => (
-              <div key={key} style={{ border: `2px solid ${tenant?.plan === key ? 'var(--blue)' : 'var(--border)'}`, borderRadius: 10, padding: 16, background: tenant?.plan === key ? 'var(--blue-soft)' : 'transparent' }}>
+              <div key={key} className="detail-card" style={{ border: `2px solid ${tenant?.plan === key ? 'var(--blue)' : 'var(--border)'}`, background: tenant?.plan === key ? 'linear-gradient(180deg, rgba(53,103,200,0.12), rgba(255,255,255,0.92))' : 'rgba(255,255,255,0.78)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 4, textTransform: 'capitalize' }}>{p.name}</div>
                 <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--gold)' }}>£{p.launch_price}<span style={{ fontSize: 12, color: 'var(--faint)', fontWeight: 400 }}>/mo</span></div>
                 <div style={{ fontSize: 11, color: 'var(--faint)', marginBottom: 8 }}>Up to {p.max_users} users</div>
@@ -339,10 +393,15 @@ export default function Billing() {
         </div>
 
         <div className="card card-pad">
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, marginBottom: 16 }}>Your current access</h3>
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Current access</h3>
+              <div className="panel-sub">What this plan already unlocks across HR, CRM, and admin</div>
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {Object.entries(FEATURE_LABELS).map(([feature, label]) => (
-              <div key={feature} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 10, background: currentFeatures.has(feature) ? 'var(--surface2)' : 'transparent' }}>
+              <div key={feature} className="detail-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: currentFeatures.has(feature) ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)' }}>
                 <span style={{ fontSize: 13, color: 'var(--text)' }}>{label}</span>
                 <span className={`badge ${currentFeatures.has(feature) ? 'badge-green' : 'badge-grey'}`} style={{ fontSize: 10 }}>
                   {currentFeatures.has(feature) ? 'Included' : 'Upgrade'}

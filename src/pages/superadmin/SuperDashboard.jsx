@@ -25,11 +25,46 @@ export default function SuperDashboard() {
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Platform Overview</h1>
-          <p className="page-sub">DH Workplace · Super Admin</p>
+          <p className="page-sub">Tenant performance, churn watch, and revenue posture</p>
+        </div>
+      </div>
+
+      <div className="hero-grid">
+        <div className="hero-panel">
+          <div className="hero-kicker">Platform pulse</div>
+          <div className="hero-title">Run every tenant like an operating system, not a spreadsheet.</div>
+          <div className="hero-copy">
+            Monitor revenue, risky accounts, and new workspaces from one control layer built for monthly SaaS operations.
+          </div>
+          <div className="hero-actions">
+            <Link to="/superadmin/tenants" className="btn btn-primary">Review tenants</Link>
+            <Link to="/superadmin/billing" className="btn btn-outline">Open billing view</Link>
+          </div>
+        </div>
+        <div className="hero-panel">
+          <div className="hero-kicker">Risk watch</div>
+          <div className="hero-list">
+            <div className="hero-list-item">
+              <span className="hero-list-label">Tenants in trial</span>
+              <span className="hero-list-value">{stats.trialing}</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Accounts overdue</span>
+              <span className="hero-list-value">{stats.overdue}</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Monthly recurring revenue</span>
+              <span className="hero-list-value">£{stats.mrr}</span>
+            </div>
+            <div className="hero-list-item">
+              <span className="hero-list-label">Active workspaces</span>
+              <span className="hero-list-value">{stats.active}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -44,13 +79,17 @@ export default function SuperDashboard() {
           <div key={s.label} className="stat-card">
             <div className="stat-val" style={{ color: s.colour, fontSize: typeof s.val === 'string' ? 24 : 32 }}>{s.val}</div>
             <div className="stat-lbl">{s.label}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>Live platform readout</div>
           </div>
         ))}
       </div>
 
-      <div className="card" style={{ overflow:'hidden' }}>
-        <div style={{ padding:'16px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontWeight:600, fontSize:14 }}>Recent Tenants</span>
+      <div className="card card-pad table-card">
+        <div className="section-head">
+          <div>
+            <h3 className="panel-title">Recent tenants</h3>
+            <div className="panel-sub">Newest workspaces and their current state</div>
+          </div>
           <Link to="/superadmin/tenants" className="btn btn-outline btn-sm">View all</Link>
         </div>
         {loading ? (

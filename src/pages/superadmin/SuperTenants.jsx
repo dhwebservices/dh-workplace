@@ -26,25 +26,45 @@ export default function SuperTenants() {
   })
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">All Tenants</h1>
-          <p className="page-sub">{tenants.length} total workspaces</p>
+          <p className="page-sub">{tenants.length} total workspaces across the platform</p>
         </div>
       </div>
-      <div style={{display:'flex',gap:12,marginBottom:24,flexWrap:'wrap'}}>
-        <div style={{position:'relative',flex:1,minWidth:200}}>
-          <input className="inp" style={{paddingLeft:36,borderRadius:100}} placeholder="Search tenants..." value={search} onChange={e=>setSearch(e.target.value)}/>
-          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--faint)'}}>⌕</span>
+      <div className="hero-grid">
+        <div className="hero-panel">
+          <div className="hero-kicker">Tenant directory</div>
+          <div className="hero-title">Search, triage, and jump into any workspace fast.</div>
+          <div className="hero-copy">
+            Use the list below to inspect onboarding progress, billing health, and support context for every company on the platform.
+          </div>
         </div>
-        <div style={{display:'flex',gap:6}}>
+        <div className="hero-panel">
+          <div className="hero-kicker">Status mix</div>
+          <div className="hero-list">
+            {['trialing','active','overdue','suspended'].map(status => (
+              <div key={status} className="hero-list-item">
+                <span className="hero-list-label">{status}</span>
+                <span className="hero-list-value">{tenants.filter(t => t.status === status).length}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="table-toolbar">
+        <div className="search-shell">
+          <input className="inp" placeholder="Search tenants..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <span className="search-icon" />
+        </div>
+        <div className="filter-pills">
           {['all','trialing','active','overdue','suspended'].map(s=>(
             <button key={s} onClick={()=>setFilter(s)} className={`btn btn-sm ${filter===s?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize'}}>{s}</button>
           ))}
         </div>
       </div>
-      <div className="card" style={{overflow:'hidden'}}>
+      <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:52,marginBottom:8,borderRadius:8}}/>)}</div>
         : filtered.length===0 ? <div className="empty"><p>No tenants found</p></div>
         : <table className="tbl">

@@ -59,6 +59,27 @@ const PAGE_TITLES = {
   '/superadmin/billing': 'Billing',
 }
 
+const PAGE_CONTEXT = {
+  '/': 'Workspace command centre',
+  '/staff': 'People, roles, and access',
+  '/leave': 'Requests, approvals, and coverage',
+  '/documents': 'Shared files and internal records',
+  '/policies': 'Policies and company guidance',
+  '/timesheets': 'Tracked hours and approvals',
+  '/onboarding-hr': 'New starter workflows',
+  '/clients': 'Client accounts and relationships',
+  '/tasks': 'Operational work across teams',
+  '/pipeline': 'Sales stages and deal momentum',
+  '/outreach': 'Prospecting activity and responses',
+  '/team': 'Seats, invites, and lifecycle controls',
+  '/billing': 'Plans, mandates, and subscription health',
+  '/settings': 'Brand, workspace, and account settings',
+  '/audit': 'Operational event history',
+  '/superadmin': 'Tenant performance and platform health',
+  '/superadmin/tenants': 'Every workspace across the platform',
+  '/superadmin/billing': 'Revenue, billing, and churn watch',
+}
+
 export default function AppShell({ superAdmin = false }) {
   const { tenant, tenantUser, signOut } = useAuth()
   const navigate = useNavigate()
@@ -119,6 +140,16 @@ export default function AppShell({ superAdmin = false }) {
 
   const unreadCount = useMemo(() => notifications.filter(item => !item.read).length, [notifications])
   const pageTitle = PAGE_TITLES[location.pathname] || 'Workspace'
+  const pageContext = PAGE_CONTEXT[location.pathname] || (superAdmin ? 'Platform management' : 'Operational workspace')
+  const workspaceStatus = superAdmin
+    ? `${unreadCount} alert${unreadCount === 1 ? '' : 's'}`
+    : isTrial
+      ? `${trialDays} day${trialDays === 1 ? '' : 's'} left in trial`
+      : tenant?.gc_subscription_id
+        ? 'Subscription active'
+        : tenant?.gc_mandate_id
+          ? 'Mandate set'
+          : 'Billing needs setup'
 
   const openNotification = async (notification) => {
     if (!notification.read) {
@@ -140,6 +171,7 @@ export default function AppShell({ superAdmin = false }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
+          <div className="brand-kicker">{superAdmin ? 'Platform console' : 'Executive workspace'}</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05 }}>DH Workplace</div>
           {tenant && !superAdmin && (
             <>
@@ -164,7 +196,7 @@ export default function AppShell({ superAdmin = false }) {
               You can explore every feature during trial before choosing a plan.
             </div>
             <button onClick={() => navigate('/billing')} className="sidebar-callout-link">
-              Compare plans →
+              Compare plans
             </button>
           </div>
         )}
@@ -214,23 +246,29 @@ export default function AppShell({ superAdmin = false }) {
 
       <main className="main-content">
         <div className="topbar">
-          <div>
+          <div className="topbar-copy">
+            <div className="topbar-eyebrow">{superAdmin ? 'DH Website Services' : tenant?.name || 'Workspace'}</div>
             <div className="topbar-title">{pageTitle}</div>
-            <div className="topbar-sub">
-              {superAdmin ? 'Platform management' : `${tenant?.name || 'Workspace'} · ${plan?.name || 'Starter'} Plan`}
-            </div>
+            <div className="topbar-sub">{pageContext}</div>
           </div>
           <div className="topbar-actions">
+            <div className="workspace-health">
+              <span className={`workspace-health-dot ${superAdmin ? 'platform' : isTrial ? 'trial' : tenant?.gc_subscription_id ? 'active' : 'attention'}`} />
+              <div>
+                <div className="workspace-health-label">{superAdmin ? 'Platform status' : 'Workspace status'}</div>
+                <div className="workspace-health-value">{workspaceStatus}</div>
+              </div>
+            </div>
             {!superAdmin && (
               <button className="workspace-chip" onClick={() => navigate('/billing')}>
                 <span>{isTrial ? 'Trial' : plan?.name || 'Starter'}</span>
-                <span className="workspace-chip-arrow">→</span>
+                <span className="workspace-chip-arrow">Details</span>
               </button>
             )}
             {notificationsEnabled && (
               <div className="notif-wrap">
                 <button className="notif-btn" onClick={() => setNotifOpen(open => !open)} title="Notifications">
-                  <span style={{ fontSize: 18 }}>🔔</span>
+                  <span className="notif-icon" />
                   {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
                 </button>
                 {notifOpen && (
