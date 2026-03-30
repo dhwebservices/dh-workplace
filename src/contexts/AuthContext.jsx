@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
   const [tenant, setTenant]   = useState(null)
   const [tenantUser, setTenantUser] = useState(null)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -16,7 +17,7 @@ export function AuthProvider({ children }) {
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) loadUserContext(session.user)
-      else { setUser(null); setTenant(null); setTenantUser(null); setLoading(false) }
+      else { setUser(null); setTenant(null); setTenantUser(null); setIsPlatformAdmin(false); setLoading(false) }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -24,13 +25,18 @@ export function AuthProvider({ children }) {
   const loadUserContext = async (authUser) => {
     setUser(authUser)
     try {
-      // Load tenant_user record
-      const tu = await sbGet('tenant_users', `user_id=eq.${authUser.id}`)
+      const [tu, platformAdmin] = await Promise.all([
+        sbGet('tenant_users', `user_id=eq.${authUser.id}`),
+        sbGet('platform_admins', `user_id=eq.${authUser.id}`),
+      ])
+      setIsPlatformAdmin(!!platformAdmin)
       if (tu) {
         setTenantUser(tu)
-        // Load tenant
         const t = await sbGet('tenants', `id=eq.${tu.tenant_id}`)
         setTenant(t)
+      } else {
+        setTenantUser(null)
+        setTenant(null)
       }
     } catch (e) {
       console.error('Failed to load user context:', e)
@@ -40,7 +46,7 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    setUser(null); setTenant(null); setTenantUser(null)
+    setUser(null); setTenant(null); setTenantUser(null); setIsPlatformAdmin(false)
   }
 
   const refreshTenant = async () => {
@@ -50,7 +56,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, tenant, tenantUser, loading, signOut, refreshTenant }}>
+    <AuthContext.Provider value={{ user, tenant, tenantUser, isPlatformAdmin, loading, signOut, refreshTenant }}>
       {children}
     </AuthContext.Provider>
   )

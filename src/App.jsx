@@ -59,10 +59,9 @@ function RequireOnboarded({ children }) {
 }
 
 function RequireSuperAdmin({ children }) {
-  const { tenantUser, loading } = useAuth()
+  const { tenantUser, isPlatformAdmin, loading } = useAuth()
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
-  // Super admin check: tenant_user with role 'superadmin' OR specific email
-  if (tenantUser?.role !== 'superadmin') return <Navigate to="/" replace />
+  if (!isPlatformAdmin && tenantUser?.role !== 'superadmin') return <Navigate to="/" replace />
   return children
 }
 
