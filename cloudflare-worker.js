@@ -229,6 +229,91 @@ async function handleGoCardless(type, data, env) {
   }
 }
 
+async function handleInviteAction(type, data, env) {
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=minimal',
+  }
+
+  if (type === 'invite_lookup') {
+    const inviteRes = await fetch(`${sbUrl}/rest/v1/invitations?token=eq.${data.token}&accepted_at=is.null&limit=1`, { headers })
+    const inviteData = await inviteRes.json()
+    const invite = inviteData?.[0]
+    if (!invite) throw new Error('Invitation not found or already used')
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) throw new Error('Invitation has expired')
+
+    const tenantRes = await fetch(`${sbUrl}/rest/v1/tenants?id=eq.${invite.tenant_id}&limit=1`, { headers })
+    const tenantData = await tenantRes.json()
+    const tenant = tenantData?.[0]
+
+    return {
+      invitation: {
+        email: invite.email,
+        role: invite.role,
+        full_name: invite.full_name,
+        tenant_id: invite.tenant_id,
+      },
+      tenant: tenant ? { name: tenant.name } : null,
+    }
+  }
+
+  if (type === 'invite_accept') {
+    const inviteRes = await fetch(`${sbUrl}/rest/v1/invitations?token=eq.${data.token}&accepted_at=is.null&limit=1`, { headers })
+    const inviteData = await inviteRes.json()
+    const invite = inviteData?.[0]
+    if (!invite) throw new Error('Invitation not found or already used')
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) throw new Error('Invitation has expired')
+
+    const existingRes = await fetch(`${sbUrl}/rest/v1/tenant_users?tenant_id=eq.${invite.tenant_id}&email=eq.${encodeURIComponent(invite.email)}&limit=1`, { headers })
+    const existingData = await existingRes.json()
+    const existingUser = existingData?.[0]
+
+    if (existingUser) {
+      await fetch(`${sbUrl}/rest/v1/tenant_users?id=eq.${existingUser.id}`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          user_id: data.user_id,
+          full_name: data.full_name || invite.full_name || existingUser.full_name,
+          role: invite.role,
+          status: 'active',
+          joined_at: new Date().toISOString(),
+        }),
+      })
+    } else {
+      await fetch(`${sbUrl}/rest/v1/tenant_users`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tenant_id: invite.tenant_id,
+          user_id: data.user_id,
+          email: invite.email,
+          full_name: data.full_name || invite.full_name || null,
+          role: invite.role,
+          status: 'active',
+          invited_at: invite.created_at,
+          joined_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        }),
+      })
+    }
+
+    await fetch(`${sbUrl}/rest/v1/invitations?id=eq.${invite.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ accepted_at: new Date().toISOString() }),
+    })
+
+    return { ok: true, tenant_id: invite.tenant_id }
+  }
+
+  throw new Error(`Unknown invite action: ${type}`)
+}
+
 // ── GoCardless Webhook Handler ────────────────────────────────
 async function handleWebhook(request, env) {
   const body = await request.text()
@@ -376,6 +461,8 @@ export default {
 
       if (type.startsWith('gc_')) {
         result = await handleGoCardless(type, data, env)
+      } else if (type.startsWith('invite_')) {
+        result = await handleInviteAction(type, data, env)
       } else {
         const emailRes = await handleEmail(type, data, env)
         if (emailRes instanceof Response) return new Response(emailRes.body, { status: emailRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

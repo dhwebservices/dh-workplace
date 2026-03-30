@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbUpdate, sbInsert } from '../../utils/supabase'
+import { sbUpdate } from '../../utils/supabase'
+import { inviteMember } from '../../utils/invitations'
 
 const STEPS = ['Your profile', 'Invite team', 'Set up billing']
 
@@ -37,14 +38,13 @@ export default function OnboardingWizard() {
       setSaving(true)
       try {
         for (const inv of valid) {
-          await sbInsert('invitations', {
-            tenant_id:  tenant.id,
-            email:      inv.email.toLowerCase(),
-            role:       inv.role,
-            invited_by: user.id,
-            created_at: new Date().toISOString(),
+          await inviteMember({
+            tenant,
+            tenantUser: { ...tenantUser, id: tenantUser?.id || user.id, email: tenantUser?.email || user.email, full_name: tenantUser?.full_name },
+            email: inv.email,
+            role: inv.role,
+            fullName: '',
           })
-          // TODO: send invite email via worker
         }
       } catch(e) { console.warn('Invite failed:', e) }
       setSaving(false)

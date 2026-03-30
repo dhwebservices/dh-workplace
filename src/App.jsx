@@ -6,6 +6,7 @@ import { isAccessBlocked } from './utils/entitlements'
 import SignUp        from './pages/auth/SignUp'
 import SignIn        from './pages/auth/SignIn'
 import ForgotPassword from './pages/auth/ForgotPassword'
+import AcceptInvite  from './pages/auth/AcceptInvite'
 
 // Onboarding
 import OnboardingWizard from './pages/onboarding/OnboardingWizard'
@@ -72,6 +73,7 @@ export default function App() {
       <Route path="/signup"  element={<SignUp />} />
       <Route path="/signin"  element={<SignIn />} />
       <Route path="/forgot"  element={<ForgotPassword />} />
+      <Route path="/invite/:token" element={<AcceptInvite />} />
 
       {/* Onboarding */}
       <Route path="/onboarding" element={<RequireAuth><OnboardingWizard /></RequireAuth>} />

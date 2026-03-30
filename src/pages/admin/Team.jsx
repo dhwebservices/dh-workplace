@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { sbGetMany, sbUpdate } from '../../utils/supabase'
+import { inviteMember } from '../../utils/invitations'
 import { seatLimitReached } from '../../utils/entitlements'
 
 export default function Team() {
@@ -27,11 +28,14 @@ export default function Team() {
     if (seatLimitReached(tenant, staff.length)) { alert(`Seat limit reached. Upgrade your plan to add more team members.`); return }
     setSaving(true)
     try {
-      await sbInsert('invitations', {
-        tenant_id:tenant.id, email:form.email.toLowerCase(),
-        role:form.role, full_name:form.full_name||null,
-        invited_by:tenantUser.id, created_at:new Date().toISOString()
+      await inviteMember({
+        tenant,
+        tenantUser,
+        email: form.email,
+        role: form.role,
+        fullName: form.full_name,
       })
+      await load()
       setModal(false); setForm({email:'',role:'staff',full_name:''})
       alert('Invitation sent!')
     } catch(e) { alert(e.message) }

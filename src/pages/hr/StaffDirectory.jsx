@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbGetMany, sbInsert } from '../../utils/supabase'
+import { sbGetMany } from '../../utils/supabase'
+import { inviteMember } from '../../utils/invitations'
 import { seatLimitReached } from '../../utils/entitlements'
 
 export default function StaffDirectory() {
@@ -29,14 +30,14 @@ export default function StaffDirectory() {
     if (seatLimitReached(tenant, staff.length)) { alert(`You've reached your ${tenant.plan} plan seat limit. Upgrade to add more team members.`); return }
     setSaving(true)
     try {
-      await sbInsert('invitations', {
-        tenant_id: tenant.id,
-        email: invForm.email.toLowerCase(),
+      await inviteMember({
+        tenant,
+        tenantUser,
+        email: invForm.email,
         role: invForm.role,
-        full_name: invForm.full_name || null,
-        invited_by: tenantUser.id,
-        created_at: new Date().toISOString(),
+        fullName: invForm.full_name,
       })
+      await load()
       setInviteModal(false)
       setInvForm({ email: '', role: 'staff', full_name: '' })
       alert('Invitation sent!')
