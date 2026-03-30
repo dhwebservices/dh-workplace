@@ -35,6 +35,7 @@ export const PLANS = {
 }
 
 export function can(tenant, feature) {
+  if (tenant?.status === 'trialing') return true
   if (!tenant?.plan) return false
   const plan = PLANS[tenant.plan] || PLANS.starter
   return plan.features.includes(feature)
