@@ -35,14 +35,14 @@ const emailWrap = (content) => `
 </html>`
 
 // ── Send email via Resend ─────────────────────────────────────
-async function sendEmail(to, subject, html, env) {
+async function sendEmail(to, subject, html, env, text = '') {
   if (!env.RESEND_API_KEY) throw new Error('Worker email is not configured: RESEND_API_KEY is missing')
   if (!env.FROM_EMAIL) throw new Error('Worker email is not configured: FROM_EMAIL is missing')
 
   const res = await fetch(RESEND, {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], subject, html })
+    body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], subject, html, text })
   })
   if (!res.ok) {
     const err = await res.text()
@@ -68,7 +68,21 @@ async function handleEmail(type, data, env) {
         <a href="${data.url || 'https://app.dhworkplace.co.uk'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Go to your workspace</a>
         <p style="color:#86868B;font-size:12px;margin-top:20px">Questions? Reply to this email or contact clients@dhwebsiteservices.co.uk</p>
       `)
-      return sendEmail(data.to_email, 'Welcome to DH Workplace - Your workspace is ready', html, env)
+      const text = `Welcome to DH Workplace
+
+Hi ${data.name || 'there'},
+
+Your workspace is ready.
+
+Workspace: ${data.company}
+Plan: ${data.plan || 'Starter'} (14-day free trial)
+Founding Member price: £9/mo after trial
+
+Go to your workspace:
+${data.url || 'https://app.dhworkplace.co.uk'}
+
+Questions? Reply to this email or contact clients@dhwebsiteservices.co.uk`
+      return sendEmail(data.to_email, 'Welcome to DH Workplace - Your workspace is ready', html, env, text)
     }
 
     case 'invite': {
@@ -87,7 +101,17 @@ async function handleEmail(type, data, env) {
         <p style="color:#555;font-size:12px;line-height:1.6;word-break:break-all;margin:8px 0 0">${data.invite_url}</p>
         <p style="color:#86868B;font-size:12px;margin-top:20px">This invitation expires in 7 days. If you weren't expecting this, you can ignore it.</p>
       `)
-      return sendEmail(data.to_email, `Invitation to join ${data.company} on DH Workplace`, html, env)
+      const text = `You have been invited to DH Workplace
+
+Hi ${data.name || 'there'},
+
+${data.invited_by} has invited you to join ${data.company} on DH Workplace as ${data.role}.
+
+Accept invitation:
+${data.invite_url}
+
+This invitation expires in 7 days. If you weren't expecting this, you can ignore it.`
+      return sendEmail(data.to_email, `Invitation to join ${data.company} on DH Workplace`, html, env, text)
     }
 
     case 'leave_request_submitted': {
@@ -103,7 +127,16 @@ async function handleEmail(type, data, env) {
         </div>
         <a href="${data.url || '#'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Review request</a>
       `)
-      return sendEmail(data.to_email, `Leave request - ${data.staff_name}`, html, env)
+      const text = `Leave request submitted
+
+Staff member: ${data.staff_name}
+Type: ${data.leave_type}
+Dates: ${data.start_date} - ${data.end_date}
+Days: ${data.days}
+${data.notes ? `Notes: ${data.notes}\n` : ''}
+Review request:
+${data.url || '#'}`
+      return sendEmail(data.to_email, `Leave request - ${data.staff_name}`, html, env, text)
     }
 
     case 'leave_request_approved':
@@ -118,7 +151,14 @@ async function handleEmail(type, data, env) {
         ${data.notes ? `<div style="background:#f9f9f9;border-radius:8px;padding:16px;margin-bottom:20px"><p style="margin:0;font-size:13px;color:#555"><strong>Note from manager:</strong> ${data.notes}</p></div>` : ''}
         <a href="${data.url || '#'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">View in portal</a>
       `)
-      return sendEmail(data.to_email, `Leave Request ${approved ? 'Approved' : 'Rejected'}`, html, env)
+      const text = `Leave request ${approved ? 'approved' : 'rejected'}
+
+Hi ${data.staff_name},
+
+Your leave request for ${data.start_date} - ${data.end_date} has been ${approved ? 'approved' : 'rejected'}.
+${data.notes ? `\nNote from manager: ${data.notes}\n` : '\n'}View in portal:
+${data.url || '#'}`
+      return sendEmail(data.to_email, `Leave Request ${approved ? 'Approved' : 'Rejected'}`, html, env, text)
     }
 
     case 'invoice_issued': {
@@ -138,21 +178,42 @@ async function handleEmail(type, data, env) {
         </div>
         <p style="color:#555;font-size:13px">Please contact us if you have any questions.</p>
       `)
-      return sendEmail(data.to_email, `Invoice — £${Number(data.amount||0).toFixed(2)} from ${data.company || 'DH Workplace'}`, html, env)
+      const text = `Invoice from ${data.company || 'DH Workplace'}
+
+Hi ${data.client_name || 'there'},
+
+Invoice number: ${data.invoice_number || 'N/A'}
+Description: ${data.description}
+Due date: ${data.due_date || 'On receipt'}
+Total: £${Number(data.amount || 0).toFixed(2)}
+
+Please contact us if you have any questions.`
+      return sendEmail(data.to_email, `Invoice — £${Number(data.amount||0).toFixed(2)} from ${data.company || 'DH Workplace'}`, html, env, text)
     }
 
     case 'payment_failed': {
       const html = emailWrap(`
-        <h2 style="color:#E54D2E;margin:0 0 8px">⚠️ Payment Failed</h2>
+        <h2 style="color:#E54D2E;margin:0 0 8px">Payment Failed</h2>
         <p style="color:#555;margin:0 0 20px">Hi ${data.name || 'there'},</p>
         <p style="color:#555;font-size:14px;margin:0 0 20px">
           Your DH Workplace subscription payment of <strong>£${data.amount || '—'}</strong> failed.
           You have a <strong>7-day grace period</strong> to resolve this before your account is suspended.
         </p>
-        <a href="${data.billing_url || '#'}" style="display:inline-block;background:#E54D2E;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Update billing →</a>
+        <a href="${data.billing_url || '#'}" style="display:inline-block;background:#E54D2E;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Update billing</a>
         <p style="color:#86868B;font-size:12px;margin-top:20px">If you need help, contact clients@dhwebsiteservices.co.uk</p>
       `)
-      return sendEmail(data.to_email, 'Action required — DH Workplace payment failed', html, env)
+      const text = `Payment failed
+
+Hi ${data.name || 'there'},
+
+Your DH Workplace subscription payment of £${data.amount || '—'} failed.
+You have a 7-day grace period to resolve this before your account is suspended.
+
+Update billing:
+${data.billing_url || '#'}
+
+If you need help, contact clients@dhwebsiteservices.co.uk`
+      return sendEmail(data.to_email, 'Action required — DH Workplace payment failed', html, env, text)
     }
 
     case 'trial_ending': {
@@ -162,9 +223,17 @@ async function handleEmail(type, data, env) {
         <div style="background:#FEF3C7;border-radius:8px;padding:16px;margin-bottom:20px;border:1px solid #F59E0B">
           <p style="margin:0;font-size:14px;color:#92400E">Set up your Direct Debit now to keep your Founding Member price of <strong>£${data.price || 9}/mo</strong>.</p>
         </div>
-        <a href="${data.billing_url || '#'}" style="display:inline-block;background:#C9A84C;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Set up billing →</a>
+        <a href="${data.billing_url || '#'}" style="display:inline-block;background:#C9A84C;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Set up billing</a>
       `)
-      return sendEmail(data.to_email, `Your DH Workplace trial ends in ${data.days_left} days`, html, env)
+      const text = `Your trial ends in ${data.days_left} day${data.days_left !== 1 ? 's' : ''}
+
+Hi ${data.name || 'there'},
+
+Set up your Direct Debit now to keep your Founding Member price of £${data.price || 9}/mo.
+
+Set up billing:
+${data.billing_url || '#'}`
+      return sendEmail(data.to_email, `Your DH Workplace trial ends in ${data.days_left} days`, html, env, text)
     }
 
     default:
