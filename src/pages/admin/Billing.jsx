@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS } from '../../utils/entitlements'
 import { sbUpdate } from '../../utils/supabase'
@@ -33,8 +33,91 @@ export default function Billing() {
   const [error, setError] = useState('')
   const hasBillingSetup = !!tenant?.gc_mandate_id
   const hasSubscription = !!tenant?.gc_subscription_id
+  const pendingPlanStorageKey = useMemo(() => tenant?.id ? `dhwp_pending_plan_${tenant.id}` : '', [tenant?.id])
+  const [pendingPlan, setPendingPlan] = useState('')
 
-  const startBillingFlow = async (existingCustomerId = tenant?.gc_customer_id) => {
+  useEffect(() => {
+    if (!pendingPlanStorageKey) return
+    const stored = window.localStorage.getItem(pendingPlanStorageKey) || ''
+    setPendingPlan(stored)
+  }, [pendingPlanStorageKey])
+
+  useEffect(() => {
+    if (!pendingPlan || hasBillingSetup || !tenant?.id) return
+    let attempts = 0
+    const timer = window.setInterval(async () => {
+      attempts += 1
+      await refreshTenant()
+      if (attempts >= 10) window.clearInterval(timer)
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [pendingPlan, hasBillingSetup, tenant?.id, refreshTenant])
+
+  useEffect(() => {
+    if (!pendingPlan || !hasBillingSetup || hasSubscription || switchingPlan) return
+    completePlanSubscription(pendingPlan, { silent: true })
+  }, [pendingPlan, hasBillingSetup, hasSubscription])
+
+  const rememberPendingPlan = (key) => {
+    if (!pendingPlanStorageKey) return
+    window.localStorage.setItem(pendingPlanStorageKey, key)
+    setPendingPlan(key)
+  }
+
+  const clearPendingPlan = () => {
+    if (pendingPlanStorageKey) window.localStorage.removeItem(pendingPlanStorageKey)
+    setPendingPlan('')
+  }
+
+  const completePlanSubscription = async (key, { silent = false } = {}) => {
+    if (!tenant?.id || !tenant?.gc_mandate_id || !tenantUser) return
+    if (tenant.gc_subscription_id && key !== tenant.plan) {
+      if (!silent) setError('Your current subscription is already active. Switching an existing paid plan will be enabled in the next billing pass.')
+      return
+    }
+    if (switchingPlan) return
+
+    setSwitchingPlan(key)
+    setError('')
+    if (!silent) setMessage('')
+
+    try {
+      const subscriptionRes = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'gc_create_subscription',
+          data: {
+            amount_pence: (PLANS[key]?.launch_price || 9) * 100,
+            mandate_id: tenant.gc_mandate_id,
+            name: `${PLANS[key]?.name || 'Starter'} Plan`,
+          },
+        }),
+      })
+      const subscriptionJson = await subscriptionRes.json()
+      if (!subscriptionRes.ok) throw new Error(subscriptionJson.error || 'Failed to create subscription')
+      const subscriptionId = subscriptionJson.subscriptions?.id
+      if (!subscriptionId) throw new Error('Subscription ID missing from GoCardless response')
+
+      await sbUpdate('tenants', `id=eq.${tenant.id}`, {
+        plan: key,
+        seat_limit: PLANS[key]?.max_users || 5,
+        gc_subscription_id: subscriptionId,
+        status: 'active',
+        subscription_started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      clearPendingPlan()
+      await refreshTenant()
+      setMessage(`Your ${PLANS[key].name} subscription is now active.`)
+    } catch (e) {
+      if (!silent) setError(e.message || 'Failed to activate subscription')
+    }
+
+    setSwitchingPlan('')
+  }
+
+  const startBillingFlow = async (desiredPlan = tenant?.plan || 'starter', existingCustomerId = tenant?.gc_customer_id) => {
     if (!WORKER_URL) {
       setError('Billing worker URL is not configured')
       return
@@ -44,6 +127,7 @@ export default function Billing() {
     setLoadingBilling(true)
     setError('')
     setMessage('')
+    rememberPendingPlan(desiredPlan)
 
     try {
       let customerId = existingCustomerId
@@ -107,18 +191,21 @@ export default function Billing() {
   const switchPlan = async (key) => {
     if (!tenant?.id || key === tenant.plan) return
     if (!hasBillingSetup) {
-      setError('Set up Direct Debit before changing plans.')
+      await startBillingFlow(key)
       return
     }
-    setSwitchingPlan(key)
+    if (hasSubscription) {
+      setError('Changing an existing live subscription will be enabled in the next billing pass. For now, keep the current plan active.')
+      return
+    }
     setError('')
     setMessage('')
     try {
-      setMessage(`Plan changes are not applied instantly. Billing is set up, so the ${PLANS[key].name} plan request has been recorded for review.`)
+      rememberPendingPlan(key)
+      await completePlanSubscription(key)
     } catch (e) {
       setError(e.message || 'Failed to change plan')
     }
-    setSwitchingPlan('')
   }
 
   const cancelSubscription = async () => {
@@ -190,6 +277,7 @@ export default function Billing() {
               ['Trial ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
               ['Seats included', plan?.max_users || 5],
               ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],
+              ['Subscription', tenant?.gc_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
               ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
               ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
             ].map(([label, val]) => (
@@ -203,13 +291,13 @@ export default function Billing() {
           {!tenant?.gc_mandate_id ? (
             <div>
               <p style={{ fontSize: 13, color: 'var(--sub)', marginBottom: 12 }}>Set up Direct Debit to activate your subscription. UK businesses only, via GoCardless.</p>
-              <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={() => startBillingFlow()} disabled={loadingBilling}>
-                {loadingBilling ? 'Starting setup...' : 'Set up Direct Debit →'}
+              <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
+                {loadingBilling ? 'Starting setup...' : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''} →`}
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant.gc_customer_id)} disabled={loadingBilling}>Update Payment Method</button>
+              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>Update Payment Method</button>
               <button className="btn btn-outline" style={{ color: 'var(--red)' }} onClick={cancelSubscription} disabled={loadingBilling || !tenant?.gc_subscription_id}>Cancel Subscription</button>
             </div>
           )}
@@ -220,9 +308,9 @@ export default function Billing() {
           <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 14 }}>
             {hasBillingSetup
               ? hasSubscription
-                ? 'Plan changes should only be applied after billing confirmation. Self-serve upgrades are locked until the recurring subscription flow is fully wired.'
-                : 'Direct Debit is set up, but self-serve subscription changes are still locked until the billing flow is fully completed.'
-              : 'Set up Direct Debit first. Plan changes are locked until billing is in place.'}
+                ? 'Your live subscription is active. Existing paid-plan switches stay locked until proration and swap logic are fully wired.'
+                : 'Direct Debit is set up. The first selected plan will activate once the subscription is created.'
+              : 'Choose a plan and complete Direct Debit setup. Access only upgrades after a real subscription is created.'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {Object.entries(PLANS).map(([key, p]) => (
@@ -239,11 +327,11 @@ export default function Billing() {
                 {tenant?.plan === key
                   ? <span className="badge badge-blue" style={{ fontSize: 10 }}>Current plan</span>
                   : !hasBillingSetup
-                    ? <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => startBillingFlow()} disabled={loadingBilling}>
+                    ? <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => startBillingFlow(key)} disabled={loadingBilling}>
                         {loadingBilling ? 'Starting setup...' : 'Set up billing first'}
                       </button>
                     : <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => switchPlan(key)} disabled={!!switchingPlan}>
-                        {switchingPlan === key ? 'Requesting...' : 'Request plan change'}
+                        {switchingPlan === key ? 'Activating...' : hasSubscription ? 'Switch locked' : 'Activate plan'}
                       </button>}
               </div>
             ))}
