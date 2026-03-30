@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { sbGet, sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { sbGet, sbGetMany, sbInsert, sbUpdate, supabase } from '../../utils/supabase'
 import { PLANS } from '../../utils/entitlements'
 import { deleteMemberSafely, logAuditEvent, removePendingInvite, sendInviteEmail } from '../../utils/teamMembers'
+
+const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
 export default function SuperTenant() {
   const { id } = useParams()
@@ -15,6 +17,9 @@ export default function SuperTenant() {
   const [supportNote, setSupportNote] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [passwordModal, setPasswordModal] = useState({ open: false, user: null })
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   useEffect(() => { load() }, [id])
 
@@ -153,6 +158,78 @@ export default function SuperTenant() {
     try {
       await removePendingInvite({ tenantId: id, memberId: member.id, email: invite.email })
       await load()
+    } catch (e) {
+      alert(e.message)
+    }
+    setSaving(false)
+  }
+
+  const sendResetEmail = async (user) => {
+    if (!user?.email || !user?.user_id) return
+    setSaving(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/signin`,
+      })
+      if (error) throw error
+      await logAuditEvent({ tenantId: id, action: 'member_reset_email_sent_by_platform_admin', entity: 'tenant_user', entityId: user.id, metadata: { email: user.email } })
+      alert(`Reset email sent to ${user.email}.`)
+    } catch (e) {
+      alert(e.message)
+    }
+    setSaving(false)
+  }
+
+  const openPasswordModal = (user) => {
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordModal({ open: true, user })
+  }
+
+  const closePasswordModal = () => {
+    if (saving) return
+    setPasswordModal({ open: false, user: null })
+    setNewPassword('')
+    setConfirmPassword('')
+  }
+
+  const savePassword = async () => {
+    if (!passwordModal.user?.user_id) return
+    if (newPassword.length < 10) {
+      alert('Use a password with at least 10 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      alert('Passwords do not match.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      if (!token) throw new Error('You need an active session to set a password.')
+
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type: 'auth_set_password',
+          data: {
+            user_id: passwordModal.user.user_id,
+            password: newPassword,
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Unable to set password')
+
+      await logAuditEvent({ tenantId: id, action: 'member_password_set_by_platform_admin', entity: 'tenant_user', entityId: passwordModal.user.id, metadata: { email: passwordModal.user.email } })
+      alert(`Password updated for ${passwordModal.user.email}.`)
+      closePasswordModal()
     } catch (e) {
       alert(e.message)
     }
@@ -376,6 +453,16 @@ export default function SuperTenant() {
                           </button>
                         ) : (
                           <>
+                            {user.user_id && (
+                              <>
+                                <button className="btn btn-sm btn-outline" onClick={()=>sendResetEmail(user)} disabled={saving}>
+                                  Reset password
+                                </button>
+                                <button className="btn btn-sm btn-outline" onClick={()=>openPasswordModal(user)} disabled={saving}>
+                                  Set password
+                                </button>
+                              </>
+                            )}
                             <button className="btn btn-sm btn-outline" onClick={()=>toggleMemberStatus(user, user.status === 'active' ? 'suspended' : 'active')} disabled={saving}>
                               {user.status === 'active' ? 'Suspend' : 'Reinstate'}
                             </button>
@@ -456,6 +543,38 @@ export default function SuperTenant() {
           )}
         </div>
       </div>
+
+      {passwordModal.open && (
+        <div className="modal-overlay" onClick={closePasswordModal}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-hd">
+              <span className="modal-title">Set user password</span>
+              <button onClick={closePasswordModal} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>x</button>
+            </div>
+            <div className="modal-body">
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div style={{fontSize:13,color:'var(--faint)'}}>
+                  Set a new password for <strong style={{color:'var(--text)'}}>{passwordModal.user?.email}</strong>.
+                </div>
+                <div>
+                  <label className="lbl">New password</label>
+                  <input className="inp" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="At least 10 characters" />
+                </div>
+                <div>
+                  <label className="lbl">Confirm password</label>
+                  <input className="inp" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
+                </div>
+              </div>
+            </div>
+            <div className="modal-ft">
+              <button className="btn btn-outline" onClick={closePasswordModal}>Cancel</button>
+              <button className="btn btn-primary" onClick={savePassword} disabled={saving || !newPassword || !confirmPassword}>
+                {saving ? 'Saving...' : 'Save password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

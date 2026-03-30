@@ -528,6 +528,58 @@ async function handlePlatformAdminAction(type, data, env) {
   throw new Error(`Unknown platform admin action: ${type}`)
 }
 
+async function handleAuthAdminAction(type, data, env) {
+  const authUrl = `${env.SUPABASE_URL}/auth/v1/admin`
+  const headers = {
+    apikey: env.SUPABASE_SERVICE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    'Content-Type': 'application/json',
+  }
+
+  if (type === 'auth_set_password') {
+    const res = await fetch(`${authUrl}/users/${data.user_id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ password: data.password }),
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.msg || json.error_description || json.error || 'Unable to set password')
+    return { ok: true }
+  }
+
+  throw new Error(`Unknown auth admin action: ${type}`)
+}
+
+async function requirePlatformAdmin(request, env) {
+  const authHeader = request.headers.get('Authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) throw new Error('Missing platform admin session')
+
+  const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const userJson = await userRes.json()
+  if (!userRes.ok || !userJson?.id) {
+    throw new Error(userJson?.msg || userJson?.error_description || userJson?.error || 'Invalid platform admin session')
+  }
+
+  const adminRes = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_admins?user_id=eq.${userJson.id}&select=id&limit=1`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    },
+  })
+  const adminJson = await adminRes.json()
+  if (!adminRes.ok || !Array.isArray(adminJson) || adminJson.length === 0) {
+    throw new Error('Platform admin access required')
+  }
+
+  return userJson
+}
+
 // ── GoCardless Webhook Handler ────────────────────────────────
 async function handleWebhook(request, env) {
   const body = await request.text()
@@ -679,6 +731,9 @@ export default {
         result = await handleInviteAction(type, data, env)
       } else if (type.startsWith('platform_admin_')) {
         result = await handlePlatformAdminAction(type, data, env)
+      } else if (type.startsWith('auth_')) {
+        await requirePlatformAdmin(request, env)
+        result = await handleAuthAdminAction(type, data, env)
       } else {
         const emailRes = await handleEmail(type, data, env)
         if (emailRes instanceof Response) return new Response(emailRes.body, { status: emailRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

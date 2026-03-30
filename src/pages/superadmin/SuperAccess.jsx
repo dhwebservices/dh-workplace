@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { sbDelete, sbGetMany, sbInsert } from '../../utils/supabase'
+import { sbDelete, sbGetMany, sbInsert, supabase } from '../../utils/supabase'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -9,6 +9,9 @@ export default function SuperAccess() {
   const [modal, setModal] = useState(false)
   const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
+  const [passwordModal, setPasswordModal] = useState({ open: false, admin: null })
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   useEffect(() => { load() }, [])
 
@@ -99,6 +102,76 @@ export default function SuperAccess() {
     setSaving(false)
   }
 
+  const sendResetEmail = async (admin) => {
+    if (!admin?.email) return
+    setSaving(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(admin.email, {
+        redirectTo: `${window.location.origin}/signin`,
+      })
+      if (error) throw error
+      alert(`Reset email sent to ${admin.email}.`)
+    } catch (e) {
+      alert(e.message)
+    }
+    setSaving(false)
+  }
+
+  const openPasswordModal = (admin) => {
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordModal({ open: true, admin })
+  }
+
+  const closePasswordModal = () => {
+    if (saving) return
+    setPasswordModal({ open: false, admin: null })
+    setNewPassword('')
+    setConfirmPassword('')
+  }
+
+  const savePassword = async () => {
+    if (!passwordModal.admin?.user_id) return
+    if (newPassword.length < 10) {
+      alert('Use a password with at least 10 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      alert('Passwords do not match.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      if (!token) throw new Error('You need an active session to set a password.')
+
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type: 'auth_set_password',
+          data: {
+            user_id: passwordModal.admin.user_id,
+            password: newPassword,
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Unable to set password')
+
+      alert(`Password updated for ${passwordModal.admin.email}.`)
+      closePasswordModal()
+    } catch (e) {
+      alert(e.message)
+    }
+    setSaving(false)
+  }
+
   return (
     <div className="fade-in page-stack">
       <div className="page-hd">
@@ -150,7 +223,13 @@ export default function SuperAccess() {
                   <td className="t-main">{admin.email}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{new Date(admin.created_at).toLocaleDateString('en-GB')}</td>
                   <td><span className="badge badge-green">Active</span></td>
-                  <td><button className="btn btn-outline btn-sm" onClick={() => removeAccess(admin)} disabled={saving}>Remove access</button></td>
+                  <td>
+                    <div style={{display:'flex',gap:8,justifyContent:'flex-end',flexWrap:'wrap'}}>
+                      <button className="btn btn-outline btn-sm" onClick={() => sendResetEmail(admin)} disabled={saving}>Reset password</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => openPasswordModal(admin)} disabled={saving}>Set password</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => removeAccess(admin)} disabled={saving}>Remove access</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -209,6 +288,38 @@ export default function SuperAccess() {
             <div className="modal-ft">
               <button className="btn btn-outline" onClick={() => setModal(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={sendInvite} disabled={saving || !email.trim()}>{saving ? 'Sending...' : 'Send invite'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passwordModal.open && (
+        <div className="modal-overlay" onClick={closePasswordModal}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-hd">
+              <span className="modal-title">Set password</span>
+              <button onClick={closePasswordModal} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>x</button>
+            </div>
+            <div className="modal-body">
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                <div style={{fontSize:13,color:'var(--faint)'}}>
+                  Set a new password for <strong style={{color:'var(--text)'}}>{passwordModal.admin?.email}</strong>.
+                </div>
+                <div>
+                  <label className="lbl">New password</label>
+                  <input className="inp" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="At least 10 characters" />
+                </div>
+                <div>
+                  <label className="lbl">Confirm password</label>
+                  <input className="inp" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
+                </div>
+              </div>
+            </div>
+            <div className="modal-ft">
+              <button className="btn btn-outline" onClick={closePasswordModal}>Cancel</button>
+              <button className="btn btn-primary" onClick={savePassword} disabled={saving || !newPassword || !confirmPassword}>
+                {saving ? 'Saving...' : 'Save password'}
+              </button>
             </div>
           </div>
         </div>
