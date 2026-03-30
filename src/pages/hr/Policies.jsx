@@ -23,13 +23,14 @@ export default function Policies() {
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Policies</h1>
           <p className="page-sub">Company handbooks, policy packs, and compliance documents</p>
         </div>
       </div>
+      <div className="compact-note">A cleaner view of policy documents that staff can review without browsing the full document library.</div>
 
       {loading ? (
         <div className="card card-pad">

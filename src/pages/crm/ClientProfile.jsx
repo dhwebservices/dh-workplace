@@ -121,13 +121,13 @@ export default function ClientProfile() {
   const noteEntries = parseNotes(client.notes)
 
   return (
-    <div className="fade-in">
-      <div style={{marginBottom:20}}>
-        <button onClick={()=>navigate('/clients')} className="btn btn-outline btn-sm">← Clients</button>
+    <div className="fade-in page-stack">
+      <div>
+        <button onClick={()=>navigate('/clients')} className="btn btn-outline btn-sm">Back to clients</button>
       </div>
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',padding:'24px 28px',background:'var(--surface)',borderRadius:16,border:'1px solid var(--border)',marginBottom:24,gap:20}}>
+      <div className="card card-pad" style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20}}>
         <div>
-          <h1 style={{fontFamily:'var(--font-display)',fontSize:28,fontWeight:400,marginBottom:6}}>{client.name}</h1>
+          <h1 className="page-title" style={{marginBottom:6}}>{client.name}</h1>
           <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
             {client.email&&<span style={{fontSize:13,color:'var(--faint)',fontFamily:'var(--font-mono)'}}>{client.email}</span>}
             {client.website&&<a href={client.website} target="_blank" rel="noreferrer" style={{fontSize:13,color:'var(--blue)'}}>{client.website}</a>}
@@ -149,6 +149,7 @@ export default function ClientProfile() {
           <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
+      <div className="compact-note">Manage relationship details, invoices, notes, and delivery tasks without leaving the client record.</div>
       {tab==='overview'&&(
         <div className="card card-pad">
           <div className="fg">
@@ -161,7 +162,7 @@ export default function ClientProfile() {
         </div>
       )}
       {tab==='invoices'&&(
-        <div className="card" style={{overflow:'hidden'}}>
+        <div className="card card-pad table-card">
           {invoices.length===0 ? <div className="empty"><p>No invoices yet</p></div>
           : <table className="tbl">
               <thead><tr><th>Invoice #</th><th>Description</th><th>Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>
@@ -183,8 +184,12 @@ export default function ClientProfile() {
       {tab==='notes'&&(
         <div style={{display:'grid',gridTemplateColumns:'340px 1fr',gap:20}}>
           <div className="card card-pad">
-            <h3 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:400,marginBottom:12}}>Add note</h3>
-            <div style={{fontSize:13,color:'var(--faint)',marginBottom:14}}>Keep a running client history for calls, decisions, and next steps.</div>
+            <div className="section-head">
+              <div>
+                <h3 className="panel-title">Add note</h3>
+                <div className="panel-sub">Keep a running client history for calls, decisions, and next steps.</div>
+              </div>
+            </div>
             <textarea
               className="inp"
               rows={8}
@@ -198,7 +203,12 @@ export default function ClientProfile() {
             </button>
           </div>
           <div className="card card-pad">
-            <h3 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:400,marginBottom:16}}>Note history</h3>
+            <div className="section-head">
+              <div>
+                <h3 className="panel-title">Note history</h3>
+                <div className="panel-sub">Every saved client update appears here in reverse chronological order.</div>
+              </div>
+            </div>
             {noteEntries.length===0 ? (
               <div className="empty" style={{padding:'32px 0'}}><p>No notes recorded yet</p></div>
             ) : (
@@ -215,7 +225,7 @@ export default function ClientProfile() {
         </div>
       )}
       {tab==='tasks'&&(
-        <div className="card" style={{overflow:'hidden'}}>
+        <div className="card card-pad table-card">
           {tasks.length===0 ? <div className="empty"><p>No tasks for this client</p></div>
           : <table className="tbl">
               <thead><tr><th>Task</th><th>Priority</th><th>Status</th><th>Due</th></tr></thead>
@@ -235,7 +245,7 @@ export default function ClientProfile() {
       {editing&&(
         <div className="modal-overlay" onClick={()=>setEditing(false)}>
           <div className="modal-box" onClick={e=>e.stopPropagation()}>
-            <div className="modal-hd"><span style={{fontWeight:600}}>Edit Client</span><button onClick={()=>setEditing(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>×</button></div>
+            <div className="modal-hd"><span className="modal-title">Edit client</span><button onClick={()=>setEditing(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>x</button></div>
             <div className="modal-body">
               <div className="fg">
                 <div><label className="lbl">Name</label><input className="inp" value={form.name||''} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
@@ -260,7 +270,7 @@ export default function ClientProfile() {
       {invModal&&(
         <div className="modal-overlay" onClick={()=>setInvModal(false)}>
           <div className="modal-box" onClick={e=>e.stopPropagation()}>
-            <div className="modal-hd"><span style={{fontWeight:600}}>Create Invoice</span><button onClick={()=>setInvModal(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>×</button></div>
+            <div className="modal-hd"><span className="modal-title">Create invoice</span><button onClick={()=>setInvModal(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>x</button></div>
             <div className="modal-body">
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
                 <div className="fg">

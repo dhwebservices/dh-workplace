@@ -21,17 +21,23 @@ export default function Settings() {
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Settings</h1>
           <p className="page-sub">Workspace preferences</p>
         </div>
-        {saved&&<span style={{fontSize:13,color:'var(--green)'}}>✓ Saved</span>}
+        {saved&&<span style={{fontSize:13,color:'var(--green)'}}>Saved</span>}
       </div>
+      <div className="compact-note">Manage your workspace identity, colour, plan visibility, and commercial settings from one page.</div>
       <div style={{maxWidth:560,display:'flex',flexDirection:'column',gap:20}}>
         <div className="card card-pad">
-          <h3 style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:400,marginBottom:16}}>Workspace</h3>
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Workspace</h3>
+              <div className="panel-sub">Core tenant details and brand settings</div>
+            </div>
+          </div>
           <div style={{display:'flex',flexDirection:'column',gap:14}}>
             <div><label className="lbl">Company Name</label><input className="inp" value={form.name} disabled={!isOwner} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
             <div><label className="lbl">Brand Colour</label>
@@ -44,7 +50,12 @@ export default function Settings() {
           {isOwner&&<button className="btn btn-primary" style={{marginTop:20}} onClick={save} disabled={saving}>{saving?'Saving...':'Save Changes'}</button>}
         </div>
         <div className="card card-pad">
-          <h3 style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:400,marginBottom:16}}>Plan & Usage</h3>
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Plan and usage</h3>
+              <div className="panel-sub">A quick view of access, status, and workspace capacity</div>
+            </div>
+          </div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             {[
               ['Plan', <span className="badge badge-blue" style={{textTransform:'capitalize'}}>{tenant?.plan||'starter'}</span>],

@@ -36,7 +36,7 @@ export default function SignIn() {
               </div>
               {error && <div style={{ fontSize:13, color:'var(--red)', background:'var(--red-soft)', padding:'10px 14px', borderRadius:8 }}>{error}</div>}
               <button className="btn btn-primary" type="submit" disabled={loading} style={{ width:'100%', justifyContent:'center' }}>
-                {loading ? 'Signing in...' : 'Sign in →'}
+                {loading ? 'Signing in...' : 'Sign in'}
               </button>
               <Link to="/forgot" style={{ textAlign:'center', fontSize:13, color:'var(--faint)', textDecoration:'none' }}>Forgot password?</Link>
             </div>

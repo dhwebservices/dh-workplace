@@ -127,6 +127,7 @@ export default function AppShell({ superAdmin = false }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
+          <div className="brand-kicker">{superAdmin ? 'Platform Console' : 'Workspace'}</div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05, fontWeight: 700 }}>DH Workplace</div>
           {tenant && !superAdmin && (
             <>
@@ -181,7 +182,7 @@ export default function AppShell({ superAdmin = false }) {
             </div>
             <div style={{ fontSize: 11, color: 'var(--faint)', textTransform: 'capitalize' }}>{tenantUser?.role}</div>
           </div>
-          <button onClick={signOut} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--faint)', fontSize: 12, padding: 4 }} title="Sign out">⏻</button>
+          <button onClick={signOut} className="signout-btn" title="Sign out">Sign out</button>
         </div>
       </aside>
 

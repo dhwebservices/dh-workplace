@@ -33,26 +33,6 @@ export default function SuperTenants() {
           <p className="page-sub">{tenants.length} total workspaces across the platform</p>
         </div>
       </div>
-      <div className="hero-grid">
-        <div className="hero-panel">
-          <div className="hero-kicker">Tenant directory</div>
-          <div className="hero-title">Search, triage, and jump into any workspace fast.</div>
-          <div className="hero-copy">
-            Use the list below to inspect onboarding progress, billing health, and support context for every company on the platform.
-          </div>
-        </div>
-        <div className="hero-panel">
-          <div className="hero-kicker">Status mix</div>
-          <div className="hero-list">
-            {['trialing','active','overdue','suspended'].map(status => (
-              <div key={status} className="hero-list-item">
-                <span className="hero-list-label">{status}</span>
-                <span className="hero-list-value">{tenants.filter(t => t.status === status).length}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
       <div className="table-toolbar">
         <div className="search-shell">
           <input className="inp" placeholder="Search tenants..." value={search} onChange={e=>setSearch(e.target.value)}/>
@@ -62,6 +42,9 @@ export default function SuperTenants() {
           {['all','trialing','active','overdue','suspended'].map(s=>(
             <button key={s} onClick={()=>setFilter(s)} className={`btn btn-sm ${filter===s?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize'}}>{s}</button>
           ))}
+        </div>
+        <div className="compact-note">
+          {['trialing','active','overdue','suspended'].map(status => `${status}: ${tenants.filter(t => t.status === status).length}`).join(' · ')}
         </div>
       </div>
       <div className="card card-pad table-card">
@@ -77,7 +60,7 @@ export default function SuperTenants() {
                   <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue'?'red':'grey'}`} style={{textTransform:'capitalize'}}>{t.status}</span></td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{t.owner_email}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
-                  <td><button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();navigate(`/superadmin/tenants/${t.id}`)}}>View →</button></td>
+                  <td><button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();navigate(`/superadmin/tenants/${t.id}`)}}>View</button></td>
                 </tr>
               ))}
             </tbody>

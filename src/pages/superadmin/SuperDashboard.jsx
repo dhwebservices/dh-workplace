@@ -33,41 +33,6 @@ export default function SuperDashboard() {
         </div>
       </div>
 
-      <div className="hero-grid">
-        <div className="hero-panel">
-          <div className="hero-kicker">Platform pulse</div>
-          <div className="hero-title">Run every tenant like an operating system, not a spreadsheet.</div>
-          <div className="hero-copy">
-            Monitor revenue, risky accounts, and new workspaces from one control layer built for monthly SaaS operations.
-          </div>
-          <div className="hero-actions">
-            <Link to="/superadmin/tenants" className="btn btn-primary">Review tenants</Link>
-            <Link to="/superadmin/billing" className="btn btn-outline">Open billing view</Link>
-          </div>
-        </div>
-        <div className="hero-panel">
-          <div className="hero-kicker">Risk watch</div>
-          <div className="hero-list">
-            <div className="hero-list-item">
-              <span className="hero-list-label">Tenants in trial</span>
-              <span className="hero-list-value">{stats.trialing}</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Accounts overdue</span>
-              <span className="hero-list-value">{stats.overdue}</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Monthly recurring revenue</span>
-              <span className="hero-list-value">£{stats.mrr}</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Active workspaces</span>
-              <span className="hero-list-value">{stats.active}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="stats-grid" style={{ gridTemplateColumns:'repeat(5, 1fr)' }}>
         {[
           { label:'Total Tenants',   val: stats.total,    colour:'var(--blue)' },
@@ -82,6 +47,14 @@ export default function SuperDashboard() {
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>Live platform readout</div>
           </div>
         ))}
+      </div>
+
+      <div className="table-toolbar">
+        <div className="compact-note">Review tenants, revenue, and risk from one platform-level view.</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link to="/superadmin/tenants" className="btn btn-primary btn-sm">Review tenants</Link>
+          <Link to="/superadmin/billing" className="btn btn-outline btn-sm">Open billing view</Link>
+        </div>
       </div>
 
       <div className="card card-pad table-card">

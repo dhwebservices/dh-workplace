@@ -77,7 +77,7 @@ export default function Tasks() {
   })
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Tasks</h1>
@@ -90,23 +90,24 @@ export default function Tasks() {
           <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
-      <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      <div className="compact-note">Track ownership, due dates, and task status without leaving the board.</div>
+      <div className="task-list">
         {loading ? [1,2,3].map(i=><div key={i} className="skel" style={{height:76,borderRadius:12}}/>)
         : filtered.length===0 ? <div className="card"><div className="empty"><p>No tasks found</p></div></div>
         : filtered.map(t=>(
-          <div key={t.id} className="card" style={{padding:'16px 20px',display:'flex',gap:16,alignItems:'flex-start',opacity:t.status==='done'||t.status==='cancelled'?0.6:1}}>
+          <div key={t.id} className="task-row" style={{opacity:t.status==='done'||t.status==='cancelled'?0.6:1}}>
             <button onClick={()=>updateStatus(t.id,t.status==='done'?'todo':'done')}
               style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${t.status==='done'?'var(--green)':'var(--border)'}`,background:t.status==='done'?'var(--green)':'transparent',cursor:'pointer',flexShrink:0,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s'}}>
-              {t.status==='done'&&<span style={{color:'#fff',fontSize:11}}>✓</span>}
+              {t.status==='done'&&<span style={{color:'#fff',fontSize:9,fontWeight:700}}>OK</span>}
             </button>
             <div style={{flex:1}}>
               <div style={{fontWeight:500,fontSize:14,marginBottom:4,textDecoration:t.status==='done'?'line-through':'none'}}>{t.title}</div>
               {t.description&&<div style={{fontSize:12,color:'var(--faint)',marginBottom:6}}>{t.description}</div>}
               <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                 <span className={`badge ${PRIORITIES[t.priority]||'badge-grey'}`} style={{textTransform:'capitalize',fontSize:10}}>{t.priority}</span>
-                <span style={{fontSize:11,color:'var(--faint)'}}>→ {getName(t.assigned_to)}</span>
-                {getClient(t.client_id)&&<span style={{fontSize:11,color:'var(--faint)'}}>🏢 {getClient(t.client_id)}</span>}
-                {t.due_date&&<span style={{fontSize:11,color:new Date(t.due_date)<new Date()?'var(--red)':'var(--faint)'}}>📅 {new Date(t.due_date).toLocaleDateString('en-GB')}</span>}
+                <span style={{fontSize:11,color:'var(--faint)'}}>{getName(t.assigned_to)}</span>
+                {getClient(t.client_id)&&<span style={{fontSize:11,color:'var(--faint)'}}>{getClient(t.client_id)}</span>}
+                {t.due_date&&<span style={{fontSize:11,color:new Date(t.due_date)<new Date()?'var(--red)':'var(--faint)'}}>{new Date(t.due_date).toLocaleDateString('en-GB')}</span>}
               </div>
             </div>
             <select value={t.status} onChange={e=>updateStatus(t.id,e.target.value)}

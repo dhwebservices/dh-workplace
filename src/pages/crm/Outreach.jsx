@@ -51,7 +51,7 @@ export default function Outreach() {
   })
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Outreach</h1>
@@ -59,18 +59,19 @@ export default function Outreach() {
         </div>
         <button className="btn btn-primary" onClick={()=>open()}>+ Add Lead</button>
       </div>
-      <div style={{display:'flex',gap:12,marginBottom:24,flexWrap:'wrap'}}>
-        <div style={{position:'relative',flex:1,minWidth:200}}>
-          <input className="inp" style={{paddingLeft:36,borderRadius:100}} placeholder="Search leads..." value={search} onChange={e=>setSearch(e.target.value)}/>
-          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'var(--faint)'}}>⌕</span>
+      <div className="table-toolbar">
+        <div className="search-shell" style={{minWidth:200}}>
+          <input className="inp" placeholder="Search leads..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <span className="search-icon" />
         </div>
-        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        <div className="filter-pills">
           {['all','not_contacted','contacted','replied','converted','not_interested'].map(s=>(
             <button key={s} onClick={()=>setFilter(s)} className={`btn btn-sm ${filter===s?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize',fontSize:11}}>{s.replace(/_/g,' ')}</button>
           ))}
         </div>
+        <div className="compact-note">Track early-stage leads before they become full CRM clients.</div>
       </div>
-      <div className="card" style={{overflow:'hidden'}}>
+      <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:52,marginBottom:8,borderRadius:8}}/>)}</div>
         : filtered.length===0 ? <div className="empty"><p>No leads found</p></div>
         : <table className="tbl">
@@ -93,8 +94,8 @@ export default function Outreach() {
         <div className="modal-overlay" onClick={()=>setModal(false)}>
           <div className="modal-box" onClick={e=>e.stopPropagation()}>
             <div className="modal-hd">
-              <span style={{fontWeight:600}}>{editing?'Edit Lead':'Add Lead'}</span>
-              <button onClick={()=>setModal(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>×</button>
+              <span className="modal-title">{editing?'Edit lead':'Add lead'}</span>
+              <button onClick={()=>setModal(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'var(--faint)'}}>x</button>
             </div>
             <div className="modal-body">
               <div className="fg">

@@ -106,7 +106,7 @@ export default function LeaveRequests() {
   const SB = { pending:'badge-amber', approved:'badge-green', rejected:'badge-red', cancelled:'badge-grey' }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Leave Requests</h1>
@@ -119,7 +119,8 @@ export default function LeaveRequests() {
           <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
-      <div className="card" style={{overflow:'hidden'}}>
+      <div className="compact-note">Keep upcoming time off, approvals, and staff availability in one place.</div>
+      <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:52,marginBottom:8,borderRadius:8}}/>)}</div>
         : filtered.length===0 ? <div className="empty"><p>No leave requests</p></div>
         : <table className="tbl">
@@ -139,8 +140,8 @@ export default function LeaveRequests() {
                   <td><span className={`badge ${SB[r.status]||'badge-grey'}`} style={{textTransform:'capitalize'}}>{r.status}</span></td>
                   <td style={{color:'var(--faint)',fontSize:12,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.notes||'—'}</td>
                   {isManager&&<td>{r.status==='pending'&&<div style={{display:'flex',gap:6}}>
-                    <button className="btn btn-sm" style={{background:'var(--green-soft)',color:'var(--green)',border:'1px solid var(--green)'}} onClick={()=>review(r.id,'approved')}>✓</button>
-                    <button className="btn btn-sm" style={{background:'var(--red-soft)',color:'var(--red)',border:'1px solid var(--red)'}} onClick={()=>review(r.id,'rejected')}>✗</button>
+                    <button className="btn btn-sm btn-outline" style={{color:'var(--green)', borderColor:'rgba(36,160,107,0.22)', background:'var(--green-soft)'}} onClick={()=>review(r.id,'approved')}>Approve</button>
+                    <button className="btn btn-sm btn-outline" style={{color:'var(--red)', borderColor:'rgba(222,91,77,0.22)', background:'var(--red-soft)'}} onClick={()=>review(r.id,'rejected')}>Reject</button>
                   </div>}</td>}
                 </tr>
               ))}

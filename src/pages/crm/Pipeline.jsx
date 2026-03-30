@@ -34,13 +34,14 @@ export default function Pipeline() {
   const totalValue = (stage) => clients.filter(c=>c.status===stage).reduce((sum,c)=>sum+Number(c.value||0),0)
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Pipeline</h1>
           <p className="page-sub">{clients.filter(c=>c.status!=='lost').length} active opportunities</p>
         </div>
       </div>
+      <div className="compact-note">Move opportunities through the sales journey and keep the current commercial picture visible at a glance.</div>
       {loading ? <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:12}}>{STAGES.map(s=><div key={s.id} className="skel" style={{height:200,borderRadius:12}}/>)}</div>
       : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:12,overflowX:'auto'}}>
           {STAGES.map(stage=>{
@@ -60,7 +61,8 @@ export default function Pipeline() {
                       <div style={{fontWeight:500,fontSize:13,marginBottom:4}}>{c.name}</div>
                       {c.value&&<div style={{fontSize:11,color:'var(--faint)',fontFamily:'var(--font-mono)',marginBottom:6}}>£{Number(c.value).toLocaleString()}</div>}
                       <select value={c.status} onChange={e=>moveStage(c.id,e.target.value)}
-                        style={{fontSize:11,padding:'2px 6px',borderRadius:4,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',cursor:'pointer',width:'100%'}}>
+                        className="inp"
+                        style={{fontSize:12,padding:'8px 10px',borderRadius:10,width:'100%'}}>
                         {STAGES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
                       </select>
                     </div>

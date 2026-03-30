@@ -8,7 +8,6 @@ export default function PaymentWall() {
   return (
     <div className="payment-wall">
       <div className="payment-wall-card">
-        <div style={{ fontSize:40, marginBottom:16 }}>{isOverdue ? '⚠️' : '🔒'}</div>
         <h1 style={{ fontFamily:'var(--font-display)', fontSize:24, fontWeight:400, marginBottom:8 }}>
           {isOverdue ? 'Payment Required' : 'Account Suspended'}
         </h1>
@@ -19,7 +18,7 @@ export default function PaymentWall() {
         </p>
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
           <Link to="/billing" className="btn btn-primary btn-lg" style={{ justifyContent:'center' }}>
-            Update Billing →
+            Update billing
           </Link>
           <a href="mailto:clients@dhwebsiteservices.co.uk" className="btn btn-outline" style={{ justifyContent:'center' }}>
             Contact Support

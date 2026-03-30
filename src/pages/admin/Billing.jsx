@@ -249,52 +249,22 @@ export default function Billing() {
           <p className="page-sub">Plans, mandates, and subscription readiness</p>
         </div>
       </div>
-      <div className="hero-grid">
-        <div className="hero-panel">
-          <div className="hero-kicker">Subscription overview</div>
-          <div className="hero-title">{plan?.name || 'Starter'} keeps your workspace running.</div>
-          <div className="hero-copy">
-            Billing is designed around Direct Debit. Access should only expand once a real mandate and subscription exist.
-          </div>
-          <div className="status-band">
-            <span className={`badge badge-${tenant?.status === 'trialing' ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`}>{tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}</span>
-            <span className="status-pill">{hasBillingSetup ? 'Direct Debit ready' : 'Direct Debit not set'}</span>
-            <span className="status-pill">{hasSubscription ? 'Subscription active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'No live subscription'}</span>
-          </div>
-          <div className="hero-actions">
-            {!tenant?.gc_mandate_id ? (
-              <button className="btn btn-gold" onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
-                {loadingBilling ? 'Starting setup...' : 'Set up Direct Debit'}
-              </button>
-            ) : (
-              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>
-                Update payment method
-              </button>
-            )}
-            {tenant?.gc_subscription_id && (
-              <button className="btn btn-outline" style={{ color:'var(--red)' }} onClick={cancelSubscription} disabled={loadingBilling || !tenant?.gc_subscription_id}>
-                Cancel subscription
-              </button>
-            )}
-          </div>
+      <div className="kpi-strip">
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Plan</div>
+          <div className="kpi-cell-value">{plan?.name || 'Starter'}</div>
         </div>
-        <div className="hero-panel">
-          <div className="hero-kicker">Billing state</div>
-          <div className="hero-list">
-            {[
-              ['Trial ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
-              ['Seats included', plan?.max_users || 5],
-              ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],
-              ['Subscription', tenant?.gc_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
-              ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
-              ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
-            ].map(([label, value]) => (
-              <div key={label} className="hero-list-item">
-                <span className="hero-list-label">{label}</span>
-                <span className="hero-list-value">{value}</span>
-              </div>
-            ))}
-          </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Status</div>
+          <div className="kpi-cell-value">{tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Direct Debit</div>
+          <div className="kpi-cell-value">{hasBillingSetup ? 'Ready' : 'Not set'}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Subscription</div>
+          <div className="kpi-cell-value">{hasSubscription ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'}</div>
         </div>
       </div>
 
@@ -337,19 +307,20 @@ export default function Billing() {
             ))}
           </div>
 
-          {!tenant?.gc_mandate_id ? (
-            <div>
-              <p style={{ fontSize: 13, color: 'var(--sub)', marginBottom: 12 }}>Set up Direct Debit to activate your subscription. UK businesses only, via GoCardless.</p>
-              <button className="btn btn-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {!tenant?.gc_mandate_id ? (
+              <button className="btn btn-primary" onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
                 {loadingBilling ? 'Starting setup...' : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''}`}
               </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>Update Payment Method</button>
-              <button className="btn btn-outline" style={{ color: 'var(--red)' }} onClick={cancelSubscription} disabled={loadingBilling || !tenant?.gc_subscription_id}>Cancel Subscription</button>
-            </div>
-          )}
+            ) : (
+              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>Update payment method</button>
+            )}
+            {tenant?.gc_subscription_id && (
+              <button className="btn btn-outline" style={{ color: 'var(--red)' }} onClick={cancelSubscription} disabled={loadingBilling || !tenant?.gc_subscription_id}>
+                Cancel subscription
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="card card-pad">

@@ -20,14 +20,14 @@ export default function SuperBilling() {
   const churnRisk = tenants.filter(t=>t.status==='overdue').length
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Platform Billing</h1>
           <p className="page-sub">Revenue overview</p>
         </div>
       </div>
-      <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:28}}>
+      <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
         {[
           {label:'MRR', val:`£${mrr}`, colour:'var(--gold)'},
           {label:'ARR (projected)', val:`£${arr}`, colour:'var(--green)'},
@@ -40,9 +40,15 @@ export default function SuperBilling() {
           </div>
         ))}
       </div>
+      <div className="compact-note">Monitor revenue mix, active billing, and risk across the full tenant base.</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
         <div className="card card-pad">
-          <h3 style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:400,marginBottom:16}}>Revenue by Plan</h3>
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Revenue by plan</h3>
+              <div className="panel-sub">Monthly recurring revenue split by plan tier</div>
+            </div>
+          </div>
           {Object.entries(PLANS).map(([key,plan])=>{
             const count = active.filter(t=>t.plan===key).length
             const rev = count*plan.launch_price
@@ -60,7 +66,12 @@ export default function SuperBilling() {
           })}
         </div>
         <div className="card card-pad">
-          <h3 style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:400,marginBottom:16}}>Status Breakdown</h3>
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Status breakdown</h3>
+              <div className="panel-sub">How the tenant base is split across billing states</div>
+            </div>
+          </div>
           {['trialing','active','overdue','suspended'].map(status=>{
             const count = tenants.filter(t=>t.status===status).length
             const colours = {trialing:'var(--amber)',active:'var(--green)',overdue:'var(--red)',suspended:'var(--faint)'}

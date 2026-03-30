@@ -30,7 +30,7 @@ export default function StaffDirectory() {
     if (seatLimitReached(tenant, staff.length)) { alert(`You've reached your ${tenant.plan} plan seat limit. Upgrade to add more team members.`); return }
     setSaving(true)
     try {
-      await inviteMember({
+      const result = await inviteMember({
         tenant,
         tenantUser,
         email: invForm.email,
@@ -40,7 +40,7 @@ export default function StaffDirectory() {
       await load()
       setInviteModal(false)
       setInvForm({ email: '', role: 'staff', full_name: '' })
-      alert('Invitation sent!')
+      alert(result.emailSent ? 'Invitation sent!' : `Invite created, but email could not be sent. ${result.emailError || 'Check worker settings.'}`)
     } catch(e) { alert('Failed: ' + e.message) }
     setSaving(false)
   }
@@ -57,7 +57,7 @@ export default function StaffDirectory() {
   const canInvite = tenantUser?.role === 'owner' || tenantUser?.role === 'admin'
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Staff Directory</h1>
@@ -68,32 +68,35 @@ export default function StaffDirectory() {
         )}
       </div>
 
-      <div style={{ position:'relative', maxWidth:400, marginBottom:24 }}>
-        <input className="inp" style={{ paddingLeft:36, borderRadius:100 }} placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
-        <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'var(--faint)', fontSize:14 }}>⌕</span>
+      <div className="table-toolbar">
+        <div className="search-shell" style={{ maxWidth: 420 }}>
+          <input className="inp" placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
+          <span className="search-icon" />
+        </div>
+        <div className="compact-note">Select a person to open their full profile and access controls.</div>
       </div>
 
       {loading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:16 }}>
+        <div className="record-grid">
           {[1,2,3,4].map(i => <div key={i} className="card" style={{ padding:24 }}><div className="skel" style={{ width:56,height:56,borderRadius:'50%',marginBottom:12 }}/><div className="skel" style={{ width:'70%',height:14,marginBottom:8 }}/><div className="skel" style={{ width:'50%',height:12 }}/></div>)}
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:16 }}>
+        <div className="record-grid">
           {filtered.map(u => {
             const colour = colourFor(u.email)
             return (
               <button key={u.id} onClick={() => navigate(`/staff/${u.id}`)}
-                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:'24px 20px', textAlign:'center', cursor:'pointer', transition:'all 0.2s', display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}
-                onMouseOver={e => { e.currentTarget.style.borderColor=colour; e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow=`0 8px 24px ${colour}22` }}
-                onMouseOut={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none' }}>
-                <div style={{ width:56,height:56,borderRadius:'50%',background:colour+'18',border:`2px solid ${colour}33`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:600,color:colour,fontFamily:'var(--font-display)' }}>
+                className="record-card"
+                onMouseOver={e => { e.currentTarget.style.borderColor=colour }}
+                onMouseOut={e => { e.currentTarget.style.borderColor='var(--border)' }}>
+                <div className="record-card-avatar" style={{background:colour+'18',border:`2px solid ${colour}33`,color:colour}}>
                   {initials(u.full_name || u.email)}
                 </div>
-                <div>
-                  <div style={{ fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:2 }}>{u.full_name || u.email}</div>
-                  <div style={{ fontSize:11,color:'var(--faint)',fontFamily:'var(--font-mono)' }}>{u.job_title || u.role}</div>
+                <div className="record-card-title">{u.full_name || u.email}</div>
+                <div className="record-card-meta">{u.job_title || u.role}</div>
+                <div style={{ marginTop: 12 }}>
+                  <span className={`badge badge-${u.status === 'active' ? 'green' : 'amber'}`} style={{ textTransform:'capitalize' }}>{u.status}</span>
                 </div>
-                <span className={`badge badge-${u.status === 'active' ? 'green' : 'amber'}`} style={{ textTransform:'capitalize' }}>{u.status}</span>
               </button>
             )
           })}

@@ -111,38 +111,22 @@ export default function Team() {
         </div>
         {isOwner&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Invite Member</button>}
       </div>
-      <div className="hero-grid">
-        <div className="hero-panel">
-          <div className="hero-kicker">People operations</div>
-          <div className="hero-title">Keep the right people active, and remove access safely.</div>
-          <div className="hero-copy">
-            Invitations, seats, suspensions, and permanent deletion are all managed from one place with history-aware safeguards.
-          </div>
-          <div className="status-band">
-            <span className="badge badge-blue">{billableSeats} seats in use</span>
-            <span className="status-pill">{staff.filter(member => member.status === 'invited').length} pending invite{staff.filter(member => member.status === 'invited').length !== 1 ? 's' : ''}</span>
-            <span className="status-pill">{staff.filter(member => member.status === 'suspended').length} suspended</span>
-          </div>
+      <div className="kpi-strip">
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Seats in use</div>
+          <div className="kpi-cell-value">{billableSeats} / {tenant?.seat_limit||5}</div>
         </div>
-        <div className="hero-panel">
-          <div className="hero-kicker">Seat capacity</div>
-          <div style={{height:8,background:'var(--border)',borderRadius:100,overflow:'hidden',marginBottom:12}}>
-            <div style={{width:`${Math.min(100,(billableSeats/(tenant?.seat_limit||5))*100)}%`,height:'100%',background:billableSeats>=(tenant?.seat_limit||5)?'var(--red)':'var(--green)',transition:'width 0.3s'}}/>
-          </div>
-          <div className="hero-list">
-            <div className="hero-list-item">
-              <span className="hero-list-label">Current use</span>
-              <span className="hero-list-value">{billableSeats} of {tenant?.seat_limit||5} seats</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Suspended members</span>
-              <span className="hero-list-value">{staff.filter(member => member.status === 'suspended').length}</span>
-            </div>
-            <div className="hero-list-item">
-              <span className="hero-list-label">Pending invites</span>
-              <span className="hero-list-value">{staff.filter(member => member.status === 'invited').length}</span>
-            </div>
-          </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Pending invites</div>
+          <div className="kpi-cell-value">{staff.filter(member => member.status === 'invited').length}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Suspended</div>
+          <div className="kpi-cell-value">{staff.filter(member => member.status === 'suspended').length}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Seat capacity</div>
+          <div className="kpi-cell-value">{Math.round((billableSeats / (tenant?.seat_limit||5)) * 100)}%</div>
         </div>
       </div>
       <div className="card card-pad table-card">

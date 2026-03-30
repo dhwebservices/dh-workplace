@@ -36,16 +36,20 @@ const emailWrap = (content) => `
 
 // ── Send email via Resend ─────────────────────────────────────
 async function sendEmail(to, subject, html, env) {
+  if (!env.RESEND_API_KEY) throw new Error('Worker email is not configured: RESEND_API_KEY is missing')
+  if (!env.FROM_EMAIL) throw new Error('Worker email is not configured: FROM_EMAIL is missing')
+
   const res = await fetch(RESEND, {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: env.FROM_EMAIL || 'noreply@dhworkplace.co.uk', to: [to], subject, html })
+    body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], subject, html })
   })
   if (!res.ok) {
     const err = await res.text()
     console.error('Resend error:', err)
+    throw new Error(`Resend send failed: ${err}`)
   }
-  return res.ok
+  return true
 }
 
 // ── Email templates ────────────────────────────────────────────
@@ -54,30 +58,36 @@ async function handleEmail(type, data, env) {
 
     case 'welcome': {
       const html = emailWrap(`
-        <h2 style="color:#1D1D1F;margin:0 0 8px">Welcome to DH Workplace 🎉</h2>
+        <h2 style="color:#1D1D1F;margin:0 0 8px">Welcome to DH Workplace</h2>
         <p style="color:#555;margin:0 0 20px">Hi ${data.name || 'there'}, your workspace is ready.</p>
         <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px">
           <p style="margin:0;font-size:14px;color:#333"><strong>Workspace:</strong> ${data.company}</p>
           <p style="margin:8px 0 0;font-size:14px;color:#333"><strong>Plan:</strong> ${data.plan || 'Starter'} (14-day free trial)</p>
           <p style="margin:8px 0 0;font-size:13px;color:#777">Founding Member price: <strong>£9/mo</strong> after trial</p>
         </div>
-        <a href="${data.url || 'https://app.dhworkplace.co.uk'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Go to your workspace →</a>
+        <a href="${data.url || 'https://app.dhworkplace.co.uk'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Go to your workspace</a>
         <p style="color:#86868B;font-size:12px;margin-top:20px">Questions? Reply to this email or contact clients@dhwebsiteservices.co.uk</p>
       `)
-      return sendEmail(data.to_email, 'Welcome to DH Workplace — Your workspace is ready', html, env)
+      return sendEmail(data.to_email, 'Welcome to DH Workplace - Your workspace is ready', html, env)
     }
 
     case 'invite': {
       const html = emailWrap(`
-        <h2 style="color:#1D1D1F;margin:0 0 8px">You've been invited to DH Workplace</h2>
+        <h2 style="color:#1D1D1F;margin:0 0 8px">You have been invited to DH Workplace</h2>
         <p style="color:#555;margin:0 0 20px">Hi ${data.name || 'there'},</p>
         <p style="color:#555;font-size:14px;margin:0 0 20px">
           <strong>${data.invited_by}</strong> has invited you to join <strong>${data.company}</strong> on DH Workplace as ${data.role === 'admin' ? 'an' : 'a'} <strong>${data.role}</strong>.
         </p>
-        <a href="${data.invite_url}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Accept invitation →</a>
+        <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px">
+          <p style="margin:0;font-size:14px;color:#333"><strong>Company:</strong> ${data.company}</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#333"><strong>Role:</strong> ${data.role}</p>
+        </div>
+        <a href="${data.invite_url}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Accept invitation</a>
+        <p style="color:#86868B;font-size:12px;margin-top:20px">If the button does not work, copy and paste this link into your browser:</p>
+        <p style="color:#555;font-size:12px;line-height:1.6;word-break:break-all;margin:8px 0 0">${data.invite_url}</p>
         <p style="color:#86868B;font-size:12px;margin-top:20px">This invitation expires in 7 days. If you weren't expecting this, you can ignore it.</p>
       `)
-      return sendEmail(data.to_email, `You've been invited to ${data.company} on DH Workplace`, html, env)
+      return sendEmail(data.to_email, `Invitation to join ${data.company} on DH Workplace`, html, env)
     }
 
     case 'leave_request_submitted': {
@@ -91,22 +101,22 @@ async function handleEmail(type, data, env) {
           <p style="margin:8px 0 0;font-size:14px"><strong>Days:</strong> ${data.days}</p>
           ${data.notes ? `<p style="margin:8px 0 0;font-size:13px;color:#555"><strong>Notes:</strong> ${data.notes}</p>` : ''}
         </div>
-        <a href="${data.url || '#'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Review request →</a>
+        <a href="${data.url || '#'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Review request</a>
       `)
-      return sendEmail(data.to_email, `Leave Request — ${data.staff_name}`, html, env)
+      return sendEmail(data.to_email, `Leave request - ${data.staff_name}`, html, env)
     }
 
     case 'leave_request_approved':
     case 'leave_request_rejected': {
       const approved = type === 'leave_request_approved'
       const html = emailWrap(`
-        <h2 style="color:#1D1D1F;margin:0 0 8px">Leave Request ${approved ? 'Approved ✅' : 'Rejected ❌'}</h2>
+        <h2 style="color:#1D1D1F;margin:0 0 8px">Leave Request ${approved ? 'Approved' : 'Rejected'}</h2>
         <p style="color:#555;margin:0 0 20px">Hi ${data.staff_name},</p>
         <p style="color:#555;font-size:14px;margin:0 0 20px">
           Your leave request for <strong>${data.start_date} – ${data.end_date}</strong> has been <strong>${approved ? 'approved' : 'rejected'}</strong>.
         </p>
         ${data.notes ? `<div style="background:#f9f9f9;border-radius:8px;padding:16px;margin-bottom:20px"><p style="margin:0;font-size:13px;color:#555"><strong>Note from manager:</strong> ${data.notes}</p></div>` : ''}
-        <a href="${data.url || '#'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">View in portal →</a>
+        <a href="${data.url || '#'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">View in portal</a>
       `)
       return sendEmail(data.to_email, `Leave Request ${approved ? 'Approved' : 'Rejected'}`, html, env)
     }

@@ -100,7 +100,7 @@ export default function SignUp() {
 
         {/* Founding member badge */}
         <div style={{ background:'var(--gold-soft)', border:'1px solid var(--gold-border)', borderRadius:10, padding:'10px 16px', marginBottom:24, textAlign:'center' }}>
-          <span style={{ fontSize:12, color:'var(--gold)', fontWeight:600 }}>🎉 Founding Member Offer — Lock in launch pricing forever</span>
+          <span style={{ fontSize:12, color:'var(--gold)', fontWeight:600 }}>Founding Member Offer — Lock in launch pricing forever</span>
         </div>
 
         <div className="card card-pad">
@@ -120,7 +120,7 @@ export default function SignUp() {
               </div>
               {error && <div style={{ fontSize:13, color:'var(--red)', background:'var(--red-soft)', padding:'10px 14px', borderRadius:8 }}>{error}</div>}
               <button className="btn btn-primary btn-lg" type="submit" disabled={loading} style={{ width:'100%', justifyContent:'center', marginTop:4 }}>
-                {loading ? 'Creating your workspace...' : 'Start free trial →'}
+                {loading ? 'Creating your workspace...' : 'Start free trial'}
               </button>
             </div>
           </form>

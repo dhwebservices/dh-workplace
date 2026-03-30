@@ -58,7 +58,7 @@ export default function Clients() {
   })
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Clients</h1>
@@ -67,19 +67,20 @@ export default function Clients() {
         <button className="btn btn-primary" onClick={() => open()}>+ Add Client</button>
       </div>
 
-      <div style={{ display:'flex', gap:12, marginBottom:24, flexWrap:'wrap' }}>
-        <div style={{ position:'relative', flex:1, minWidth:200 }}>
-          <input className="inp" style={{ paddingLeft:36, borderRadius:100 }} placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} />
-          <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'var(--faint)' }}>⌕</span>
+      <div className="table-toolbar">
+        <div className="search-shell" style={{ minWidth: 260 }}>
+          <input className="inp" placeholder="Search clients..." value={search} onChange={e => setSearch(e.target.value)} />
+          <span className="search-icon" />
         </div>
-        <div style={{ display:'flex', gap:6 }}>
+        <div className="filter-pills">
           {['all','lead','active','inactive'].map(s => (
             <button key={s} onClick={() => setFilter(s)} className={`btn btn-sm ${filter===s?'btn-primary':'btn-outline'}`} style={{ textTransform:'capitalize' }}>{s}</button>
           ))}
         </div>
+        <div className="compact-note">Open a client to manage tasks, notes, and invoices.</div>
       </div>
 
-      <div className="card" style={{ overflow:'hidden' }}>
+      <div className="card card-pad table-card">
         {loading ? (
           <div style={{ padding:24 }}>{[1,2,3].map(i=><div key={i} className="skel" style={{ height:48, marginBottom:8, borderRadius:8 }}/>)}</div>
         ) : filtered.length === 0 ? (
@@ -95,7 +96,7 @@ export default function Clients() {
                   <td>{c.plan || '—'}</td>
                   <td style={{ fontFamily:'var(--font-mono)', fontSize:12 }}>{c.value ? `£${Number(c.value).toLocaleString()}` : '—'}</td>
                   <td><span className={`badge badge-${STATUS_COLOURS[c.status] || 'grey'}`} style={{ textTransform:'capitalize' }}>{c.status}</span></td>
-                  <td onClick={e => { e.stopPropagation(); open(c) }} style={{ color:'var(--faint)', cursor:'pointer' }}>✎</td>
+                  <td><button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); open(c) }}>Edit</button></td>
                 </tr>
               ))}
             </tbody>

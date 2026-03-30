@@ -62,16 +62,17 @@ export default function Documents() {
 
   const filtered = docs.filter(d => canViewDoc(d) && (filter==='all' || d.category===filter))
   const CAT_BADGE = { policy:'badge-blue', contract:'badge-amber', payslip:'badge-green', onboarding:'badge-gold', general:'badge-grey' }
-  const fileIcon = (name='') => {
+  const fileType = (name='') => {
     const ext = name.split('.').pop().toLowerCase()
-    if (ext==='pdf') return '📄'
-    if (['doc','docx'].includes(ext)) return '📝'
-    if (['jpg','png','jpeg'].includes(ext)) return '🖼'
-    return '📁'
+    if (ext==='pdf') return 'PDF'
+    if (['doc','docx'].includes(ext)) return 'DOC'
+    if (['jpg','png','jpeg'].includes(ext)) return 'IMG'
+    if (['xlsx','csv'].includes(ext)) return 'DATA'
+    return 'FILE'
   }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Documents</h1>
@@ -79,28 +80,33 @@ export default function Documents() {
         </div>
         {isAdmin&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Upload Document</button>}
       </div>
-      <div style={{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}}>
+      <div className="table-toolbar">
+        <div className="filter-pills">
         {['all',...CATEGORIES].map(c=>(
           <button key={c} onClick={()=>setFilter(c)} className={`btn btn-sm ${filter===c?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize'}}>{c}</button>
         ))}
+        </div>
+        <div className="compact-note">Store company documents, contracts, and internal policies with clear visibility rules.</div>
       </div>
       {loading ? <div className="card card-pad">{[1,2,3].map(i=><div key={i} className="skel" style={{height:60,marginBottom:10,borderRadius:8}}/>)}</div>
       : filtered.length===0 ? <div className="card"><div className="empty"><p>No documents found</p></div></div>
       : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16}}>
           {filtered.map(d=>(
             <div key={d.id} className="card card-pad" style={{display:'flex',gap:14,alignItems:'flex-start'}}>
-              <div style={{fontSize:28,flexShrink:0}}>{fileIcon(d.name)}</div>
+              <div style={{width:50,height:50,borderRadius:14,background:'var(--blue-soft)',border:'1px solid var(--blue-border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'var(--blue)',flexShrink:0}}>
+                {fileType(d.name)}
+              </div>
               <div style={{flex:1,overflow:'hidden'}}>
                 <div style={{fontWeight:600,fontSize:14,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.name}</div>
                 <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
                   <span className={`badge ${CAT_BADGE[d.category]||'badge-grey'}`} style={{textTransform:'capitalize',fontSize:10}}>{d.category}</span>
-                  {d.visible_to!=='all'&&<span className="badge badge-amber" style={{fontSize:10}}>🔒 {d.visible_to}</span>}
+                  {d.visible_to!=='all'&&<span className="badge badge-amber" style={{fontSize:10, textTransform:'capitalize'}}>{d.visible_to}</span>}
                 </div>
                 <div style={{fontSize:11,color:'var(--faint)',marginBottom:10}}>{new Date(d.created_at).toLocaleDateString('en-GB')}</div>
                 <div style={{display:'flex',gap:6}}>
                   <a href={d.file_url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">View</a>
-                  <a href={d.file_url} download={d.name} className="btn btn-outline btn-sm">↓</a>
-                  {isAdmin&&<button className="btn btn-sm" style={{background:'var(--red-soft)',color:'var(--red)',border:'1px solid var(--red)'}} onClick={()=>deleteDoc(d)}>Del</button>}
+                  <a href={d.file_url} download={d.name} className="btn btn-outline btn-sm">Download</a>
+                  {isAdmin&&<button className="btn btn-sm btn-outline" style={{color:'var(--red)', borderColor:'rgba(222,91,77,0.22)', background:'var(--red-soft)'}} onClick={()=>deleteDoc(d)}>Delete</button>}
                 </div>
               </div>
             </div>

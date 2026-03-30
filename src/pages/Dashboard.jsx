@@ -25,7 +25,6 @@ export default function Dashboard() {
 
   const trialDays = getTrialDaysLeft(tenant)
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
-  const activeStatus = tenant?.status === 'trialing' ? 'Trial workspace' : tenant?.status === 'active' ? 'Subscription active' : 'Billing attention'
 
   return (
     <div className="fade-in page-stack">
@@ -35,20 +34,6 @@ export default function Dashboard() {
           <p className="page-sub">{new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</p>
         </div>
       </div>
-
-      {tenant?.status === 'trialing' && (
-        <div className="card card-pad" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
-          <div>
-            <div style={{ fontSize:14, fontWeight:700, color:'var(--blue)' }}>
-              {trialDays > 0 ? `${trialDays} days left in your free trial` : 'Your free trial has ended'}
-            </div>
-            <div style={{ fontSize:13, color:'var(--sub)', marginTop:4 }}>
-              Set up Direct Debit before trial ends to keep access.
-            </div>
-          </div>
-          <Link to="/billing" className="btn btn-primary btn-sm">Set up billing</Link>
-        </div>
-      )}
 
       <div className="stats-grid">
         {[
@@ -111,6 +96,12 @@ export default function Dashboard() {
                 {tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}
               </span>
             </div>
+            {tenant?.status === 'trialing' && (
+              <div className="detail-row">
+                <span className="detail-row-label">Trial</span>
+                <span className="detail-row-value">{trialDays > 0 ? `${trialDays} days remaining` : 'Ended'}</span>
+              </div>
+            )}
             <div className="detail-row">
               <span className="detail-row-label">Seat limit</span>
               <span className="detail-row-value">{stats.staff} / {tenant?.seat_limit || 5} used</span>

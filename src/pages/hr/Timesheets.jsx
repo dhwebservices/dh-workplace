@@ -59,7 +59,7 @@ export default function Timesheets() {
   const SB = { pending:'badge-amber', approved:'badge-green', rejected:'badge-red' }
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Timesheets</h1>
@@ -67,12 +67,13 @@ export default function Timesheets() {
         </div>
         <button className="btn btn-primary" onClick={()=>setModal(true)}>+ Log Hours</button>
       </div>
+      <div className="compact-note">Track time by day, tie work to client accounts, and keep approvals clear for managers.</div>
       <div className="tabs">
         {[['mine','My Hours'],isManager&&['all','All Staff']].filter(Boolean).map(([k,l])=>(
           <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
-      <div className="card" style={{overflow:'hidden'}}>
+      <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:52,marginBottom:8,borderRadius:8}}/>)}</div>
         : filtered.length===0 ? <div className="empty"><p>No timesheet entries</p></div>
         : <table className="tbl">
@@ -91,8 +92,8 @@ export default function Timesheets() {
                   <td style={{fontSize:12,color:'var(--faint)'}}>{getClient(e.client_id)}</td>
                   <td><span className={`badge ${SB[e.status]||'badge-grey'}`} style={{textTransform:'capitalize'}}>{e.status}</span></td>
                   {isManager&&<td>{e.status==='pending'&&<div style={{display:'flex',gap:6}}>
-                    <button className="btn btn-sm" style={{background:'var(--green-soft)',color:'var(--green)',border:'1px solid var(--green)'}} onClick={()=>approve(e.id,'approved')}>✓</button>
-                    <button className="btn btn-sm" style={{background:'var(--red-soft)',color:'var(--red)',border:'1px solid var(--red)'}} onClick={()=>approve(e.id,'rejected')}>✗</button>
+                    <button className="btn btn-sm btn-outline" style={{color:'var(--green)', borderColor:'rgba(36,160,107,0.22)', background:'var(--green-soft)'}} onClick={()=>approve(e.id,'approved')}>Approve</button>
+                    <button className="btn btn-sm btn-outline" style={{color:'var(--red)', borderColor:'rgba(222,91,77,0.22)', background:'var(--red-soft)'}} onClick={()=>approve(e.id,'rejected')}>Reject</button>
                   </div>}</td>}
                 </tr>
               ))}

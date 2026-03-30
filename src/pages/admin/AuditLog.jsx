@@ -37,15 +37,16 @@ export default function AuditLog() {
   if (!isAdmin) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Admin access required.</p></div>
 
   return (
-    <div className="fade-in">
+    <div className="fade-in page-stack">
       <div className="page-hd">
         <div>
           <h1 className="page-title">Audit Log</h1>
           <p className="page-sub">Last 100 events</p>
         </div>
-        <button className="btn btn-outline btn-sm" onClick={load}>↻ Refresh</button>
+        <button className="btn btn-outline btn-sm" onClick={load}>Refresh</button>
       </div>
-      <div className="card" style={{overflow:'hidden'}}>
+      <div className="compact-note">A chronological record of tenant activity, admin actions, and support-side changes.</div>
+      <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3,4,5].map(i=><div key={i} className="skel" style={{height:44,marginBottom:8,borderRadius:8}}/>)}</div>
         : logs.length===0 ? <div className="empty"><p>No audit events yet</p></div>
         : <table className="tbl">

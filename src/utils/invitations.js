@@ -62,23 +62,43 @@ export async function inviteMember({ tenant, tenantUser, email, role, fullName }
   }
 
   const finalToken = existingInvite?.token || token
+  let emailSent = false
+  let emailError = ''
   if (WORKER_URL) {
-    fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'invite',
-        data: {
-          to_email: normalizedEmail,
-          name: fullName || normalizedEmail.split('@')[0],
-          invited_by: tenantUser.full_name || tenantUser.email,
-          company: tenant.name,
-          role,
-          invite_url: `${window.location.origin}/invite/${finalToken}`,
-        },
-      }),
-    }).catch(() => {})
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'invite',
+          data: {
+            to_email: normalizedEmail,
+            name: fullName || normalizedEmail.split('@')[0],
+            invited_by: tenantUser.full_name || tenantUser.email,
+            company: tenant.name,
+            role,
+            invite_url: `${window.location.origin}/invite/${finalToken}`,
+          },
+        }),
+      })
+
+      emailSent = res.ok
+      if (!res.ok) {
+        let details = ''
+        try {
+          const payload = await res.json()
+          details = payload?.error || payload?.message || ''
+        } catch {
+          details = await res.text()
+        }
+        emailError = details || `Worker request failed with status ${res.status}`
+      }
+    } catch (err) {
+      emailError = err.message || 'Could not reach the email worker'
+    }
+  } else {
+    emailError = 'VITE_WORKER_URL is not configured'
   }
 
-  return finalToken
+  return { token: finalToken, emailSent, emailError }
 }
