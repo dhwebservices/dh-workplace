@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbUpdate } from '../../utils/supabase'
 import { inviteMember } from '../../utils/invitations'
+import { markOnboardingComplete } from '../../utils/onboarding'
 
 const STEPS = ['Your profile', 'Invite team', 'Set up billing']
 
@@ -68,6 +69,7 @@ export default function OnboardingWizard() {
 
   const finish = async () => {
     // If no billing set up, they're on trial — just go to dashboard
+    if (user?.id) markOnboardingComplete(user.id)
     await refreshTenant()
     navigate('/')
   }

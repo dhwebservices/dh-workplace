@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { isAccessBlocked } from './utils/entitlements'
+import { shouldShowOnboarding } from './utils/onboarding'
 
 const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
@@ -46,10 +47,20 @@ function RequireAuth({ children }) {
 }
 
 function RequireOnboarded({ children }) {
-  const { tenant, tenantUser, loading } = useAuth()
+  const { tenant, isPlatformAdmin, loading } = useAuth()
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
-  if (!tenant) return <Navigate to="/onboarding" replace />
+  if (isPlatformAdmin && !tenant) return <Navigate to="/superadmin" replace />
+  if (!tenant) return <Navigate to="/signin" replace />
   if (isAccessBlocked(tenant)) return <PaymentWall />
+  return children
+}
+
+function RequireInitialOnboarding({ children }) {
+  const { user, tenant, isPlatformAdmin, loading } = useAuth()
+  if (loading) return <div className="spin-wrap"><div className="spin"/></div>
+  if (!user) return <Navigate to="/signin" replace />
+  if (isPlatformAdmin && !tenant) return <Navigate to="/superadmin" replace />
+  if (!shouldShowOnboarding(user.id)) return <Navigate to="/" replace />
   return children
 }
 
@@ -72,7 +83,7 @@ export default function App() {
         <Route path="/platform-access/:token" element={<AcceptPlatformAdmin />} />
 
         {/* Onboarding */}
-        <Route path="/onboarding" element={<RequireAuth><OnboardingWizard /></RequireAuth>} />
+        <Route path="/onboarding" element={<RequireInitialOnboarding><OnboardingWizard /></RequireInitialOnboarding>} />
 
         {/* Super Admin */}
         <Route path="/superadmin" element={<RequireSuperAdmin><AppShell superAdmin /></RequireSuperAdmin>}>

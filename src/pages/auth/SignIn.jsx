@@ -38,7 +38,7 @@ export default function SignIn() {
           }
         }
 
-        if (platformAdmin && !tenantUser) {
+        if (platformAdmin) {
           navigate('/superadmin')
           setLoading(false)
           return

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, sbGet, sbInsert } from '../../utils/supabase'
+import { markOnboardingPending } from '../../utils/onboarding'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -69,6 +70,8 @@ export default function SignUp() {
         joined_at:  new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
+
+      markOnboardingPending(userId)
 
       if (WORKER_URL) {
         fetch(WORKER_URL, {
