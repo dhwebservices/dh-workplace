@@ -81,7 +81,7 @@ export default function StaffDirectory() {
           {filtered.map(u => {
             const colour = colourFor(u.email)
             return (
-              <button key={u.id} onClick={() => navigate(`/staff/${u.user_id || u.id}`)}
+              <button key={u.id} onClick={() => navigate(`/staff/${u.user_id}`)}
                 style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:'24px 20px', textAlign:'center', cursor:'pointer', transition:'all 0.2s', display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}
                 onMouseOver={e => { e.currentTarget.style.borderColor=colour; e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow=`0 8px 24px ${colour}22` }}
                 onMouseOut={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none' }}>
