@@ -291,6 +291,21 @@ async function handleGoCardless(type, data, env) {
       if (!res.ok) throw new Error(JSON.stringify(json))
       return json
     }
+    case 'gc_update_subscription': {
+      const res = await fetch(`${GC_API}/subscriptions/${data.subscription_id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          subscriptions: {
+            amount: data.amount_pence,
+            name: data.name,
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(JSON.stringify(json))
+      return json
+    }
     case 'gc_cancel_subscription': {
       const res = await fetch(`${GC_API}/subscriptions/${data.subscription_id}/actions/cancel`, { method: 'POST', headers, body: JSON.stringify({}) })
       const json = await res.json()

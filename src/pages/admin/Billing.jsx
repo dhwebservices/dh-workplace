@@ -69,6 +69,17 @@ export default function Billing() {
     setPendingPlan('')
   }
 
+  const applyPlanLocally = async (key, extra = {}) => {
+    await sbUpdate('tenants', `id=eq.${tenant.id}`, {
+      plan: key,
+      seat_limit: PLANS[key]?.max_users || 5,
+      updated_at: new Date().toISOString(),
+      ...extra,
+    })
+    clearPendingPlan()
+    await refreshTenant()
+  }
+
   const completePlanSubscription = async (key, { silent = false } = {}) => {
     if (!tenant?.id || !tenant?.gc_mandate_id || !tenantUser) return
     if (tenant.gc_subscription_id && key !== tenant.plan) {
@@ -99,21 +110,44 @@ export default function Billing() {
       const subscriptionId = subscriptionJson.subscriptions?.id
       if (!subscriptionId) throw new Error('Subscription ID missing from GoCardless response')
 
-      await sbUpdate('tenants', `id=eq.${tenant.id}`, {
-        plan: key,
-        seat_limit: PLANS[key]?.max_users || 5,
+      await applyPlanLocally(key, {
         gc_subscription_id: subscriptionId,
         status: 'active',
         subscription_started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       })
-      clearPendingPlan()
-      await refreshTenant()
       setMessage(`Your ${PLANS[key].name} subscription is now active.`)
     } catch (e) {
       if (!silent) setError(e.message || 'Failed to activate subscription')
     }
 
+    setSwitchingPlan('')
+  }
+
+  const updateLiveSubscription = async (key) => {
+    if (!tenant?.gc_subscription_id) return
+    setSwitchingPlan(key)
+    setError('')
+    setMessage('')
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'gc_update_subscription',
+          data: {
+            subscription_id: tenant.gc_subscription_id,
+            amount_pence: (PLANS[key]?.launch_price || 9) * 100,
+            name: `${PLANS[key]?.name || 'Starter'} Plan`,
+          },
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to update subscription')
+      await applyPlanLocally(key)
+      setMessage(`${PLANS[key].name} is now your active plan. Future subscription charges will use the updated amount.`)
+    } catch (e) {
+      setError(e.message || 'Failed to update subscription')
+    }
     setSwitchingPlan('')
   }
 
@@ -195,7 +229,7 @@ export default function Billing() {
       return
     }
     if (hasSubscription) {
-      setError('Changing an existing live subscription will be enabled in the next billing pass. For now, keep the current plan active.')
+      await updateLiveSubscription(key)
       return
     }
     setError('')
@@ -333,7 +367,7 @@ export default function Billing() {
           <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 14 }}>
             {hasBillingSetup
               ? hasSubscription
-                ? 'Your live subscription is active. Existing paid-plan switches stay locked until proration and swap logic are fully wired.'
+                ? 'Your live subscription is active. Switching plan updates the recurring subscription amount for future charges.'
                 : 'Direct Debit is set up. The first selected plan will activate once the subscription is created.'
               : 'Choose a plan and complete Direct Debit setup. Access only upgrades after a real subscription is created.'}
           </div>
@@ -356,7 +390,7 @@ export default function Billing() {
                         {loadingBilling ? 'Starting setup...' : 'Set up billing first'}
                       </button>
                     : <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => switchPlan(key)} disabled={!!switchingPlan}>
-                        {switchingPlan === key ? 'Activating...' : hasSubscription ? 'Switch locked' : 'Activate plan'}
+                        {switchingPlan === key ? 'Saving...' : hasSubscription ? 'Switch plan' : 'Activate plan'}
                       </button>}
               </div>
             ))}
