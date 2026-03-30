@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany } from '../../utils/supabase'
 
 export default function Policies() {
-  const { tenant } = useAuth()
+  const { tenant, tenantUser } = useAuth()
   const [policies, setPolicies] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -13,7 +13,12 @@ export default function Policies() {
     if (!tenant?.id) return
     setLoading(true)
     const data = await sbGetMany('documents', `tenant_id=eq.${tenant.id}&category=eq.policy&order=created_at.desc`)
-    setPolicies((data || []).filter(doc => !doc.deleted_at))
+    setPolicies((data || []).filter(doc => {
+      if (doc.visible_to === 'all') return true
+      if (doc.visible_to === 'managers') return ['owner', 'admin', 'manager', 'superadmin'].includes(tenantUser?.role)
+      if (doc.visible_to === 'owner') return ['owner', 'superadmin'].includes(tenantUser?.role)
+      return false
+    }))
     setLoading(false)
   }
 

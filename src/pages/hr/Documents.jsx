@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { sbDelete, sbGetMany, sbInsert } from '../../utils/supabase'
 import { supabase } from '../../utils/supabase'
 
 const CATEGORIES = ['general','policy','contract','payslip','onboarding']
@@ -18,6 +18,13 @@ export default function Documents() {
   const isAdmin = ['owner','admin','superadmin'].includes(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
+
+  const canViewDoc = (doc) => {
+    if (doc.visible_to === 'all') return true
+    if (doc.visible_to === 'managers') return ['owner', 'admin', 'manager', 'superadmin'].includes(tenantUser?.role)
+    if (doc.visible_to === 'owner') return ['owner', 'superadmin'].includes(tenantUser?.role)
+    return false
+  }
 
   const load = async () => {
     if (!tenant?.id) return
@@ -49,11 +56,11 @@ export default function Documents() {
   const deleteDoc = async (doc) => {
     if (!confirm(`Delete "${doc.name}"?`)) return
     if (doc.file_path) await supabase.storage.from('documents').remove([doc.file_path]).catch(()=>{})
-    await sbUpdate('documents', `id=eq.${doc.id}`, { deleted_at: new Date().toISOString() })
+    await sbDelete('documents', `id=eq.${doc.id}`)
     setDocs(p => p.filter(d => d.id!==doc.id))
   }
 
-  const filtered = docs.filter(d => filter==='all' || d.category===filter)
+  const filtered = docs.filter(d => canViewDoc(d) && (filter==='all' || d.category===filter))
   const CAT_BADGE = { policy:'badge-blue', contract:'badge-amber', payslip:'badge-green', onboarding:'badge-gold', general:'badge-grey' }
   const fileIcon = (name='') => {
     const ext = name.split('.').pop().toLowerCase()

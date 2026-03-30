@@ -50,3 +50,12 @@ export async function sbUpdate(table, query, payload) {
   if (!res.ok) { const e = await res.text(); throw new Error(e) }
   return true
 }
+
+export async function sbDelete(table, query) {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}`, {
+    method: 'DELETE',
+    headers: { ...sbHeaders, Prefer: 'return=minimal' },
+  })
+  if (!res.ok) { const e = await res.text(); throw new Error(e) }
+  return true
+}

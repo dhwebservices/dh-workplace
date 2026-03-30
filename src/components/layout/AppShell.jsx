@@ -6,35 +6,35 @@ import { sbGetMany, sbUpdate, supabase } from '../../utils/supabase'
 
 const NAV = [
   { label: 'Overview', items: [
-    { to: '/', icon: '⊞', label: 'Dashboard' },
+    { to: '/', label: 'Dashboard' },
   ]},
   { label: 'HR', items: [
-    { to: '/staff', icon: '👥', label: 'Staff Directory', feature: 'hr_directory' },
-    { to: '/leave', icon: '📅', label: 'Leave', feature: 'hr_leave' },
-    { to: '/documents', icon: '📁', label: 'Documents', feature: 'hr_documents' },
-    { to: '/policies', icon: '📘', label: 'Policies', feature: 'hr_documents' },
-    { to: '/timesheets', icon: '⏱', label: 'Timesheets', feature: 'hr_timesheets' },
-    { to: '/onboarding-hr', icon: '🎓', label: 'Onboarding', feature: 'hr_onboarding' },
+    { to: '/staff', label: 'Staff Directory', feature: 'hr_directory' },
+    { to: '/leave', label: 'Leave', feature: 'hr_leave' },
+    { to: '/documents', label: 'Documents', feature: 'hr_documents' },
+    { to: '/policies', label: 'Policies', feature: 'hr_documents' },
+    { to: '/timesheets', label: 'Timesheets', feature: 'hr_timesheets' },
+    { to: '/onboarding-hr', label: 'Onboarding', feature: 'hr_onboarding' },
   ]},
   { label: 'Clients', items: [
-    { to: '/clients', icon: '🏢', label: 'Clients', feature: 'crm_clients' },
-    { to: '/tasks', icon: '✓', label: 'Tasks', feature: 'crm_tasks' },
-    { to: '/pipeline', icon: '⟶', label: 'Pipeline', feature: 'crm_pipeline' },
-    { to: '/outreach', icon: '📨', label: 'Outreach', feature: 'crm_outreach' },
+    { to: '/clients', label: 'Clients', feature: 'crm_clients' },
+    { to: '/tasks', label: 'Tasks', feature: 'crm_tasks' },
+    { to: '/pipeline', label: 'Pipeline', feature: 'crm_pipeline' },
+    { to: '/outreach', label: 'Outreach', feature: 'crm_outreach' },
   ]},
   { label: 'Settings', items: [
-    { to: '/team', icon: '⚙', label: 'Team' },
-    { to: '/billing', icon: '💳', label: 'Billing' },
-    { to: '/settings', icon: '🔧', label: 'Settings' },
-    { to: '/audit', icon: '📋', label: 'Audit Log', feature: 'audit_log' },
+    { to: '/team', label: 'Team' },
+    { to: '/billing', label: 'Billing' },
+    { to: '/settings', label: 'Settings' },
+    { to: '/audit', label: 'Audit Log', feature: 'audit_log' },
   ]},
 ]
 
 const SUPER_NAV = [
   { label: 'Platform', items: [
-    { to: '/superadmin', icon: '⊞', label: 'Overview' },
-    { to: '/superadmin/tenants', icon: '🏢', label: 'Tenants' },
-    { to: '/superadmin/billing', icon: '💳', label: 'Billing' },
+    { to: '/superadmin', label: 'Overview' },
+    { to: '/superadmin/tenants', label: 'Tenants' },
+    { to: '/superadmin/billing', label: 'Billing' },
   ]},
 ]
 
@@ -180,7 +180,6 @@ export default function AppShell({ superAdmin = false }) {
                   end={item.to === '/' || item.to === '/superadmin'}
                   className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                 >
-                  <span className="nav-icon">{item.icon}</span>
                   {item.label}
                 </NavLink>
               ))}
