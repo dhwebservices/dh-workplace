@@ -2,9 +2,28 @@ import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS } from '../../utils/entitlements'
 
+const FEATURE_LABELS = {
+  hr_directory: 'Staff directory',
+  hr_leave: 'Leave management',
+  hr_documents: 'Documents and policies',
+  hr_timesheets: 'Timesheets',
+  hr_onboarding: 'HR onboarding',
+  crm_clients: 'Client CRM',
+  crm_tasks: 'Tasks',
+  crm_pipeline: 'Sales pipeline',
+  crm_outreach: 'Outreach',
+  notifications: 'Notifications',
+  audit_log: 'Audit log',
+  reports: 'Reports',
+  client_portal: 'Client portal',
+  custom_branding: 'Custom branding',
+  api_access: 'API access',
+}
+
 export default function Billing() {
   const { tenant } = useAuth()
   const plan = PLANS[tenant?.plan||'starter']
+  const currentFeatures = new Set(plan?.features || [])
 
   return (
     <div className="fade-in">
@@ -63,8 +82,27 @@ export default function Billing() {
                 <div style={{fontWeight:600,marginBottom:4,textTransform:'capitalize'}}>{p.name}</div>
                 <div style={{fontSize:22,fontWeight:700,color:'var(--gold)'}}>£{p.launch_price}<span style={{fontSize:12,color:'var(--faint)',fontWeight:400}}>/mo</span></div>
                 <div style={{fontSize:11,color:'var(--faint)',marginBottom:8}}>Up to {p.max_users} users</div>
+                <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+                  {p.features.slice(0, 4).map(feature => (
+                    <div key={feature} style={{fontSize:12,color:'var(--sub)'}}>• {FEATURE_LABELS[feature] || feature}</div>
+                  ))}
+                  {p.features.length > 4 && <div style={{fontSize:11,color:'var(--faint)'}}>+ {p.features.length - 4} more features</div>}
+                </div>
                 {tenant?.plan===key ? <span className="badge badge-blue" style={{fontSize:10}}>Current plan</span>
                 : <button className="btn btn-outline btn-sm" style={{width:'100%',justifyContent:'center',marginTop:4}}>Switch</button>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card card-pad">
+          <h3 style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:400,marginBottom:16}}>Your current access</h3>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            {Object.entries(FEATURE_LABELS).map(([feature, label]) => (
+              <div key={feature} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:10,background:currentFeatures.has(feature)?'var(--surface2)':'transparent'}}>
+                <span style={{fontSize:13,color:'var(--text)'}}>{label}</span>
+                <span className={`badge ${currentFeatures.has(feature) ? 'badge-green' : 'badge-grey'}`} style={{fontSize:10}}>
+                  {currentFeatures.has(feature) ? 'Included' : 'Upgrade'}
+                </span>
               </div>
             ))}
           </div>
