@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, sbInsert } from '../../utils/supabase'
 
+const WORKER_URL = import.meta.env.VITE_WORKER_URL
+
 function slugify(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
@@ -61,6 +63,23 @@ export default function SignUp() {
         joined_at:  new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
+
+      if (WORKER_URL) {
+        fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'welcome',
+            data: {
+              to_email: form.email,
+              name: form.email.split('@')[0],
+              company: form.company,
+              plan: 'Starter',
+              url: `${window.location.origin}/signin`,
+            },
+          }),
+        }).catch(() => {})
+      }
 
       navigate('/onboarding')
     } catch (err) {

@@ -3,6 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGet, sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
 
+const WORKER_URL = import.meta.env.VITE_WORKER_URL
+
+function parseNotes(notes) {
+  if (!notes?.trim()) return []
+  return notes
+    .split('\n\n---\n\n')
+    .filter(Boolean)
+    .map((entry, index) => {
+      const [header, ...body] = entry.split('\n')
+      return { id: `${index}-${header}`, header, body: body.join('\n').trim() }
+    })
+}
+
 export default function ClientProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -17,6 +30,7 @@ export default function ClientProfile() {
   const [invModal, setInvModal] = useState(false)
   const [invForm, setInvForm] = useState({ invoice_number:'', description:'', amount:'', due_date:'' })
   const [saving, setSaving] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
 
   useEffect(() => { load() }, [id])
 
@@ -53,6 +67,24 @@ export default function ClientProfile() {
         due_date:invForm.due_date||null, status:'unpaid',
         created_by:tenantUser.id, created_at:new Date().toISOString()
       })
+      if (WORKER_URL && client.email) {
+        fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'invoice_issued',
+            data: {
+              to_email: client.email,
+              client_name: client.name,
+              company: tenant?.name || 'DH Workplace',
+              invoice_number: invForm.invoice_number,
+              description: invForm.description,
+              amount: Number(invForm.amount),
+              due_date: invForm.due_date ? new Date(invForm.due_date).toLocaleDateString('en-GB') : 'On receipt',
+            },
+          }),
+        }).catch(() => {})
+      }
       setInvModal(false); setInvForm({invoice_number:'',description:'',amount:'',due_date:''})
       const inv = await sbGetMany('invoices', `client_id=eq.${id}&order=created_at.desc`)
       setInvoices(inv||[])
@@ -65,11 +97,28 @@ export default function ClientProfile() {
     setInvoices(p=>p.map(i=>i.id===invId?{...i,status:'paid'}:i))
   }
 
+  const addNote = async () => {
+    if (!noteDraft.trim()) return
+    const author = tenantUser?.full_name || tenantUser?.email || 'Team member'
+    const entry = `[${new Date().toLocaleString('en-GB')}] ${author}\n${noteDraft.trim()}`
+    const nextNotes = client.notes?.trim() ? `${entry}\n\n---\n\n${client.notes}` : entry
+    setSaving(true)
+    try {
+      await sbUpdate('clients', `id=eq.${id}`, { notes: nextNotes, updated_at: new Date().toISOString() })
+      setClient(prev => ({ ...prev, notes: nextNotes }))
+      setForm(prev => ({ ...prev, notes: nextNotes }))
+      setNoteDraft('')
+      setTab('notes')
+    } catch (e) { alert(e.message) }
+    setSaving(false)
+  }
+
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
   if (!client) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Client not found.</p></div>
 
   const totalRevenue = invoices.filter(i=>i.status==='paid').reduce((sum,i)=>sum+Number(i.amount||0),0)
   const outstanding = invoices.filter(i=>i.status==='unpaid').reduce((sum,i)=>sum+Number(i.amount||0),0)
+  const noteEntries = parseNotes(client.notes)
 
   return (
     <div className="fade-in">
@@ -96,7 +145,7 @@ export default function ClientProfile() {
         <div className="stat-card"><div className="stat-val" style={{color:'var(--blue)',fontSize:24}}>{tasks.filter(t=>t.status!=='done').length}</div><div className="stat-lbl">Open Tasks</div></div>
       </div>
       <div className="tabs">
-        {[['overview','Overview'],['invoices','Invoices'],['tasks','Tasks']].map(([k,l])=>(
+        {[['overview','Overview'],['notes','Notes'],['invoices','Invoices'],['tasks','Tasks']].map(([k,l])=>(
           <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -129,6 +178,40 @@ export default function ClientProfile() {
                 ))}
               </tbody>
             </table>}
+        </div>
+      )}
+      {tab==='notes'&&(
+        <div style={{display:'grid',gridTemplateColumns:'340px 1fr',gap:20}}>
+          <div className="card card-pad">
+            <h3 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:400,marginBottom:12}}>Add note</h3>
+            <div style={{fontSize:13,color:'var(--faint)',marginBottom:14}}>Keep a running client history for calls, decisions, and next steps.</div>
+            <textarea
+              className="inp"
+              rows={8}
+              value={noteDraft}
+              onChange={e=>setNoteDraft(e.target.value)}
+              placeholder="Add a client update, meeting summary, or call note..."
+              style={{resize:'vertical',marginBottom:12}}
+            />
+            <button className="btn btn-primary" onClick={addNote} disabled={saving || !noteDraft.trim()}>
+              {saving ? 'Saving...' : 'Save note'}
+            </button>
+          </div>
+          <div className="card card-pad">
+            <h3 style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:400,marginBottom:16}}>Note history</h3>
+            {noteEntries.length===0 ? (
+              <div className="empty" style={{padding:'32px 0'}}><p>No notes recorded yet</p></div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                {noteEntries.map(note=>(
+                  <div key={note.id} style={{paddingBottom:14,borderBottom:'1px solid var(--border2)'}}>
+                    <div style={{fontSize:12,fontWeight:700,color:'var(--faint)',marginBottom:8}}>{note.header}</div>
+                    <div style={{fontSize:14,color:'var(--sub)',whiteSpace:'pre-wrap'}}>{note.body || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
       {tab==='tasks'&&(

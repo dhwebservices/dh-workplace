@@ -45,6 +45,17 @@ export default function Tasks() {
         due_date:form.due_date||null,
         created_at:new Date().toISOString()
       })
+      if (form.assigned_to && form.assigned_to !== tenantUser.id) {
+        await sbInsert('notifications', {
+          tenant_id: tenant.id,
+          tenant_user_id: form.assigned_to,
+          title: 'New task assigned',
+          message: `${tenantUser.full_name || tenantUser.email} assigned you "${form.title}"`,
+          type: 'info',
+          link: '/tasks',
+          created_at: new Date().toISOString(),
+        })
+      }
       setModal(false); setForm({...EMPTY}); load()
     } catch(e) { alert(e.message) }
     setSaving(false)

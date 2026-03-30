@@ -20,6 +20,7 @@ import StaffDirectory from './pages/hr/StaffDirectory'
 import StaffProfile   from './pages/hr/StaffProfile'
 import LeaveRequests  from './pages/hr/LeaveRequests'
 import Documents      from './pages/hr/Documents'
+import Policies       from './pages/hr/Policies'
 import Timesheets     from './pages/hr/Timesheets'
 import Onboarding     from './pages/hr/Onboarding'
 
@@ -93,6 +94,7 @@ export default function App() {
         <Route path="staff/:userId"      element={<StaffProfile />} />
         <Route path="leave"              element={<LeaveRequests />} />
         <Route path="documents"          element={<Documents />} />
+        <Route path="policies"           element={<Policies />} />
         <Route path="timesheets"         element={<Timesheets />} />
         <Route path="onboarding-hr"      element={<Onboarding />} />
 

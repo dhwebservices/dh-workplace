@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
 
 const TYPES = ['annual','sick','compassionate','unpaid','other']
+const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
 function calcDays(s, e) {
   if (!s || !e) return 0
@@ -43,6 +44,16 @@ export default function LeaveRequests() {
         days:calcDays(form.start_date,form.end_date),
         notes:form.notes||null, status:'pending', created_at:new Date().toISOString()
       })
+      const managers = staff.filter(member => ['owner','admin','manager','superadmin'].includes(member.role) && member.id !== tenantUser.id)
+      await Promise.all(managers.map(manager => sbInsert('notifications', {
+        tenant_id: tenant.id,
+        tenant_user_id: manager.id,
+        title: 'New leave request',
+        message: `${tenantUser.full_name || tenantUser.email} submitted ${calcDays(form.start_date, form.end_date)} day${calcDays(form.start_date, form.end_date) !== 1 ? 's' : ''} of ${form.type} leave`,
+        type: 'warning',
+        link: '/leave',
+        created_at: new Date().toISOString(),
+      })))
       setModal(false); setForm({type:'annual',start_date:'',end_date:'',notes:''}); load()
     } catch(e) { alert(e.message) }
     setSaving(false)
@@ -50,7 +61,39 @@ export default function LeaveRequests() {
 
   const review = async (id, status) => {
     await sbUpdate('leave_requests', `id=eq.${id}`, { status, reviewed_by:tenantUser.id, reviewed_at:new Date().toISOString() })
+    const request = requests.find(r => r.id === id)
+    const member = staff.find(s => s.id === request?.tenant_user_id)
     setRequests(p => p.map(r => r.id===id ? {...r,status} : r))
+
+    if (request && member) {
+      await sbInsert('notifications', {
+        tenant_id: tenant.id,
+        tenant_user_id: member.id,
+        title: `Leave request ${status}`,
+        message: `Your ${request.type} leave request for ${new Date(request.start_date).toLocaleDateString('en-GB')} to ${new Date(request.end_date).toLocaleDateString('en-GB')} was ${status}.`,
+        type: status === 'approved' ? 'success' : 'error',
+        link: '/leave',
+        created_at: new Date().toISOString(),
+      })
+
+      if (WORKER_URL && member.email) {
+        await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: status === 'approved' ? 'leave_request_approved' : 'leave_request_rejected',
+            data: {
+              to_email: member.email,
+              staff_name: member.full_name || member.email,
+              start_date: new Date(request.start_date).toLocaleDateString('en-GB'),
+              end_date: new Date(request.end_date).toLocaleDateString('en-GB'),
+              notes: request.notes || '',
+              url: `${window.location.origin}/leave`,
+            },
+          }),
+        }).catch(() => {})
+      }
+    }
   }
 
   const getName = id => staff.find(s=>s.id===id)?.full_name || 'Unknown'
