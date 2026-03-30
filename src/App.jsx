@@ -7,6 +7,7 @@ const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
+const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
 const OnboardingWizard = lazy(() => import('./pages/onboarding/OnboardingWizard'))
 const AppShell = lazy(() => import('./components/layout/AppShell'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -31,6 +32,7 @@ const SuperDashboard = lazy(() => import('./pages/superadmin/SuperDashboard'))
 const SuperTenants = lazy(() => import('./pages/superadmin/SuperTenants'))
 const SuperTenant = lazy(() => import('./pages/superadmin/SuperTenant'))
 const SuperBilling = lazy(() => import('./pages/superadmin/SuperBilling'))
+const SuperAccess = lazy(() => import('./pages/superadmin/SuperAccess'))
 
 function AppLoader() {
   return <div className="spin-wrap"><div className="spin" /></div>
@@ -67,6 +69,7 @@ export default function App() {
         <Route path="/signin"  element={<SignIn />} />
         <Route path="/forgot"  element={<ForgotPassword />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/platform-access/:token" element={<AcceptPlatformAdmin />} />
 
         {/* Onboarding */}
         <Route path="/onboarding" element={<RequireAuth><OnboardingWizard /></RequireAuth>} />
@@ -77,6 +80,7 @@ export default function App() {
           <Route path="tenants" element={<SuperTenants />} />
           <Route path="tenants/:id" element={<SuperTenant />} />
           <Route path="billing" element={<SuperBilling />} />
+          <Route path="access" element={<SuperAccess />} />
         </Route>
 
         {/* Main App */}

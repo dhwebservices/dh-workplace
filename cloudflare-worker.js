@@ -14,6 +14,35 @@
 const GC_API = 'https://api.gocardless.com'
 const RESEND  = 'https://api.resend.com/emails'
 
+function toBase64Url(str) {
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function fromBase64Url(str) {
+  const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = base64 + '='.repeat((4 - (base64.length % 4 || 4)) % 4)
+  return atob(padded)
+}
+
+async function signInvitePayload(payload, secret) {
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const body = JSON.stringify(payload)
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(body))
+  const signature = Array.from(new Uint8Array(signatureBuffer)).map(byte => byte.toString(16).padStart(2, '0')).join('')
+  return `${toBase64Url(body)}.${signature}`
+}
+
+async function verifyInvitePayload(token, secret) {
+  const [encoded, signature] = token.split('.')
+  if (!encoded || !signature) throw new Error('Invalid invite token')
+  const payload = JSON.parse(fromBase64Url(encoded))
+  const expected = await signInvitePayload(payload, secret)
+  if (expected !== token) throw new Error('Invalid invite token')
+  if (payload.exp && payload.exp < Date.now()) throw new Error('Invitation has expired')
+  return payload
+}
+
 // ── Styles ────────────────────────────────────────────────────
 const emailWrap = (content) => `
 <!DOCTYPE html>
@@ -112,6 +141,30 @@ ${data.invite_url}
 
 This invitation expires in 7 days. If you weren't expecting this, you can ignore it.`
       return sendEmail(data.to_email, `Invitation to join ${data.company} on DH Workplace`, html, env, text)
+    }
+
+    case 'platform_admin_invite': {
+      const html = emailWrap(`
+        <h2 style="color:#1D1D1F;margin:0 0 8px">You have been invited to manage DH Workplace</h2>
+        <p style="color:#555;margin:0 0 20px">You have been granted access to the DH Workplace super admin area.</p>
+        <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px">
+          <p style="margin:0;font-size:14px;color:#333"><strong>Access level:</strong> Platform Admin</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#333"><strong>Email:</strong> ${data.to_email}</p>
+        </div>
+        <a href="${data.invite_url}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Accept platform access</a>
+        <p style="color:#86868B;font-size:12px;margin-top:20px">If the button does not work, copy and paste this link into your browser:</p>
+        <p style="color:#555;font-size:12px;line-height:1.6;word-break:break-all;margin:8px 0 0">${data.invite_url}</p>
+      `)
+      const text = `You have been invited to manage DH Workplace
+
+You have been granted access to the DH Workplace super admin area.
+
+Access level: Platform Admin
+Email: ${data.to_email}
+
+Accept platform access:
+${data.invite_url}`
+      return sendEmail(data.to_email, 'Invitation to DH Workplace platform admin access', html, env, text)
     }
 
     case 'leave_request_submitted': {
@@ -408,6 +461,73 @@ async function handleInviteAction(type, data, env) {
   throw new Error(`Unknown invite action: ${type}`)
 }
 
+async function handlePlatformAdminAction(type, data, env) {
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const secret = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=minimal',
+  }
+
+  if (type === 'platform_admin_invite') {
+    const normalizedEmail = data.email.trim().toLowerCase()
+    const existingRes = await fetch(`${sbUrl}/rest/v1/platform_admins?email=eq.${encodeURIComponent(normalizedEmail)}&limit=1`, { headers })
+    const existingData = await existingRes.json()
+    const existing = existingData?.[0]
+
+    if (!existing) {
+      await fetch(`${sbUrl}/rest/v1/platform_admins`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: normalizedEmail, user_id: null, created_at: new Date().toISOString() }),
+      })
+    }
+
+    const token = await signInvitePayload({
+      type: 'platform_admin',
+      email: normalizedEmail,
+      exp: Date.now() + 7 * 86400000,
+    }, secret)
+
+    await handleEmail('platform_admin_invite', {
+      to_email: normalizedEmail,
+      invite_url: `${data.invite_url_base}/${token}`,
+    }, env)
+
+    return { ok: true }
+  }
+
+  if (type === 'platform_admin_lookup') {
+    const payload = await verifyInvitePayload(data.token, secret)
+    const existingRes = await fetch(`${sbUrl}/rest/v1/platform_admins?email=eq.${encodeURIComponent(payload.email)}&limit=1`, { headers })
+    const existingData = await existingRes.json()
+    const existing = existingData?.[0]
+    if (!existing) throw new Error('Platform admin invitation not found')
+    return { email: payload.email, status: existing.user_id ? 'active' : 'pending' }
+  }
+
+  if (type === 'platform_admin_accept') {
+    const payload = await verifyInvitePayload(data.token, secret)
+    const existingRes = await fetch(`${sbUrl}/rest/v1/platform_admins?email=eq.${encodeURIComponent(payload.email)}&limit=1`, { headers })
+    const existingData = await existingRes.json()
+    const existing = existingData?.[0]
+    if (!existing) throw new Error('Platform admin invitation not found')
+
+    await fetch(`${sbUrl}/rest/v1/platform_admins?id=eq.${existing.id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ user_id: data.user_id }),
+    })
+
+    return { ok: true }
+  }
+
+  throw new Error(`Unknown platform admin action: ${type}`)
+}
+
 // ── GoCardless Webhook Handler ────────────────────────────────
 async function handleWebhook(request, env) {
   const body = await request.text()
@@ -557,6 +677,8 @@ export default {
         result = await handleGoCardless(type, data, env)
       } else if (type.startsWith('invite_')) {
         result = await handleInviteAction(type, data, env)
+      } else if (type.startsWith('platform_admin_')) {
+        result = await handlePlatformAdminAction(type, data, env)
       } else {
         const emailRes = await handleEmail(type, data, env)
         if (emailRes instanceof Response) return new Response(emailRes.body, { status: emailRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

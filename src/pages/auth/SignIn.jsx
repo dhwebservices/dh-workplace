@@ -37,6 +37,12 @@ export default function SignIn() {
             return
           }
         }
+
+        if (platformAdmin && !tenantUser) {
+          navigate('/superadmin')
+          setLoading(false)
+          return
+        }
       }
     } catch (checkError) {
       await supabase.auth.signOut()

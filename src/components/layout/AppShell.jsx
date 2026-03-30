@@ -35,6 +35,7 @@ const SUPER_NAV = [
     { to: '/superadmin', label: 'Overview' },
     { to: '/superadmin/tenants', label: 'Tenants' },
     { to: '/superadmin/billing', label: 'Billing' },
+    { to: '/superadmin/access', label: 'Platform Access' },
   ]},
 ]
 
