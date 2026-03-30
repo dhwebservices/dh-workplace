@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase, sbInsert } from '../../utils/supabase'
+import { supabase, sbGet, sbInsert } from '../../utils/supabase'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -25,9 +25,15 @@ export default function SignUp() {
     }
     setLoading(true); setError('')
     try {
+      const normalizedEmail = form.email.trim().toLowerCase()
+      const platformInvite = await sbGet('platform_admins', `email=eq.${encodeURIComponent(normalizedEmail)}`)
+      if (platformInvite) {
+        throw new Error('This email has platform admin access waiting. Use the platform invite link or sign in instead of starting a tenant trial.')
+      }
+
       // 1. Create auth user
       const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: form.email,
+        email: normalizedEmail,
         password: form.password,
       })
       if (authErr) throw authErr
@@ -46,7 +52,7 @@ export default function SignUp() {
         slug,
         plan:          'starter',
         seat_limit:    5,
-        owner_email:   form.email,
+        owner_email:   normalizedEmail,
         status:        'trialing',
         trial_ends_at: trialEnds.toISOString(),
         created_at:    new Date().toISOString(),
@@ -57,7 +63,7 @@ export default function SignUp() {
         tenant_id:  tenantId,
         user_id:    userId,
         role:       'owner',
-        email:      form.email,
+        email:      normalizedEmail,
         full_name:  '',
         status:     'active',
         joined_at:  new Date().toISOString(),
