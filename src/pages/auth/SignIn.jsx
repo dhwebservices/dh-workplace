@@ -6,6 +6,7 @@ export default function SignIn() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
 
   const submit = async (e) => {
@@ -54,6 +55,24 @@ export default function SignIn() {
     navigate('/')
   }
 
+  const signInWithGoogle = async () => {
+    setGoogleLoading(true)
+    setError('')
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      },
+    })
+    if (oauthError) {
+      setError(oauthError.message)
+      setGoogleLoading(false)
+    }
+  }
+
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
       <div style={{ width:'100%', maxWidth:400 }}>
@@ -62,6 +81,16 @@ export default function SignIn() {
           <div style={{ fontSize:13, color:'var(--faint)', marginTop:4 }}>Sign in to your workspace</div>
         </div>
         <div className="card card-pad">
+          <div style={{ display:'flex', flexDirection:'column', gap:14, marginBottom:18 }}>
+            <button className="btn btn-outline" type="button" onClick={signInWithGoogle} disabled={loading || googleLoading} style={{ width:'100%', justifyContent:'center' }}>
+              {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+            </button>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ flex:1, height:1, background:'var(--border)' }} />
+              <span style={{ fontSize:11, color:'var(--faint)', textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700 }}>Or use email</span>
+              <div style={{ flex:1, height:1, background:'var(--border)' }} />
+            </div>
+          </div>
           <form onSubmit={submit}>
             <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
               <div>
@@ -79,6 +108,9 @@ export default function SignIn() {
               <Link to="/forgot" style={{ textAlign:'center', fontSize:13, color:'var(--faint)', textDecoration:'none' }}>Forgot password?</Link>
             </div>
           </form>
+          <div style={{ textAlign:'center', marginTop:16, fontSize:12, color:'var(--faint)' }}>
+            Google sign-in works for existing workspace or platform-admin accounts once it is enabled in Supabase.
+          </div>
         </div>
         <div style={{ textAlign:'center', marginTop:20, fontSize:13, color:'var(--faint)' }}>
           Don't have an account? <Link to="/signup" style={{ color:'var(--blue)', textDecoration:'none' }}>Start free trial</Link>
