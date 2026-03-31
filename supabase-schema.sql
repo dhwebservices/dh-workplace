@@ -23,6 +23,8 @@ create table tenants (
   seat_limit            int default 5,
   logo_url              text,
   primary_colour        text default '#0071E3',
+  is_demo               boolean default false,
+  demo_template         text,
   owner_email           text not null,
   status                text default 'trialing' check (status in ('trialing','active','overdue','suspended','cancelled')),
   trial_ends_at         timestamptz,

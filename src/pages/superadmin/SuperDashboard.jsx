@@ -14,12 +14,16 @@ export default function SuperDashboard() {
     })
   }, [])
 
+  const liveTenants = tenants.filter(t => !t.is_demo)
+  const demoTenants = tenants.filter(t => t.is_demo)
+
   const stats = {
-    total:    tenants.length,
-    active:   tenants.filter(t => t.status === 'active').length,
-    trialing: tenants.filter(t => t.status === 'trialing').length,
-    overdue:  tenants.filter(t => t.status === 'overdue' || t.status === 'suspended' || t.status === 'blocked').length,
-    mrr:      tenants.filter(t => t.status === 'active').reduce((sum, t) => {
+    total:    liveTenants.length,
+    demos:    demoTenants.length,
+    active:   liveTenants.filter(t => t.status === 'active').length,
+    trialing: liveTenants.filter(t => t.status === 'trialing').length,
+    overdue:  liveTenants.filter(t => t.status === 'overdue' || t.status === 'suspended' || t.status === 'blocked').length,
+    mrr:      liveTenants.filter(t => t.status === 'active').reduce((sum, t) => {
       const prices = { starter: 9, growth: 24, business: 59 }
       return sum + (prices[t.plan] || 0)
     }, 0),
@@ -61,9 +65,10 @@ export default function SuperDashboard() {
         </div>
       </div>
 
-      <div className="stats-grid" style={{ gridTemplateColumns:'repeat(5, 1fr)' }}>
+      <div className="stats-grid" style={{ gridTemplateColumns:'repeat(6, 1fr)' }}>
         {[
-          { label:'Total Tenants',   val: stats.total,    colour:'var(--blue)' },
+          { label:'Live Tenants',    val: stats.total,    colour:'var(--blue)' },
+          { label:'Demo Tenants',    val: stats.demos,    colour:'var(--faint)' },
           { label:'Active',          val: stats.active,   colour:'var(--green)' },
           { label:'In Trial',        val: stats.trialing, colour:'var(--amber)' },
           { label:'Overdue',         val: stats.overdue,  colour:'var(--red)' },
@@ -185,11 +190,12 @@ export default function SuperDashboard() {
           <div style={{ padding:20 }}>{[1,2,3].map(i=><div key={i} className="skel" style={{ height:48,marginBottom:8,borderRadius:8 }}/>)}</div>
         ) : (
           <table className="tbl">
-            <thead><tr><th>Company</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th></th></tr></thead>
+            <thead><tr><th>Company</th><th>Type</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th></th></tr></thead>
             <tbody>
               {tenants.slice(0,10).map(t => (
                 <tr key={t.id}>
                   <td className="t-main">{t.name}</td>
+                  <td><span className={`badge badge-${t.is_demo ? 'grey' : 'blue'}`}>{t.is_demo ? 'Demo' : 'Live'}</span></td>
                   <td><span className="badge badge-blue" style={{ textTransform:'capitalize' }}>{t.plan}</span></td>
                   <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{ textTransform:'capitalize' }}>{t.status}</span></td>
                   <td style={{ fontSize:12, color:'var(--faint)' }}>{t.owner_email}</td>

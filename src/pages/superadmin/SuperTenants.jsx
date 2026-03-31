@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sbGetMany, sbUpdate } from '../../utils/supabase'
 import { PLANS } from '../../utils/entitlements'
+import { createDemoTenant, listDemoTemplates } from '../../utils/demoTenant'
 
 export default function SuperTenants() {
   const [tenants, setTenants] = useState([])
@@ -11,6 +12,8 @@ export default function SuperTenants() {
   const [planFilter, setPlanFilter] = useState('all')
   const [riskFilter, setRiskFilter] = useState('all')
   const [savingId, setSavingId] = useState('')
+  const [creatingDemo, setCreatingDemo] = useState(false)
+  const [demoTemplate, setDemoTemplate] = useState('agency')
   const navigate = useNavigate()
 
   useEffect(() => { load() }, [])
@@ -51,11 +54,23 @@ export default function SuperTenants() {
   const filtered = tenants.filter(t => {
     const q = search.toLowerCase()
     const matchSearch = !q||t.name?.toLowerCase().includes(q)||t.owner_email?.toLowerCase().includes(q)
-    const matchStatus = statusFilter==='all'||t.status===statusFilter
+    const matchStatus = statusFilter==='all'||statusFilter==='demo' ? (statusFilter === 'demo' ? t.is_demo : true) : t.status===statusFilter
     const matchPlan = planFilter==='all'||t.plan===planFilter
     const matchRisk = riskFilter==='all'||hasRisk(t, riskFilter)
     return matchSearch && matchStatus && matchPlan && matchRisk
   })
+
+  const createDemo = async () => {
+    setCreatingDemo(true)
+    try {
+      const tenant = await createDemoTenant(demoTemplate)
+      await load()
+      navigate(`/superadmin/tenants/${tenant.id}`)
+    } catch (e) {
+      alert(e.message)
+    }
+    setCreatingDemo(false)
+  }
 
   return (
     <div className="fade-in page-stack">
@@ -71,7 +86,7 @@ export default function SuperTenants() {
           <span className="search-icon" />
         </div>
         <div className="filter-pills">
-          {['all','trialing','active','overdue','suspended','blocked'].map(s=>(
+          {['all','trialing','active','overdue','suspended','blocked','demo'].map(s=>(
             <button key={s} onClick={()=>setStatusFilter(s)} className={`btn btn-sm ${statusFilter===s?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize'}}>{s}</button>
           ))}
         </div>
@@ -88,19 +103,28 @@ export default function SuperTenants() {
             <option value="seat_risk">Seat risk</option>
           </select>
         </div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          <select className="inp" value={demoTemplate} onChange={e => setDemoTemplate(e.target.value)} style={{ width:'auto', minWidth:170 }}>
+            {listDemoTemplates().map(template => <option key={template.key} value={template.key}>{template.label}</option>)}
+          </select>
+          <button className="btn btn-primary btn-sm" onClick={createDemo} disabled={creatingDemo}>
+            {creatingDemo ? 'Creating demo...' : 'Create demo tenant'}
+          </button>
+        </div>
         <div className="compact-note">
-          {['trialing','active','overdue','suspended','blocked'].map(status => `${status}: ${tenants.filter(t => t.status === status).length}`).join(' · ')}
+          {['trialing','active','overdue','suspended','blocked'].map(status => `${status}: ${tenants.filter(t => t.status === status && !t.is_demo).length}`).join(' · ')} · demo: ${tenants.filter(t => t.is_demo).length}
         </div>
       </div>
       <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:52,marginBottom:8,borderRadius:8}}/>)}</div>
         : filtered.length===0 ? <div className="empty"><p>No tenants found</p></div>
         : <table className="tbl">
-            <thead><tr><th>Company</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th>Risk</th><th></th></tr></thead>
+            <thead><tr><th>Company</th><th>Type</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th>Risk</th><th></th></tr></thead>
             <tbody>
               {filtered.map(t=>(
                 <tr key={t.id} style={{cursor:'pointer'}} onClick={()=>navigate(`/superadmin/tenants/${t.id}`)}>
                   <td className="t-main">{t.name}</td>
+                  <td><span className={`badge badge-${t.is_demo ? 'grey' : 'blue'}`}>{t.is_demo ? 'Demo' : 'Live'}</span></td>
                   <td><span className="badge badge-blue" style={{textTransform:'capitalize'}}>{t.plan}</span></td>
                   <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{textTransform:'capitalize'}}>{t.status}</span></td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{t.owner_email}</td>

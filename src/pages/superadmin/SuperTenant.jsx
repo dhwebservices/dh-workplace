@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { sbGet, sbGetMany, sbInsert, sbUpdate, supabase } from '../../utils/supabase'
 import { PLANS } from '../../utils/entitlements'
 import { deleteMemberSafely, logAuditEvent, removePendingInvite, sendInviteEmail } from '../../utils/teamMembers'
+import { resetDemoTenant } from '../../utils/demoTenant'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -20,6 +21,7 @@ export default function SuperTenant() {
   const [passwordModal, setPasswordModal] = useState({ open: false, user: null })
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [resettingDemo, setResettingDemo] = useState(false)
 
   useEffect(() => { load() }, [id])
 
@@ -236,6 +238,20 @@ export default function SuperTenant() {
     setSaving(false)
   }
 
+  const resetDemo = async () => {
+    if (!tenant?.is_demo) return
+    if (!window.confirm('Reset this demo tenant back to its seeded state?')) return
+    setResettingDemo(true)
+    try {
+      await resetDemoTenant(tenant)
+      await load()
+      alert('Demo tenant reset.')
+    } catch (e) {
+      alert(e.message)
+    }
+    setResettingDemo(false)
+  }
+
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
   if (!tenant) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Tenant not found.</p></div>
 
@@ -267,7 +283,11 @@ export default function SuperTenant() {
           <h1 className="page-title">{tenant.name}</h1>
           <p className="page-sub">{tenant.owner_email} · Joined {new Date(tenant.created_at).toLocaleDateString('en-GB')}</p>
         </div>
-        <span className={`badge badge-${statusBadge}`} style={{textTransform:'capitalize',fontSize:13}}>{tenant.status}</span>
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          {tenant.is_demo && <span className="badge badge-grey">Demo tenant</span>}
+          {tenant.demo_template && <span className="badge badge-gold">{tenant.demo_template}</span>}
+          <span className={`badge badge-${statusBadge}`} style={{textTransform:'capitalize',fontSize:13}}>{tenant.status}</span>
+        </div>
       </div>
       <div className="table-toolbar" style={{ alignItems:'center' }}>
         <div className="compact-note">Use the quick actions below to handle access, billing posture, and tenant recovery without leaving this record.</div>
@@ -279,6 +299,7 @@ export default function SuperTenant() {
           )}
           <button className="btn btn-outline btn-sm" onClick={() => extendTrial(7)} disabled={saving}>Extend trial 7 days</button>
           <button className="btn btn-outline btn-sm" onClick={() => updateTenant({ status:'active', grace_period_ends_at:null })} disabled={saving}>Mark billing healthy</button>
+          {tenant.is_demo && <button className="btn btn-outline btn-sm" onClick={resetDemo} disabled={saving || resettingDemo}>{resettingDemo ? 'Resetting demo...' : 'Reset demo data'}</button>}
           <button className="btn btn-outline btn-sm" onClick={load} disabled={saving}>Refresh tenant</button>
         </div>
       </div>
@@ -362,6 +383,8 @@ export default function SuperTenant() {
             {[
               ['Slug', tenant.slug],
               ['Plan', tenant.plan],
+              ['Tenant Type', tenant.is_demo ? 'Demo' : 'Live'],
+              ['Demo Template', tenant.demo_template || '—'],
               ['Seat Limit', tenant.seat_limit],
               ['Owner Email', tenant.owner_email],
               ['GC Customer', tenant.gc_customer_id||'Not set'],
