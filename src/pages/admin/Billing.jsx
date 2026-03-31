@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS } from '../../utils/entitlements'
-import { sbUpdate } from '../../utils/supabase'
+import { sbGetMany, sbUpdate } from '../../utils/supabase'
+import { canManageBilling } from '../../utils/permissions'
 
 const FEATURE_LABELS = {
   hr_directory: 'Staff directory',
@@ -25,12 +26,14 @@ const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
 export default function Billing() {
   const { tenant, tenantUser, refreshTenant } = useAuth()
+  const canManage = canManageBilling(tenantUser?.role)
   const plan = PLANS[tenant?.plan || 'starter']
   const currentFeatures = new Set(plan?.features || [])
   const [loadingBilling, setLoadingBilling] = useState(false)
   const [switchingPlan, setSwitchingPlan] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [activeSeats, setActiveSeats] = useState(0)
   const hasBillingSetup = !!tenant?.gc_mandate_id
   const hasSubscription = !!tenant?.gc_subscription_id
   const pendingPlanStorageKey = useMemo(() => tenant?.id ? `dhwp_pending_plan_${tenant.id}` : '', [tenant?.id])
@@ -41,6 +44,17 @@ export default function Billing() {
     const stored = window.localStorage.getItem(pendingPlanStorageKey) || ''
     setPendingPlan(stored)
   }, [pendingPlanStorageKey])
+
+  useEffect(() => {
+    let active = true
+    const loadActiveSeats = async () => {
+      if (!tenant?.id) return
+      const members = await sbGetMany('tenant_users', `tenant_id=eq.${tenant.id}&status=neq.suspended`)
+      if (active) setActiveSeats((members || []).length)
+    }
+    loadActiveSeats()
+    return () => { active = false }
+  }, [tenant?.id])
 
   useEffect(() => {
     if (!pendingPlan || hasBillingSetup || !tenant?.id) return
@@ -223,7 +237,13 @@ export default function Billing() {
   }
 
   const switchPlan = async (key) => {
+    if (!canManage) return
     if (!tenant?.id || key === tenant.plan) return
+    const targetSeatLimit = PLANS[key]?.max_users || 0
+    if (targetSeatLimit < activeSeats) {
+      setError(`This plan only includes ${targetSeatLimit} seats. You currently have ${activeSeats} active users, so reduce seat usage before downgrading.`)
+      return
+    }
     if (!hasBillingSetup) {
       await startBillingFlow(key)
       return
@@ -243,6 +263,7 @@ export default function Billing() {
   }
 
   const cancelSubscription = async () => {
+    if (!canManage) return
     if (!tenant?.gc_subscription_id) {
       setError('No active subscription found to cancel')
       return
@@ -277,6 +298,11 @@ export default function Billing() {
 
   return (
     <div className="fade-in page-stack">
+      {!canManage && (
+        <div className="card card-pad"><p style={{color:'var(--faint)'}}>Owner access required.</p></div>
+      )}
+      {canManage && (
+      <>
       <div className="page-hd">
         <div>
           <h1 className="page-title">Billing</h1>
@@ -329,6 +355,7 @@ export default function Billing() {
             {[
               ['Trial ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
               ['Seats included', plan?.max_users || 5],
+              ['Active seats', activeSeats],
               ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],
               ['Subscription', tenant?.gc_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
               ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
@@ -354,6 +381,28 @@ export default function Billing() {
                 Cancel subscription
               </button>
             )}
+          </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Billing health</h3>
+              <div className="panel-sub">Safeguards before changing plan or payment state</div>
+            </div>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            {[
+              { label:'Mandate status', value: hasBillingSetup ? 'Ready' : 'Action needed', tone: hasBillingSetup ? 'var(--green)' : 'var(--amber)' },
+              { label:'Subscription status', value: hasSubscription ? 'Live' : 'Not active', tone: hasSubscription ? 'var(--green)' : 'var(--faint)' },
+              { label:'Seat entitlement', value: `${activeSeats} / ${plan?.max_users || tenant?.seat_limit || 5} seats`, tone: activeSeats >= (plan?.max_users || tenant?.seat_limit || 5) ? 'var(--amber)' : 'var(--blue)' },
+              { label:'Grace period', value: tenant?.grace_period_ends_at ? new Date(tenant.grace_period_ends_at).toLocaleDateString('en-GB') : 'None', tone: tenant?.grace_period_ends_at ? 'var(--amber)' : 'var(--faint)' },
+            ].map(item => (
+              <div key={item.label} className="detail-card">
+                <div style={{ fontSize:12, color:'var(--faint)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{item.label}</div>
+                <div style={{ fontSize:18, fontWeight:700, color:item.tone, marginTop:8 }}>{item.value}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -416,6 +465,8 @@ export default function Billing() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

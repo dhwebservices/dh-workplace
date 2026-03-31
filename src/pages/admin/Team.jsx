@@ -4,6 +4,7 @@ import { sbGetMany, sbUpdate } from '../../utils/supabase'
 import { inviteMember } from '../../utils/invitations'
 import { seatLimitReached } from '../../utils/entitlements'
 import { deleteMemberSafely, logAuditEvent, removePendingInvite } from '../../utils/teamMembers'
+import { assignableRoles, canManageTeam } from '../../utils/permissions'
 
 export default function Team() {
   const { tenant, tenantUser } = useAuth()
@@ -12,7 +13,8 @@ export default function Team() {
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ email:'', role:'staff', full_name:'' })
   const [saving, setSaving] = useState(false)
-  const isOwner = ['owner','admin','superadmin'].includes(tenantUser?.role)
+  const canManage = canManageTeam(tenantUser?.role)
+  const roleOptions = assignableRoles(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -25,6 +27,7 @@ export default function Team() {
   }
 
   const invite = async () => {
+    if (!canManage) return
     if (!form.email.trim()) { alert('Email required'); return }
     const seatsInUse = staff.filter(member => member.status !== 'suspended').length
     if (seatLimitReached(tenant, seatsInUse)) { alert(`Seat limit reached. Upgrade your plan to add more team members.`); return }
@@ -45,12 +48,14 @@ export default function Team() {
   }
 
   const updateRole = async (id, role) => {
+    if (!canManage) return
     await sbUpdate('tenant_users', `id=eq.${id}`, { role })
     await logAuditEvent({ tenantId: tenant.id, actorId: tenantUser?.id, action: 'member_role_updated', entity: 'tenant_user', entityId: id, metadata: { role } })
     setStaff(p=>p.map(s=>s.id===id?{...s,role}:s))
   }
 
   const suspend = async (id, status) => {
+    if (!canManage) return
     await sbUpdate('tenant_users', `id=eq.${id}`, { status })
     await logAuditEvent({ tenantId: tenant.id, actorId: tenantUser?.id, action: status === 'suspended' ? 'member_suspended' : 'member_reinstated', entity: 'tenant_user', entityId: id })
     setStaff(p=>p.map(s=>s.id===id?{...s,status}:s))
@@ -98,9 +103,10 @@ export default function Team() {
     setSaving(false)
   }
 
-  const ROLES = ['staff','manager','admin','owner']
   const initials = n => (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
   const billableSeats = staff.filter(s => s.status !== 'suspended').length
+
+  if (!canManage) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Admin access required.</p></div>
 
   return (
     <div className="fade-in page-stack">
@@ -109,7 +115,7 @@ export default function Team() {
           <h1 className="page-title">Team</h1>
           <p className="page-sub">{billableSeats} / {tenant?.seat_limit||5} seats in use · Suspend members to remove access safely</p>
         </div>
-        {isOwner&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Invite Member</button>}
+        {canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Invite Member</button>}
       </div>
       <div className="kpi-strip">
         <div className="kpi-cell">
@@ -144,7 +150,7 @@ export default function Team() {
       </div>
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:64,marginBottom:8,borderRadius:8}}/>)}</div>
         : <table className="tbl">
-            <thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Status</th>{isOwner&&<th>Actions</th>}</tr></thead>
+            <thead><tr><th>Member</th><th>Email</th><th>Role</th><th>Status</th>{canManage&&<th>Actions</th>}</tr></thead>
             <tbody>
               {staff.map(s=>(
                 <tr key={s.id}>
@@ -156,15 +162,15 @@ export default function Team() {
                   </td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{s.email}</td>
                   <td>
-                    {isOwner&&s.id!==tenantUser?.id ? (
+                    {canManage&&s.id!==tenantUser?.id ? (
                       <select value={s.role} onChange={e=>updateRole(s.id,e.target.value)}
                         style={{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',textTransform:'capitalize'}}>
-                        {ROLES.map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+                        {roleOptions.map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
                       </select>
                     ) : <span className="badge badge-blue" style={{textTransform:'capitalize'}}>{s.role}</span>}
                   </td>
                   <td><span className={`badge badge-${s.status==='active'?'green':s.status==='invited'?'amber':'grey'}`} style={{textTransform:'capitalize'}}>{s.status}</span></td>
-                  {isOwner&&<td>
+                  {canManage&&<td>
                     {s.id!==tenantUser?.id&&(
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         {s.status === 'invited' ? (
@@ -210,7 +216,7 @@ export default function Team() {
                 <div><label className="lbl">Email Address *</label><input className="inp" type="email" placeholder="jane@company.co.uk" value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
                 <div><label className="lbl">Role</label>
                   <select className="inp" value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))}>
-                    {ROLES.map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+                    {roleOptions.map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
                   </select>
                 </div>
               </div>

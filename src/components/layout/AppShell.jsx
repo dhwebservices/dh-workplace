@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS, can, getTrialDaysLeft } from '../../utils/entitlements'
 import { sbGetMany, sbUpdate, supabase } from '../../utils/supabase'
+import { canManageBilling, canManageTeam, canManageWorkspaceSettings, canViewAudit, canViewReports } from '../../utils/permissions'
 
 const NAV = [
   { label: 'Overview', items: [
@@ -23,11 +24,12 @@ const NAV = [
     { to: '/outreach', label: 'Outreach', feature: 'crm_outreach' },
   ]},
   { label: 'Settings', items: [
-    { to: '/team', label: 'Team' },
-    { to: '/billing', label: 'Billing' },
+    { to: '/team', label: 'Team', permission: 'team' },
+    { to: '/billing', label: 'Billing', permission: 'billing' },
     { to: '/reports', label: 'Reports', feature: 'reports' },
-    { to: '/settings', label: 'Settings' },
-    { to: '/audit', label: 'Audit Log', feature: 'audit_log' },
+    { to: '/settings', label: 'Settings', permission: 'settings' },
+    { to: '/audit', label: 'Audit Log', feature: 'audit_log', permission: 'audit' },
+    { to: '/integrations', label: 'Integrations', feature: 'api_access', permission: 'settings' },
   ]},
 ]
 
@@ -52,6 +54,16 @@ export default function AppShell({ superAdmin = false }) {
   const isAdminUser = ['owner', 'admin', 'superadmin'].includes(tenantUser?.role)
   const plan = PLANS[tenant?.plan || 'starter']
   const notificationsEnabled = !superAdmin && can(tenant, 'notifications')
+  const canSeePermissionItem = (item) => {
+    if (superAdmin) return true
+    const role = tenantUser?.role
+    if (item.permission === 'team' && !canManageTeam(role)) return false
+    if (item.permission === 'billing' && !canManageBilling(role)) return false
+    if (item.permission === 'settings' && !canManageWorkspaceSettings(role)) return false
+    if (item.permission === 'audit' && !canViewAudit(role)) return false
+    if (item.to === '/reports' && !canViewReports(role)) return false
+    return !item.feature || can(tenant, item.feature)
+  }
 
   const nav = useMemo(() => {
     const source = superAdmin ? SUPER_NAV : NAV
@@ -59,10 +71,10 @@ export default function AppShell({ superAdmin = false }) {
     return source
       .map(section => ({
         ...section,
-        items: section.items.filter(item => !item.feature || can(tenant, item.feature)),
+        items: section.items.filter(canSeePermissionItem),
       }))
       .filter(section => section.items.length > 0)
-  }, [superAdmin, isTrial, tenant])
+  }, [superAdmin, isTrial, tenant, tenantUser?.role])
 
   const lockedFeatures = useMemo(() => {
     if (superAdmin || isTrial || !isAdminUser) return []
@@ -70,6 +82,9 @@ export default function AppShell({ superAdmin = false }) {
       .flatMap(section => section.items)
       .filter(item => item.feature && !can(tenant, item.feature))
   }, [superAdmin, isTrial, isAdminUser, tenant])
+  const brandColour = tenant?.primary_colour || 'var(--blue)'
+  const showWhiteLabel = !superAdmin && can(tenant, 'custom_branding') && !!tenant?.logo_url
+  const profileInitial = (tenantUser?.full_name || tenantUser?.email || '?')[0].toUpperCase()
 
   useEffect(() => {
     if (!notificationsEnabled || !tenantUser?.id) return
@@ -130,12 +145,22 @@ export default function AppShell({ superAdmin = false }) {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="brand-kicker">{superAdmin ? 'Platform Console' : 'Workspace'}</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05, fontWeight: 700 }}>DH Workplace</div>
+          {showWhiteLabel ? (
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <img src={tenant.logo_url} alt={`${tenant.name || 'Workspace'} logo`} style={{width:40,height:40,borderRadius:10,objectFit:'cover',border:'1px solid var(--border)',background:'#fff'}} />
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--text)', lineHeight: 1.05, fontWeight: 700 }}>{tenant.name || 'Workspace'}</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4 }}>Powered by DH Workplace</div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--text)', lineHeight: 1.05, fontWeight: 700 }}>DH Workplace</div>
+          )}
           {tenant && !superAdmin && (
             <>
-              <div className="sidebar-brand-name">{tenant.name}</div>
+              {!showWhiteLabel && <div className="sidebar-brand-name">{tenant.name}</div>}
               <div className="sidebar-brand-meta">
-                <span className="badge badge-blue" style={{ textTransform: 'capitalize' }}>{plan?.name || 'Starter'}</span>
+                <span className="badge badge-blue" style={{ textTransform: 'capitalize', ...(tenant?.primary_colour ? { background: `${tenant.primary_colour}1A`, color: tenant.primary_colour, borderColor: `${tenant.primary_colour}40` } : {}) }}>{plan?.name || 'Starter'}</span>
                 <span className={`badge badge-${isTrial ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`} style={{ textTransform: 'capitalize' }}>
                   {isTrial ? 'Trial' : tenant?.status}
                 </span>
@@ -175,8 +200,8 @@ export default function AppShell({ superAdmin = false }) {
         </div>
 
         <div className="sidebar-user">
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--blue-soft)', border: '1px solid var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--blue)', flexShrink: 0 }}>
-            {(tenantUser?.full_name || tenantUser?.email || '?')[0].toUpperCase()}
+          <div style={{ width: 34, height: 34, borderRadius: '50%', background: tenant?.primary_colour ? `${brandColour}18` : 'var(--blue-soft)', border: `1px solid ${tenant?.primary_colour || 'var(--blue)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: tenant?.primary_colour || 'var(--blue)', flexShrink: 0 }}>
+            {profileInitial}
           </div>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

@@ -30,6 +30,7 @@ const Team = lazy(() => import('./pages/admin/Team'))
 const Billing = lazy(() => import('./pages/admin/Billing'))
 const Reports = lazy(() => import('./pages/admin/Reports'))
 const AuditLog = lazy(() => import('./pages/admin/AuditLog'))
+const Integrations = lazy(() => import('./pages/admin/Integrations'))
 const SuperDashboard = lazy(() => import('./pages/superadmin/SuperDashboard'))
 const SuperTenants = lazy(() => import('./pages/superadmin/SuperTenants'))
 const SuperTenant = lazy(() => import('./pages/superadmin/SuperTenant'))
@@ -121,6 +122,7 @@ export default function App() {
           <Route path="billing"            element={<Billing />} />
           <Route path="reports"            element={<Reports />} />
           <Route path="audit"              element={<AuditLog />} />
+          <Route path="integrations"       element={<Integrations />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

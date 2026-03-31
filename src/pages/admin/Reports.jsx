@@ -2,34 +2,41 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany } from '../../utils/supabase'
 import { downloadCsv } from '../../utils/exports'
+import { canViewReports } from '../../utils/permissions'
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleDateString('en-GB') : ''
 }
 
 export default function Reports() {
-  const { tenant } = useAuth()
+  const { tenant, tenantUser } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
+  const [range, setRange] = useState('all')
   const [data, setData] = useState({
     staff: [],
     leave: [],
     clients: [],
     invoices: [],
     timesheets: [],
+    tasks: [],
+    outreach: [],
   })
+  const canView = canViewReports(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
   const load = async () => {
     if (!tenant?.id) return
     setLoading(true)
-    const [staff, leave, clients, invoices, timesheets] = await Promise.all([
+    const [staff, leave, clients, invoices, timesheets, tasks, outreach] = await Promise.all([
       sbGetMany('tenant_users', `tenant_id=eq.${tenant.id}&order=created_at.asc`),
       sbGetMany('leave_requests', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('clients', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('invoices', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('timesheets', `tenant_id=eq.${tenant.id}&order=date.desc`),
+      sbGetMany('tasks', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
+      sbGetMany('outreach', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
     ])
     setData({
       staff: staff || [],
@@ -37,6 +44,8 @@ export default function Reports() {
       clients: clients || [],
       invoices: invoices || [],
       timesheets: timesheets || [],
+      tasks: tasks || [],
+      outreach: outreach || [],
     })
     setLoading(false)
   }
@@ -47,12 +56,37 @@ export default function Reports() {
     return { staffNames, clientNames }
   }, [data.staff, data.clients])
 
+  const rangeCutoff = useMemo(() => {
+    if (range === 'all') return null
+    const now = new Date()
+    if (range === 'last_30_days') return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30)
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  }, [range])
+
+  const inRange = (value) => {
+    if (!rangeCutoff) return true
+    if (!value) return false
+    return new Date(value) >= rangeCutoff
+  }
+
+  const reportData = useMemo(() => ({
+    staff: data.staff,
+    leave: data.leave.filter(request => inRange(request.created_at || request.start_date)),
+    clients: data.clients.filter(client => inRange(client.created_at)),
+    invoices: data.invoices.filter(invoice => inRange(invoice.created_at || invoice.due_date)),
+    timesheets: data.timesheets.filter(entry => inRange(entry.date || entry.created_at)),
+    tasks: data.tasks.filter(task => inRange(task.created_at || task.due_date)),
+    outreach: data.outreach.filter(lead => inRange(lead.created_at || lead.last_contacted)),
+  }), [data, rangeCutoff])
+
   const cards = [
-    { label: 'Team records', value: data.staff.length, note: 'Active, invited, and suspended users' },
-    { label: 'Leave requests', value: data.leave.length, note: 'All recorded requests' },
-    { label: 'Clients', value: data.clients.length, note: 'Lead and active customer records' },
-    { label: 'Invoices', value: data.invoices.length, note: 'Paid, unpaid, and overdue invoices' },
-    { label: 'Timesheets', value: data.timesheets.length, note: 'Submitted time entries' },
+    { label: 'Team records', value: reportData.staff.length, note: 'Active, invited, and suspended users' },
+    { label: 'Leave requests', value: reportData.leave.length, note: 'Requests in the selected period' },
+    { label: 'Clients', value: reportData.clients.length, note: 'Lead and active customer records' },
+    { label: 'Invoices', value: reportData.invoices.length, note: 'Commercial records in range' },
+    { label: 'Timesheets', value: reportData.timesheets.length, note: 'Submitted time entries' },
+    { label: 'Tasks', value: reportData.tasks.length, note: 'Operational work items' },
+    { label: 'Outreach', value: reportData.outreach.length, note: 'Prospecting and lead records' },
   ]
 
   const exports = [
@@ -61,7 +95,7 @@ export default function Reports() {
       title: 'Staff export',
       description: 'Team directory, roles, statuses, and join dates.',
       filename: `staff-export-${tenant?.slug || 'workspace'}.csv`,
-      rows: data.staff.map(member => ({
+      rows: reportData.staff.map(member => ({
         full_name: member.full_name || '',
         email: member.email || '',
         role: member.role || '',
@@ -75,7 +109,7 @@ export default function Reports() {
       title: 'Leave export',
       description: 'Leave types, dates, statuses, and who reviewed them.',
       filename: `leave-export-${tenant?.slug || 'workspace'}.csv`,
-      rows: data.leave.map(request => ({
+      rows: reportData.leave.map(request => ({
         employee: lookups.staffNames[request.tenant_user_id] || '',
         type: request.type || '',
         start_date: formatDate(request.start_date),
@@ -91,7 +125,7 @@ export default function Reports() {
       title: 'Client export',
       description: 'Client contacts, pipeline state, and commercial value.',
       filename: `clients-export-${tenant?.slug || 'workspace'}.csv`,
-      rows: data.clients.map(client => ({
+      rows: reportData.clients.map(client => ({
         name: client.name || '',
         email: client.email || '',
         phone: client.phone || '',
@@ -107,7 +141,7 @@ export default function Reports() {
       title: 'Invoice export',
       description: 'Invoice status, amounts, dates, and linked clients.',
       filename: `invoices-export-${tenant?.slug || 'workspace'}.csv`,
-      rows: data.invoices.map(invoice => ({
+      rows: reportData.invoices.map(invoice => ({
         invoice_number: invoice.invoice_number || '',
         client: lookups.clientNames[invoice.client_id] || '',
         description: invoice.description || '',
@@ -123,7 +157,7 @@ export default function Reports() {
       title: 'Timesheet export',
       description: 'Hours logged by day, employee, client, and approval status.',
       filename: `timesheets-export-${tenant?.slug || 'workspace'}.csv`,
-      rows: data.timesheets.map(entry => ({
+      rows: reportData.timesheets.map(entry => ({
         employee: lookups.staffNames[entry.tenant_user_id] || '',
         date: formatDate(entry.date),
         hours: entry.hours || '',
@@ -131,6 +165,39 @@ export default function Reports() {
         client: lookups.clientNames[entry.client_id] || 'Internal',
         status: entry.status || '',
         approved_by: lookups.staffNames[entry.approved_by] || '',
+      })),
+    },
+    {
+      key: 'tasks',
+      title: 'Task export',
+      description: 'Task status, ownership, client links, and due dates.',
+      filename: `tasks-export-${tenant?.slug || 'workspace'}.csv`,
+      rows: reportData.tasks.map(task => ({
+        title: task.title || '',
+        description: task.description || '',
+        status: task.status || '',
+        priority: task.priority || '',
+        assigned_to: lookups.staffNames[task.assigned_to] || '',
+        client: lookups.clientNames[task.client_id] || '',
+        due_date: formatDate(task.due_date),
+        created_at: formatDate(task.created_at),
+      })),
+    },
+    {
+      key: 'outreach',
+      title: 'Outreach export',
+      description: 'Lead records, contact status, and last-touch activity.',
+      filename: `outreach-export-${tenant?.slug || 'workspace'}.csv`,
+      rows: reportData.outreach.map(lead => ({
+        business_name: lead.business_name || '',
+        contact_name: lead.contact_name || '',
+        email: lead.email || '',
+        phone: lead.phone || '',
+        website: lead.website || '',
+        status: lead.status || '',
+        notes: lead.notes || '',
+        last_contacted: formatDate(lead.last_contacted),
+        created_at: formatDate(lead.created_at),
       })),
     },
   ]
@@ -145,6 +212,8 @@ export default function Reports() {
     setSaving('')
   }
 
+  if (!canView) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Manager access required.</p></div>
+
   return (
     <div className="fade-in page-stack">
       <div className="page-hd">
@@ -156,7 +225,22 @@ export default function Reports() {
 
       <div className="compact-note">Download clean CSV exports from the live workspace data your customers already manage every day.</div>
 
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      <div className="table-toolbar">
+        <div className="filter-pills">
+          {[
+            ['all', 'All time'],
+            ['last_30_days', 'Last 30 days'],
+            ['current_month', 'This month'],
+          ].map(([value, label]) => (
+            <button key={value} onClick={() => setRange(value)} className={`btn btn-sm ${range===value?'btn-primary':'btn-outline'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="compact-note">Exports are filtered to the selected period where date fields exist.</div>
+      </div>
+
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
         {cards.map(card => (
           <div key={card.label} className="stat-card">
             <div className="stat-val" style={{ color: 'var(--blue)', fontSize: 26 }}>{card.value}</div>

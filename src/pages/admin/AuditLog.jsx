@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany } from '../../utils/supabase'
+import { canViewAudit } from '../../utils/permissions'
 
 export default function AuditLog() {
   const { tenant, tenantUser } = useAuth()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [staff, setStaff] = useState([])
-  const isAdmin = ['owner','admin','superadmin'].includes(tenantUser?.role)
+  const canView = canViewAudit(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -34,7 +35,7 @@ export default function AuditLog() {
     return 'badge-grey'
   }
 
-  if (!isAdmin) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Admin access required.</p></div>
+  if (!canView) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Admin access required.</p></div>
 
   return (
     <div className="fade-in page-stack">
