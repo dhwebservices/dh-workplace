@@ -4,7 +4,7 @@ import { sbGetMany, sbUpdate } from '../../utils/supabase'
 import { inviteMember } from '../../utils/invitations'
 import { seatLimitReached } from '../../utils/entitlements'
 import { deleteMemberSafely, logAuditEvent, removePendingInvite } from '../../utils/teamMembers'
-import { assignableRoles, canManageTeam } from '../../utils/permissions'
+import { assignableRoles, canManageMemberRecord, canManageTeam } from '../../utils/permissions'
 
 export default function Team() {
   const { tenant, tenantUser } = useAuth()
@@ -105,6 +105,7 @@ export default function Team() {
 
   const initials = n => (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
   const billableSeats = staff.filter(s => s.status !== 'suspended').length
+  const canManageMember = (member) => canManageMemberRecord(tenantUser?.role, member.role, tenantUser?.id, member.id)
 
   if (!canManage) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Admin access required.</p></div>
 
@@ -162,7 +163,7 @@ export default function Team() {
                   </td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{s.email}</td>
                   <td>
-                    {canManage&&s.id!==tenantUser?.id ? (
+                    {canManage&&canManageMember(s) ? (
                       <select value={s.role} onChange={e=>updateRole(s.id,e.target.value)}
                         style={{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',textTransform:'capitalize'}}>
                         {roleOptions.map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
@@ -171,7 +172,7 @@ export default function Team() {
                   </td>
                   <td><span className={`badge badge-${s.status==='active'?'green':s.status==='invited'?'amber':'grey'}`} style={{textTransform:'capitalize'}}>{s.status}</span></td>
                   {canManage&&<td>
-                    {s.id!==tenantUser?.id&&(
+                    {canManageMember(s)&&(
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         {s.status === 'invited' ? (
                           <>

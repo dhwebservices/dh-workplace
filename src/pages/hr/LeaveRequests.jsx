@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { canApproveLeave } from '../../utils/permissions'
 
 const TYPES = ['annual','sick','compassionate','unpaid','other']
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
@@ -20,7 +21,7 @@ export default function LeaveRequests() {
   const [form, setForm] = useState({ type:'annual', start_date:'', end_date:'', notes:'' })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p=>({...p,[k]:v}))
-  const isManager = ['owner','admin','manager','superadmin'].includes(tenantUser?.role)
+  const canReview = canApproveLeave(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -60,6 +61,7 @@ export default function LeaveRequests() {
   }
 
   const review = async (id, status) => {
+    if (!canReview) return
     await sbUpdate('leave_requests', `id=eq.${id}`, { status, reviewed_by:tenantUser.id, reviewed_at:new Date().toISOString() })
     const request = requests.find(r => r.id === id)
     const member = staff.find(s => s.id === request?.tenant_user_id)
@@ -98,11 +100,14 @@ export default function LeaveRequests() {
 
   const getName = id => staff.find(s=>s.id===id)?.full_name || 'Unknown'
   const filtered = requests.filter(r => {
+    if (!canReview && r.tenant_user_id !== tenantUser?.id) return false
     if (tab==='mine') return r.tenant_user_id===tenantUser?.id
     if (tab==='pending') return r.status==='pending'
     if (tab==='approved') return r.status==='approved'
     return true
   })
+  const tabs = [[canReview ? 'all' : 'mine', canReview ? 'All' : 'My Requests'],['mine','Mine'],['pending','Pending'],['approved','Approved']]
+    .filter((item, index, arr) => arr.findIndex(other => other[0] === item[0]) === index)
   const SB = { pending:'badge-amber', approved:'badge-green', rejected:'badge-red', cancelled:'badge-grey' }
 
   return (
@@ -115,7 +120,7 @@ export default function LeaveRequests() {
         <button className="btn btn-primary" onClick={()=>setModal(true)}>+ Request Leave</button>
       </div>
       <div className="tabs">
-        {[['all','All'],['mine','Mine'],['pending','Pending'],['approved','Approved']].map(([k,l])=>(
+        {tabs.map(([k,l])=>(
           <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -125,21 +130,21 @@ export default function LeaveRequests() {
         : filtered.length===0 ? <div className="empty"><p>No leave requests</p></div>
         : <table className="tbl">
             <thead><tr>
-              {isManager&&<th>Staff</th>}
+              {canReview&&<th>Staff</th>}
               <th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Notes</th>
-              {isManager&&<th>Actions</th>}
+              {canReview&&<th>Actions</th>}
             </tr></thead>
             <tbody>
               {filtered.map(r=>(
                 <tr key={r.id}>
-                  {isManager&&<td className="t-main">{getName(r.tenant_user_id)}</td>}
+                  {canReview&&<td className="t-main">{getName(r.tenant_user_id)}</td>}
                   <td style={{textTransform:'capitalize'}}>{r.type}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(r.start_date).toLocaleDateString('en-GB')}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:12}}>{new Date(r.end_date).toLocaleDateString('en-GB')}</td>
                   <td style={{fontWeight:600}}>{r.days}</td>
                   <td><span className={`badge ${SB[r.status]||'badge-grey'}`} style={{textTransform:'capitalize'}}>{r.status}</span></td>
                   <td style={{color:'var(--faint)',fontSize:12,maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.notes||'—'}</td>
-                  {isManager&&<td>{r.status==='pending'&&<div style={{display:'flex',gap:6}}>
+                  {canReview&&<td>{r.status==='pending' && r.tenant_user_id !== tenantUser?.id && <div style={{display:'flex',gap:6}}>
                     <button className="btn btn-sm btn-outline" style={{color:'var(--green)', borderColor:'rgba(36,160,107,0.22)', background:'var(--green-soft)'}} onClick={()=>review(r.id,'approved')}>Approve</button>
                     <button className="btn btn-sm btn-outline" style={{color:'var(--red)', borderColor:'rgba(222,91,77,0.22)', background:'var(--red-soft)'}} onClick={()=>review(r.id,'rejected')}>Reject</button>
                   </div>}</td>}

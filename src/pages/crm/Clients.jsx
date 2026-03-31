@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { canManageCRM } from '../../utils/permissions'
 
 const EMPTY = { name:'', email:'', phone:'', website:'', status:'lead', plan:'', value:'', notes:'' }
 const STATUS_COLOURS = { lead:'blue', active:'green', inactive:'grey', lost:'red' }
 
 export default function Clients() {
-  const { tenant } = useAuth()
+  const { tenant, tenantUser } = useAuth()
   const navigate = useNavigate()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,6 +19,7 @@ export default function Clients() {
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p => ({...p,[k]:v}))
+  const canManage = canManageCRM(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -36,6 +38,7 @@ export default function Clients() {
   }
 
   const save = async () => {
+    if (!canManage) return
     if (!form.name.trim()) { alert('Name is required'); return }
     setSaving(true)
     try {
@@ -64,7 +67,7 @@ export default function Clients() {
           <h1 className="page-title">Clients</h1>
           <p className="page-sub">{clients.filter(c=>c.status==='active').length} active · {clients.length} total</p>
         </div>
-        <button className="btn btn-primary" onClick={() => open()}>+ Add Client</button>
+        {canManage && <button className="btn btn-primary" onClick={() => open()}>+ Add Client</button>}
       </div>
 
       <div className="table-toolbar">
@@ -96,7 +99,7 @@ export default function Clients() {
                   <td>{c.plan || '—'}</td>
                   <td style={{ fontFamily:'var(--font-mono)', fontSize:12 }}>{c.value ? `£${Number(c.value).toLocaleString()}` : '—'}</td>
                   <td><span className={`badge badge-${STATUS_COLOURS[c.status] || 'grey'}`} style={{ textTransform:'capitalize' }}>{c.status}</span></td>
-                  <td><button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); open(c) }}>Edit</button></td>
+                  <td>{canManage && <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); open(c) }}>Edit</button>}</td>
                 </tr>
               ))}
             </tbody>

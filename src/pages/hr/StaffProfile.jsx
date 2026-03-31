@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGet, sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { assignableRoles, canManageMemberRecord, canManageStaffAccess } from '../../utils/permissions'
 
 const EMPTY_HR = { contract_type:'', start_date:'', phone:'', personal_email:'', address:'', emergency_name:'', emergency_phone:'', bank_name:'', account_name:'', sort_code:'', account_number:'', hr_notes:'' }
 
@@ -16,7 +17,7 @@ export default function StaffProfile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const isAdmin = ['owner','admin','superadmin'].includes(tenantUser?.role)
+  const canManageAccess = canManageStaffAccess(tenantUser?.role)
 
   useEffect(() => { load() }, [userId, tenant?.id])
 
@@ -55,11 +56,13 @@ export default function StaffProfile() {
   }
 
   const updateRole = async (role) => {
+    if (!canManageAccess) return
     await sbUpdate('tenant_users', `id=eq.${userId}`, { role })
     setMember(p=>({...p,role}))
   }
 
   const updateStatus = async (status) => {
+    if (!canManageAccess) return
     await sbUpdate('tenant_users', `id=eq.${userId}`, { status })
     setMember(p=>({...p,status}))
   }
@@ -70,8 +73,13 @@ export default function StaffProfile() {
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
   if (!member) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Staff member not found.</p></div>
 
-  const canEdit = isAdmin || tenantUser?.id === userId
+  const canEditOwn = tenantUser?.id === userId
+  const canEdit = canManageAccess || canEditOwn
+  const roleOptions = assignableRoles(tenantUser?.role)
+  const canManageThisMember = canManageMemberRecord(tenantUser?.role, member.role, tenantUser?.id, member.id)
   const showHrSave = canEdit && tab !== 'access'
+
+  if (!canManageAccess && !canEditOwn) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>You can only view your own staff profile.</p></div>
 
   return (
     <div className="fade-in page-stack">
@@ -122,7 +130,7 @@ export default function StaffProfile() {
             </div>
           </div>
         )}
-        {tab==='hr'&&isAdmin&&(
+        {tab==='hr'&&canManageAccess&&(
           <div className="card card-pad">
             <div className="fg">
               <div><label className="lbl">Contract Type</label>
@@ -135,7 +143,7 @@ export default function StaffProfile() {
             </div>
           </div>
         )}
-        {tab==='bank'&&isAdmin&&(
+        {tab==='bank'&&canManageAccess&&(
           <div className="card card-pad">
             <div style={{padding:'10px 14px',background:'var(--amber-soft)',border:'1px solid rgba(200,154,45,0.22)',borderRadius:10,fontSize:13,color:'var(--amber)',marginBottom:16}}>
               Bank details are sensitive — admin access only.
@@ -148,12 +156,12 @@ export default function StaffProfile() {
             </div>
           </div>
         )}
-        {tab==='access'&&isAdmin&&(
+        {tab==='access'&&canManageAccess&&canManageThisMember&&(
           <div className="card card-pad">
             <div style={{display:'flex',flexDirection:'column',gap:16}}>
               <div><label className="lbl">Role</label>
                 <select className="inp" value={member.role} onChange={e=>updateRole(e.target.value)}>
-                  {['staff','manager','admin','owner'].map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+                  {[...new Set([member.role, ...roleOptions])].map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
                 </select>
               </div>
               <div><label className="lbl">Status</label>

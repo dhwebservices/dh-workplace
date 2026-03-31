@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { canManageCRM } from '../../utils/permissions'
 
 const EMPTY = { title:'', description:'', priority:'medium', assigned_to:'', client_id:'', due_date:'' }
 const PRIORITIES = { low:'badge-grey', medium:'badge-blue', high:'badge-amber', urgent:'badge-red' }
@@ -17,6 +18,7 @@ export default function Tasks() {
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p=>({...p,[k]:v}))
+  const canManage = canManageCRM(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -33,6 +35,7 @@ export default function Tasks() {
   }
 
   const create = async () => {
+    if (!canManage) return
     if (!form.title.trim()) { alert('Title required'); return }
     setSaving(true)
     try {
@@ -62,6 +65,7 @@ export default function Tasks() {
   }
 
   const updateStatus = async (id, status) => {
+    if (!canManage) return
     await sbUpdate('tasks', `id=eq.${id}`, { status, updated_at:new Date().toISOString() })
     setTasks(p=>p.map(t=>t.id===id?{...t,status}:t))
   }
@@ -83,7 +87,7 @@ export default function Tasks() {
           <h1 className="page-title">Tasks</h1>
           <p className="page-sub">{tasks.filter(t=>t.status!=='done'&&t.status!=='cancelled').length} open tasks</p>
         </div>
-        <button className="btn btn-primary" onClick={()=>setModal(true)}>+ Create Task</button>
+        {canManage && <button className="btn btn-primary" onClick={()=>setModal(true)}>+ Create Task</button>}
       </div>
       <div className="tabs">
         {[['mine','My Tasks'],['all','All Tasks'],['open','Open'],['done','Done']].map(([k,l])=>(
@@ -110,10 +114,10 @@ export default function Tasks() {
                 {t.due_date&&<span style={{fontSize:11,color:new Date(t.due_date)<new Date()?'var(--red)':'var(--faint)'}}>{new Date(t.due_date).toLocaleDateString('en-GB')}</span>}
               </div>
             </div>
-            <select value={t.status} onChange={e=>updateStatus(t.id,e.target.value)}
+            {canManage ? <select value={t.status} onChange={e=>updateStatus(t.id,e.target.value)}
               style={{fontSize:12,padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',color:'var(--text)',cursor:'pointer',textTransform:'capitalize'}}>
               {STATUSES.map(s=><option key={s} value={s} style={{textTransform:'capitalize'}}>{s.replace('_',' ')}</option>)}
-            </select>
+            </select> : <span className="badge badge-grey" style={{textTransform:'capitalize',fontSize:10}}>{t.status?.replace('_',' ')}</span>}
           </div>
         ))}
       </div>

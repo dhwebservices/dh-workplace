@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { canManageCRM } from '../../utils/permissions'
 
 const EMPTY = { business_name:'', contact_name:'', email:'', phone:'', website:'', status:'not_contacted', notes:'' }
 const STATUS_COLOURS = { not_contacted:'badge-grey', contacted:'badge-blue', replied:'badge-amber', converted:'badge-green', not_interested:'badge-red' }
@@ -16,6 +17,7 @@ export default function Outreach() {
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p=>({...p,[k]:v}))
+  const canManage = canManageCRM(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -30,6 +32,7 @@ export default function Outreach() {
   const open = (lead=null) => { setEditing(lead); setForm(lead?{...EMPTY,...lead}:{...EMPTY}); setModal(true) }
 
   const save = async () => {
+    if (!canManage) return
     if (!form.business_name.trim()) { alert('Business name required'); return }
     setSaving(true)
     try {
@@ -57,7 +60,7 @@ export default function Outreach() {
           <h1 className="page-title">Outreach</h1>
           <p className="page-sub">{leads.filter(l=>l.status==='contacted').length} contacted · {leads.filter(l=>l.status==='converted').length} converted</p>
         </div>
-        <button className="btn btn-primary" onClick={()=>open()}>+ Add Lead</button>
+        {canManage && <button className="btn btn-primary" onClick={()=>open()}>+ Add Lead</button>}
       </div>
       <div className="table-toolbar">
         <div className="search-shell" style={{minWidth:200}}>
@@ -84,7 +87,7 @@ export default function Outreach() {
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{l.email||'—'}</td>
                   <td><span className={`badge ${STATUS_COLOURS[l.status]||'badge-grey'}`} style={{textTransform:'capitalize',fontSize:10}}>{l.status?.replace(/_/g,' ')}</span></td>
                   <td style={{fontSize:11,color:'var(--faint)',fontFamily:'var(--font-mono)'}}>{l.last_contacted?new Date(l.last_contacted).toLocaleDateString('en-GB'):'—'}</td>
-                  <td><button className="btn btn-outline btn-sm" onClick={()=>open(l)}>Edit</button></td>
+                  <td>{canManage && <button className="btn btn-outline btn-sm" onClick={()=>open(l)}>Edit</button>}</td>
                 </tr>
               ))}
             </tbody>

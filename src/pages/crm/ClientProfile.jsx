@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGet, sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
+import { canManageCRM, canManageInvoices } from '../../utils/permissions'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -31,6 +32,8 @@ export default function ClientProfile() {
   const [invForm, setInvForm] = useState({ invoice_number:'', description:'', amount:'', due_date:'' })
   const [saving, setSaving] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
+  const canManageClient = canManageCRM(tenantUser?.role)
+  const canManageClientInvoices = canManageInvoices(tenantUser?.role)
 
   useEffect(() => { load() }, [id])
 
@@ -48,6 +51,7 @@ export default function ClientProfile() {
   }
 
   const saveClient = async () => {
+    if (!canManageClient) return
     setSaving(true)
     try {
       await sbUpdate('clients', `id=eq.${id}`, { ...form, updated_at:new Date().toISOString() })
@@ -57,6 +61,7 @@ export default function ClientProfile() {
   }
 
   const createInvoice = async () => {
+    if (!canManageClientInvoices) return
     if (!invForm.description||!invForm.amount) { alert('Description and amount required'); return }
     setSaving(true)
     try {
@@ -93,11 +98,13 @@ export default function ClientProfile() {
   }
 
   const markPaid = async (invId) => {
+    if (!canManageClientInvoices) return
     await sbUpdate('invoices', `id=eq.${invId}`, { status:'paid', paid_at:new Date().toISOString() })
     setInvoices(p=>p.map(i=>i.id===invId?{...i,status:'paid'}:i))
   }
 
   const addNote = async () => {
+    if (!canManageClient) return
     if (!noteDraft.trim()) return
     const author = tenantUser?.full_name || tenantUser?.email || 'Team member'
     const entry = `[${new Date().toLocaleString('en-GB')}] ${author}\n${noteDraft.trim()}`
@@ -135,8 +142,8 @@ export default function ClientProfile() {
           </div>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-outline btn-sm" onClick={()=>setEditing(true)}>Edit</button>
-          <button className="btn btn-primary btn-sm" onClick={()=>setInvModal(true)}>+ Invoice</button>
+          {canManageClient && <button className="btn btn-outline btn-sm" onClick={()=>setEditing(true)}>Edit</button>}
+          {canManageClientInvoices && <button className="btn btn-primary btn-sm" onClick={()=>setInvModal(true)}>+ Invoice</button>}
         </div>
       </div>
       <div className="stats-grid" style={{gridTemplateColumns:'repeat(3,1fr)',marginBottom:24}}>
@@ -174,7 +181,7 @@ export default function ClientProfile() {
                     <td style={{fontFamily:'var(--font-mono)',fontWeight:600}}>£{Number(inv.amount||0).toFixed(2)}</td>
                     <td style={{fontFamily:'var(--font-mono)',fontSize:12}}>{inv.due_date?new Date(inv.due_date).toLocaleDateString('en-GB'):'—'}</td>
                     <td><span className={`badge badge-${inv.status==='paid'?'green':'amber'}`} style={{textTransform:'capitalize'}}>{inv.status}</span></td>
-                    <td>{inv.status==='unpaid'&&<button className="btn btn-outline btn-sm" onClick={()=>markPaid(inv.id)}>Mark Paid</button>}</td>
+                    <td>{inv.status==='unpaid' && canManageClientInvoices && <button className="btn btn-outline btn-sm" onClick={()=>markPaid(inv.id)}>Mark Paid</button>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -198,7 +205,7 @@ export default function ClientProfile() {
               placeholder="Add a client update, meeting summary, or call note..."
               style={{resize:'vertical',marginBottom:12}}
             />
-            <button className="btn btn-primary" onClick={addNote} disabled={saving || !noteDraft.trim()}>
+            <button className="btn btn-primary" onClick={addNote} disabled={saving || !noteDraft.trim() || !canManageClient}>
               {saving ? 'Saving...' : 'Save note'}
             </button>
           </div>

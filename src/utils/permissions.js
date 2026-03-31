@@ -24,6 +24,34 @@ export function canViewAudit(role) {
   return hasRoleAtLeast(role, 'admin')
 }
 
+export function canApproveLeave(role) {
+  return hasRoleAtLeast(role, 'manager')
+}
+
+export function canManageDocuments(role) {
+  return hasRoleAtLeast(role, 'admin')
+}
+
+export function canManageStaffAccess(role) {
+  return hasRoleAtLeast(role, 'admin')
+}
+
+export function canManageCRM(role) {
+  return hasRoleAtLeast(role, 'manager')
+}
+
+export function canManageInvoices(role) {
+  return hasRoleAtLeast(role, 'admin')
+}
+
+export function canManageMemberRecord(actorRole, targetRole, actorId, targetId) {
+  if (!actorRole) return false
+  if (actorId && targetId && actorId === targetId) return false
+  if (actorRole === 'owner' || actorRole === 'superadmin') return true
+  if (actorRole === 'admin') return ['staff', 'manager'].includes(targetRole)
+  return false
+}
+
 export function assignableRoles(role) {
   if (role === 'owner' || role === 'superadmin') return ['staff', 'manager', 'admin', 'owner']
   if (role === 'admin') return ['staff', 'manager']

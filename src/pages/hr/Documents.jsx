@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbDelete, sbGetMany, sbInsert } from '../../utils/supabase'
 import { supabase } from '../../utils/supabase'
+import { canManageDocuments } from '../../utils/permissions'
 
 const CATEGORIES = ['general','policy','contract','payslip','onboarding']
 
@@ -15,7 +16,7 @@ export default function Documents() {
   const [form, setForm] = useState({ name:'', category:'general', visible_to:'all' })
   const [file, setFile] = useState(null)
   const fileRef = useRef()
-  const isAdmin = ['owner','admin','superadmin'].includes(tenantUser?.role)
+  const canManage = canManageDocuments(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])
 
@@ -78,7 +79,7 @@ export default function Documents() {
           <h1 className="page-title">Documents</h1>
           <p className="page-sub">{docs.length} document{docs.length!==1?'s':''}</p>
         </div>
-        {isAdmin&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Upload Document</button>}
+        {canManage&&<button className="btn btn-primary" onClick={()=>setModal(true)}>+ Upload Document</button>}
       </div>
       <div className="table-toolbar">
         <div className="filter-pills">
@@ -106,7 +107,7 @@ export default function Documents() {
                 <div style={{display:'flex',gap:6}}>
                   <a href={d.file_url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">View</a>
                   <a href={d.file_url} download={d.name} className="btn btn-outline btn-sm">Download</a>
-                  {isAdmin&&<button className="btn btn-sm btn-outline" style={{color:'var(--red)', borderColor:'rgba(222,91,77,0.22)', background:'var(--red-soft)'}} onClick={()=>deleteDoc(d)}>Delete</button>}
+                  {canManage&&<button className="btn btn-sm btn-outline" style={{color:'var(--red)', borderColor:'rgba(222,91,77,0.22)', background:'var(--red-soft)'}} onClick={()=>deleteDoc(d)}>Delete</button>}
                 </div>
               </div>
             </div>
