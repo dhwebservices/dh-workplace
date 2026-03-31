@@ -36,6 +36,9 @@ export default function SignUp() {
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email: normalizedEmail,
         password: form.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/signin`,
+        },
       })
       if (authErr) throw authErr
       const userId = authData.user?.id
