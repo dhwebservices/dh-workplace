@@ -746,6 +746,70 @@ async function handleWebhookAction(type, data, request, env) {
   throw new Error(`Unknown webhook action: ${type}`)
 }
 
+async function handleDemoAction(type, data, env) {
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+  }
+
+  if (type === 'demo_snapshot') {
+    if (!data?.slug || !data?.token) throw new Error('Demo link is incomplete')
+
+    const tenantRes = await fetch(
+      `${sbUrl}/rest/v1/tenants?slug=eq.${encodeURIComponent(data.slug)}&is_demo=is.true&demo_access_key=eq.${encodeURIComponent(data.token)}&select=id,name,slug,plan,seat_limit,primary_colour,demo_template,is_demo&limit=1`,
+      { headers }
+    )
+    const tenantJson = await tenantRes.json()
+    const tenant = tenantJson?.[0]
+    if (!tenantRes.ok || !tenant) throw new Error('Demo workspace not found or link has expired')
+
+    const tenantId = tenant.id
+    const [teamRes, clientsRes, tasksRes, leaveRes, documentsRes, timesheetsRes, invoicesRes] = await Promise.all([
+      fetch(`${sbUrl}/rest/v1/tenant_users?tenant_id=eq.${tenantId}&select=id,full_name,email,job_title,department,role,status&order=created_at.asc`, { headers }),
+      fetch(`${sbUrl}/rest/v1/clients?tenant_id=eq.${tenantId}&select=id,name,status,value&order=created_at.asc`, { headers }),
+      fetch(`${sbUrl}/rest/v1/tasks?tenant_id=eq.${tenantId}&select=id,title,status,priority,due_date,assigned_to,client_id&order=created_at.desc`, { headers }),
+      fetch(`${sbUrl}/rest/v1/leave_requests?tenant_id=eq.${tenantId}&select=id,type,start_date,end_date,days,status,tenant_user_id,reviewed_by&order=created_at.desc`, { headers }),
+      fetch(`${sbUrl}/rest/v1/documents?tenant_id=eq.${tenantId}&select=id,name,category,visible_to&order=created_at.desc`, { headers }),
+      fetch(`${sbUrl}/rest/v1/timesheets?tenant_id=eq.${tenantId}&select=id,date,hours,description,status,tenant_user_id,client_id&order=date.desc`, { headers }),
+      fetch(`${sbUrl}/rest/v1/invoices?tenant_id=eq.${tenantId}&select=id,client_id,invoice_number,description,amount,status,due_date,paid_at&order=created_at.desc`, { headers }),
+    ])
+
+    const [team, clients, tasks, leaveRequests, documents, timesheets, invoices] = await Promise.all([
+      teamRes.json(),
+      clientsRes.json(),
+      tasksRes.json(),
+      leaveRes.json(),
+      documentsRes.json(),
+      timesheetsRes.json(),
+      invoicesRes.json(),
+    ])
+
+    return {
+      ok: true,
+      tenant,
+      summary: {
+        team_members: (team || []).filter((member) => member.status !== 'suspended').length,
+        active_clients: (clients || []).filter((client) => client.status === 'active').length,
+        open_tasks: (tasks || []).filter((task) => !['done', 'completed'].includes(task.status)).length,
+        pending_approvals: (leaveRequests || []).filter((item) => item.status === 'pending').length
+          + (timesheets || []).filter((item) => item.status === 'pending').length,
+      },
+      team: team || [],
+      clients: clients || [],
+      tasks: tasks || [],
+      leave_requests: leaveRequests || [],
+      documents: documents || [],
+      timesheets: timesheets || [],
+      invoices: invoices || [],
+    }
+  }
+
+  throw new Error(`Unknown demo action: ${type}`)
+}
+
 // ── GoCardless Webhook Handler ────────────────────────────────
 async function handleWebhook(request, env) {
   const body = await request.text()
@@ -900,6 +964,8 @@ export default {
       } else if (type.startsWith('auth_')) {
         await requirePlatformAdmin(request, env)
         result = await handleAuthAdminAction(type, data, env)
+      } else if (type.startsWith('demo_')) {
+        result = await handleDemoAction(type, data, env)
       } else if (type.startsWith('webhook_')) {
         result = await handleWebhookAction(type, data, request, env)
       } else {

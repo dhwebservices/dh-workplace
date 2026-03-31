@@ -335,9 +335,15 @@ create index if not exists idx_tasks_assigned_to on tasks(assigned_to);
 create index if not exists idx_leave_tenant_id on leave_requests(tenant_id);
 create index if not exists idx_notifications_user_id on notifications(tenant_user_id);
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
+create index if not exists idx_tenants_demo_slug on tenants(is_demo, slug);
 
 -- ── Insert DH as first platform admin ────────────────────────
 -- Run this AFTER creating your account via the sign-up page:
 -- insert into platform_admins (user_id, email) values ('<your-auth-uid>', 'david@dhwebsiteservices.co.uk');
 -- Then update your tenant_user role:
 -- update tenant_users set role = 'superadmin' where email = 'david@dhwebsiteservices.co.uk';
+
+-- Optional later additions:
+-- alter table tenants add column if not exists is_demo boolean default false;
+-- alter table tenants add column if not exists demo_template text;
+-- alter table tenants add column if not exists demo_access_key text;

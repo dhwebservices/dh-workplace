@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { sbGet, sbGetMany, sbInsert, sbUpdate, supabase } from '../../utils/supabase'
 import { PLANS } from '../../utils/entitlements'
 import { deleteMemberSafely, logAuditEvent, removePendingInvite, sendInviteEmail } from '../../utils/teamMembers'
-import { resetDemoTenant } from '../../utils/demoTenant'
+import { buildDemoAccessUrl, ensureDemoAccess, regenerateDemoAccess, resetDemoTenant } from '../../utils/demoTenant'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -22,6 +22,7 @@ export default function SuperTenant() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [resettingDemo, setResettingDemo] = useState(false)
+  const [demoAccessBusy, setDemoAccessBusy] = useState(false)
 
   useEffect(() => { load() }, [id])
 
@@ -252,6 +253,37 @@ export default function SuperTenant() {
     setResettingDemo(false)
   }
 
+  const copyDemoLink = async () => {
+    if (!tenant?.is_demo) return
+    setDemoAccessBusy(true)
+    try {
+      const refreshedTenant = await ensureDemoAccess(tenant.id)
+      const url = buildDemoAccessUrl(refreshedTenant)
+      await navigator.clipboard.writeText(url)
+      setTenant(refreshedTenant)
+      alert('Read-only demo link copied.')
+    } catch (e) {
+      alert(e.message)
+    }
+    setDemoAccessBusy(false)
+  }
+
+  const regenerateDemoLink = async () => {
+    if (!tenant?.is_demo) return
+    if (!window.confirm('Regenerate the public demo link? The old demo URL will stop working.')) return
+    setDemoAccessBusy(true)
+    try {
+      const refreshedTenant = await regenerateDemoAccess(tenant.id)
+      const url = buildDemoAccessUrl(refreshedTenant)
+      await navigator.clipboard.writeText(url)
+      setTenant(refreshedTenant)
+      alert('A new demo link has been generated and copied.')
+    } catch (e) {
+      alert(e.message)
+    }
+    setDemoAccessBusy(false)
+  }
+
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
   if (!tenant) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Tenant not found.</p></div>
 
@@ -299,6 +331,8 @@ export default function SuperTenant() {
           )}
           <button className="btn btn-outline btn-sm" onClick={() => extendTrial(7)} disabled={saving}>Extend trial 7 days</button>
           <button className="btn btn-outline btn-sm" onClick={() => updateTenant({ status:'active', grace_period_ends_at:null })} disabled={saving}>Mark billing healthy</button>
+          {tenant.is_demo && <button className="btn btn-outline btn-sm" onClick={copyDemoLink} disabled={saving || demoAccessBusy}>{demoAccessBusy ? 'Preparing link...' : 'Copy demo link'}</button>}
+          {tenant.is_demo && <button className="btn btn-outline btn-sm" onClick={regenerateDemoLink} disabled={saving || demoAccessBusy}>Regenerate demo link</button>}
           {tenant.is_demo && <button className="btn btn-outline btn-sm" onClick={resetDemo} disabled={saving || resettingDemo}>{resettingDemo ? 'Resetting demo...' : 'Reset demo data'}</button>}
           <button className="btn btn-outline btn-sm" onClick={load} disabled={saving}>Refresh tenant</button>
         </div>

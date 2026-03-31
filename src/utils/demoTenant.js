@@ -1,4 +1,4 @@
-import { sbDelete, sbGet, sbInsert } from './supabase'
+import { sbDelete, sbGet, sbInsert, sbUpdate } from './supabase'
 
 const TEMPLATES = {
   agency: {
@@ -28,6 +28,7 @@ export async function createDemoTenant(templateKey = 'agency') {
   const tenantId = crypto.randomUUID()
   const slug = `demo-${template.tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${Math.random().toString(36).slice(2, 6)}`
   const now = new Date().toISOString()
+  const demoAccessKey = createDemoAccessKey()
 
   await sbInsert('tenants', {
     id: tenantId,
@@ -40,6 +41,7 @@ export async function createDemoTenant(templateKey = 'agency') {
     primary_colour: template.primary_colour,
     is_demo: true,
     demo_template: template.key,
+    demo_access_key: demoAccessKey,
     created_at: now,
     updated_at: now,
   })
@@ -69,6 +71,35 @@ export async function resetDemoTenant(tenant) {
   await sbDelete('tenant_users', `tenant_id=eq.${tenantId}`)
 
   await seedDemoData(tenantId, template)
+}
+
+export async function ensureDemoAccess(tenantId) {
+  const tenant = await sbGet('tenants', `id=eq.${tenantId}`)
+  if (!tenant?.is_demo) throw new Error('Demo access can only be generated for demo tenants')
+  if (tenant.demo_access_key) return tenant
+
+  const demoAccessKey = createDemoAccessKey()
+  await sbUpdate('tenants', `id=eq.${tenantId}`, {
+    demo_access_key: demoAccessKey,
+    updated_at: new Date().toISOString(),
+  })
+  return await sbGet('tenants', `id=eq.${tenantId}`)
+}
+
+export async function regenerateDemoAccess(tenantId) {
+  const tenant = await sbGet('tenants', `id=eq.${tenantId}`)
+  if (!tenant?.is_demo) throw new Error('Demo access can only be regenerated for demo tenants')
+
+  await sbUpdate('tenants', `id=eq.${tenantId}`, {
+    demo_access_key: createDemoAccessKey(),
+    updated_at: new Date().toISOString(),
+  })
+  return await sbGet('tenants', `id=eq.${tenantId}`)
+}
+
+export function buildDemoAccessUrl(tenant, origin = window.location.origin) {
+  if (!tenant?.slug || !tenant?.demo_access_key) throw new Error('Demo link is not available yet')
+  return `${origin.replace(/\/$/, '')}/demo/${tenant.slug}?token=${tenant.demo_access_key}`
 }
 
 async function seedDemoData(tenantId, template) {
@@ -325,4 +356,9 @@ function offsetDays(base, amount) {
 
 function tomorrow() {
   return isoDate(offsetDays(new Date(), 1))
+}
+
+function createDemoAccessKey() {
+  const bytes = crypto.getRandomValues(new Uint8Array(18))
+  return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }

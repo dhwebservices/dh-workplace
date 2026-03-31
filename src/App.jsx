@@ -9,6 +9,7 @@ const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
+const DemoWorkspace = lazy(() => import('./pages/demo/DemoWorkspace'))
 const OnboardingWizard = lazy(() => import('./pages/onboarding/OnboardingWizard'))
 const AppShell = lazy(() => import('./components/layout/AppShell'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/forgot"  element={<ForgotPassword />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/platform-access/:token" element={<AcceptPlatformAdmin />} />
+        <Route path="/demo/:slug" element={<DemoWorkspace />} />
 
         {/* Onboarding */}
         <Route path="/onboarding" element={<RequireInitialOnboarding><OnboardingWizard /></RequireInitialOnboarding>} />
