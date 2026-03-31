@@ -810,6 +810,207 @@ async function handleDemoAction(type, data, env) {
   throw new Error(`Unknown demo action: ${type}`)
 }
 
+async function sendAutomationReminderEmail(config, env) {
+  const html = emailWrap(`
+    <h2 style="color:#1D1D1F;margin:0 0 8px">${config.title}</h2>
+    <p style="color:#555;margin:0 0 20px">${config.intro}</p>
+    <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px">
+      ${config.lines.map((line) => `<p style="margin:0 0 8px;font-size:14px;color:#333">${line}</p>`).join('')}
+    </div>
+    ${config.action_url ? `<a href="${config.action_url}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">${config.action_label || 'Open workspace'}</a>` : ''}
+  `)
+  const text = `${config.title}
+
+${config.intro}
+
+${config.lines.join('\n')}
+
+${config.action_url ? `${config.action_label || 'Open workspace'}:\n${config.action_url}` : ''}`.trim()
+  return sendEmail(config.to_email, config.subject, html, env, text)
+}
+
+function nextAutomationRun(cadence) {
+  const date = new Date()
+  date.setDate(date.getDate() + (cadence === 'weekly' ? 7 : 1))
+  return date.toISOString()
+}
+
+async function handleAutomationAction(type, data, request, env) {
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+  }
+
+  await requireWorkspaceSettingsManager(request, env, data.tenant_id)
+
+  if (type !== 'automation_run') throw new Error(`Unknown automation action: ${type}`)
+  if (!data?.rule_type) throw new Error('Missing automation rule')
+
+  const [tenantRes, ruleRes, usersRes, inviteRes, leaveRes, timesheetRes] = await Promise.all([
+    fetch(`${sbUrl}/rest/v1/tenants?id=eq.${data.tenant_id}&select=id,name,owner_email,status,trial_ends_at,gc_mandate_id,gc_subscription_id&limit=1`, { headers }),
+    fetch(`${sbUrl}/rest/v1/automation_rules?tenant_id=eq.${data.tenant_id}&rule_type=eq.${data.rule_type}&select=id,enabled,cadence,channels,threshold_days&limit=1`, { headers }),
+    fetch(`${sbUrl}/rest/v1/tenant_users?tenant_id=eq.${data.tenant_id}&status=eq.active&select=id,full_name,email,role,user_id`, { headers }),
+    fetch(`${sbUrl}/rest/v1/invitations?tenant_id=eq.${data.tenant_id}&accepted_at=is.null&select=id,email,full_name,created_at`, { headers }),
+    fetch(`${sbUrl}/rest/v1/leave_requests?tenant_id=eq.${data.tenant_id}&status=eq.pending&select=id,tenant_user_id,start_date,end_date`, { headers }),
+    fetch(`${sbUrl}/rest/v1/timesheets?tenant_id=eq.${data.tenant_id}&status=eq.pending&select=id,tenant_user_id,date,hours`, { headers }),
+  ])
+
+  const tenant = (await tenantRes.json())?.[0]
+  const rule = (await ruleRes.json())?.[0]
+  const users = await usersRes.json()
+  const invites = await inviteRes.json()
+  const leaveRequests = await leaveRes.json()
+  const timesheets = await timesheetRes.json()
+
+  if (!tenant) throw new Error('Workspace not found')
+  if (!rule) throw new Error('Automation rule not found')
+  if (!rule.enabled) throw new Error('Automation is disabled')
+
+  const channels = rule.channels || []
+  const recipients = (users || []).filter((user) => ['owner', 'admin', 'manager', 'superadmin'].includes(user.role))
+  const reviewers = recipients.filter((user) => ['manager', 'admin', 'owner', 'superadmin'].includes(user.role))
+  const owner = (users || []).find((user) => user.role === 'owner') || recipients[0] || null
+  const workspaceUrl = 'https://app.dhworkplace.co.uk'
+  let notificationsSent = 0
+  let emailsSent = 0
+
+  async function createNotification(recipientIds, title, message, link, level = 'info') {
+    await Promise.all(recipientIds.map((tenantUserId) => fetch(`${sbUrl}/rest/v1/notifications`, {
+      method: 'POST',
+      headers: { ...headers, Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        tenant_id: tenant.id,
+        tenant_user_id: tenantUserId,
+        title,
+        message,
+        link,
+        type: level,
+        created_at: new Date().toISOString(),
+      }),
+    })))
+    notificationsSent += recipientIds.length
+  }
+
+  async function sendRecipientEmails(list, builder) {
+    for (const recipient of list) {
+      if (!recipient?.email) continue
+      await sendAutomationReminderEmail(builder(recipient), env)
+      emailsSent += 1
+    }
+  }
+
+  if (data.rule_type === 'invite_follow_up') {
+    if ((invites || []).length > 0) {
+      const message = `${invites.length} invited team member${invites.length === 1 ? '' : 's'} still have not joined ${tenant.name}.`
+      if (channels.includes('in_app')) await createNotification(recipients.map((user) => user.id), 'Pending team invites', message, '/team', 'warning')
+      if (channels.includes('email')) {
+        await sendRecipientEmails(recipients, (recipient) => ({
+          to_email: recipient.email,
+          subject: `Pending invites in ${tenant.name}`,
+          title: 'Pending team invites',
+          intro: `${tenant.name} still has invited team members who have not accepted access.`,
+          lines: invites.slice(0, 5).map((invite) => `${invite.full_name || invite.email} · invited ${new Date(invite.created_at).toLocaleDateString('en-GB')}`),
+          action_url: `${workspaceUrl}/team`,
+          action_label: 'Open team',
+        }))
+      }
+    }
+  } else if (data.rule_type === 'leave_approval') {
+    if ((leaveRequests || []).length > 0) {
+      const message = `${leaveRequests.length} leave request${leaveRequests.length === 1 ? '' : 's'} are waiting for approval.`
+      if (channels.includes('in_app')) await createNotification(reviewers.map((user) => user.id), 'Pending leave approvals', message, '/leave', 'warning')
+      if (channels.includes('email')) {
+        await sendRecipientEmails(reviewers, (recipient) => ({
+          to_email: recipient.email,
+          subject: `Leave approvals waiting in ${tenant.name}`,
+          title: 'Pending leave approvals',
+          intro: `${tenant.name} has leave requests waiting for review.`,
+          lines: leaveRequests.slice(0, 5).map((item) => `Request dates: ${item.start_date} to ${item.end_date}`),
+          action_url: `${workspaceUrl}/leave`,
+          action_label: 'Review leave',
+        }))
+      }
+    }
+  } else if (data.rule_type === 'timesheet_approval') {
+    if ((timesheets || []).length > 0) {
+      const message = `${timesheets.length} timesheet entr${timesheets.length === 1 ? 'y is' : 'ies are'} pending review.`
+      if (channels.includes('in_app')) await createNotification(reviewers.map((user) => user.id), 'Pending timesheet approvals', message, '/timesheets', 'warning')
+      if (channels.includes('email')) {
+        await sendRecipientEmails(reviewers, (recipient) => ({
+          to_email: recipient.email,
+          subject: `Timesheet approvals waiting in ${tenant.name}`,
+          title: 'Pending timesheet approvals',
+          intro: `${tenant.name} has submitted time entries waiting for approval.`,
+          lines: timesheets.slice(0, 5).map((entry) => `${entry.date} · ${entry.hours} hour${Number(entry.hours) === 1 ? '' : 's'}`),
+          action_url: `${workspaceUrl}/timesheets`,
+          action_label: 'Review timesheets',
+        }))
+      }
+    }
+  } else if (data.rule_type === 'trial_ending') {
+    const threshold = Number(rule.threshold_days || 3)
+    const daysLeft = tenant.trial_ends_at ? Math.max(0, Math.ceil((new Date(tenant.trial_ends_at) - new Date()) / 86400000)) : null
+    if (daysLeft !== null && tenant.status === 'trialing' && daysLeft <= threshold && owner?.email) {
+      if (channels.includes('in_app') && owner?.id) {
+        await createNotification([owner.id], 'Trial ending soon', `${tenant.name} has ${daysLeft} day${daysLeft === 1 ? '' : 's'} left on trial.`, '/billing', 'warning')
+      }
+      if (channels.includes('email')) {
+        await sendAutomationReminderEmail({
+          to_email: owner.email,
+          subject: `${tenant.name} trial ending in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`,
+          title: 'Trial ending soon',
+          intro: `${tenant.name} is approaching the end of its trial period.`,
+          lines: [`Days remaining: ${daysLeft}`, `Current status: ${tenant.status}`],
+          action_url: `${workspaceUrl}/billing`,
+          action_label: 'Open billing',
+        }, env)
+        emailsSent += 1
+      }
+    }
+  } else if (data.rule_type === 'billing_attention') {
+    const threshold = Number(rule.threshold_days || 7)
+    const needsAttention = tenant.status === 'overdue' || (!tenant.gc_mandate_id && tenant.status !== 'trialing' && tenant.status !== 'cancelled')
+    if (needsAttention && owner?.email) {
+      if (channels.includes('in_app') && owner?.id) {
+        await createNotification([owner.id], 'Billing needs attention', `${tenant.name} billing needs review within the next ${threshold} day${threshold === 1 ? '' : 's'}.`, '/billing', 'error')
+      }
+      if (channels.includes('email')) {
+        await sendAutomationReminderEmail({
+          to_email: owner.email,
+          subject: `${tenant.name} billing needs attention`,
+          title: 'Billing needs attention',
+          intro: `${tenant.name} needs billing attention to avoid access or collection issues.`,
+          lines: [
+            `Workspace status: ${tenant.status}`,
+            `Mandate on file: ${tenant.gc_mandate_id ? 'Yes' : 'No'}`,
+            `Grace threshold: ${threshold} day${threshold === 1 ? '' : 's'}`,
+          ],
+          action_url: `${workspaceUrl}/billing`,
+          action_label: 'Review billing',
+        }, env)
+        emailsSent += 1
+      }
+    }
+  } else {
+    throw new Error('Unsupported automation rule')
+  }
+
+  await fetch(`${sbUrl}/rest/v1/automation_rules?id=eq.${rule.id}`, {
+    method: 'PATCH',
+    headers: { ...headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      last_run_at: new Date().toISOString(),
+      next_run_at: nextAutomationRun(rule.cadence),
+      updated_at: new Date().toISOString(),
+    }),
+  })
+
+  return { ok: true, notifications_sent: notificationsSent, emails_sent: emailsSent }
+}
+
 // ── GoCardless Webhook Handler ────────────────────────────────
 async function handleWebhook(request, env) {
   const body = await request.text()
@@ -964,6 +1165,8 @@ export default {
       } else if (type.startsWith('auth_')) {
         await requirePlatformAdmin(request, env)
         result = await handleAuthAdminAction(type, data, env)
+      } else if (type.startsWith('automation_')) {
+        result = await handleAutomationAction(type, data, request, env)
       } else if (type.startsWith('demo_')) {
         result = await handleDemoAction(type, data, env)
       } else if (type.startsWith('webhook_')) {

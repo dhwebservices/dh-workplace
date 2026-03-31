@@ -326,6 +326,27 @@ create policy "outreach_isolation" on outreach
   for all using (tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid()));
 
+-- ── Automation Rules ─────────────────────────────────────────
+create table automation_rules (
+  id              uuid primary key default gen_random_uuid(),
+  tenant_id       uuid references tenants(id) on delete cascade not null,
+  rule_type       text not null check (rule_type in ('invite_follow_up', 'leave_approval', 'timesheet_approval', 'trial_ending', 'billing_attention')),
+  enabled         boolean default false,
+  cadence         text default 'daily' check (cadence in ('daily', 'weekly')),
+  channels        text[] default '{"in_app"}',
+  threshold_days  integer default 3,
+  last_run_at     timestamptz,
+  next_run_at     timestamptz,
+  created_by      uuid references tenant_users(id),
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+  unique (tenant_id, rule_type)
+);
+alter table automation_rules enable row level security;
+create policy "automation_rules_isolation" on automation_rules
+  for all using (tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid()));
+
 -- ── Indexes for performance ────────────────────────────────────
 create index if not exists idx_tenant_users_tenant_id on tenant_users(tenant_id);
 create index if not exists idx_tenant_users_user_id on tenant_users(user_id);
@@ -336,6 +357,7 @@ create index if not exists idx_leave_tenant_id on leave_requests(tenant_id);
 create index if not exists idx_notifications_user_id on notifications(tenant_user_id);
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
 create index if not exists idx_tenants_demo_slug on tenants(is_demo, slug);
+create index if not exists idx_automation_rules_tenant_id on automation_rules(tenant_id);
 
 -- ── Insert DH as first platform admin ────────────────────────
 -- Run this AFTER creating your account via the sign-up page:

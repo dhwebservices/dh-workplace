@@ -27,6 +27,7 @@ const NAV = [
     { to: '/team', label: 'Team', permission: 'team' },
     { to: '/billing', label: 'Billing', permission: 'billing' },
     { to: '/reports', label: 'Reports', feature: 'reports' },
+    { to: '/automations', label: 'Automations', permission: 'settings' },
     { to: '/settings', label: 'Settings', permission: 'settings' },
     { to: '/audit', label: 'Audit Log', feature: 'audit_log', permission: 'audit' },
     { to: '/integrations', label: 'Integrations', feature: 'api_access', permission: 'settings' },
