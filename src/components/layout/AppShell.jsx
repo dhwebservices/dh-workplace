@@ -25,6 +25,7 @@ const NAV = [
   { label: 'Settings', items: [
     { to: '/team', label: 'Team' },
     { to: '/billing', label: 'Billing' },
+    { to: '/reports', label: 'Reports', feature: 'reports' },
     { to: '/settings', label: 'Settings' },
     { to: '/audit', label: 'Audit Log', feature: 'audit_log' },
   ]},
