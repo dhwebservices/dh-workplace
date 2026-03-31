@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
 import { canManageCRM } from '../../utils/permissions'
+import { sendWebhookEvent } from '../../utils/webhooks'
 
 const EMPTY = { title:'', description:'', priority:'medium', assigned_to:'', client_id:'', due_date:'' }
 const PRIORITIES = { low:'badge-grey', medium:'badge-blue', high:'badge-amber', urgent:'badge-red' }
@@ -59,6 +60,17 @@ export default function Tasks() {
           created_at: new Date().toISOString(),
         })
       }
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'task.created',
+        payload: {
+          title: form.title,
+          priority: form.priority,
+          assigned_to: form.assigned_to || null,
+          client_id: form.client_id || null,
+          due_date: form.due_date || null,
+        },
+      })
       setModal(false); setForm({...EMPTY}); load()
     } catch(e) { alert(e.message) }
     setSaving(false)
@@ -68,6 +80,7 @@ export default function Tasks() {
     if (!canManage) return
     await sbUpdate('tasks', `id=eq.${id}`, { status, updated_at:new Date().toISOString() })
     setTasks(p=>p.map(t=>t.id===id?{...t,status}:t))
+    sendWebhookEvent({ tenantId: tenant.id, event: 'task.updated', payload: { task_id: id, status } })
   }
 
   const getName = id => staff.find(s=>s.id===id)?.full_name||'Unassigned'

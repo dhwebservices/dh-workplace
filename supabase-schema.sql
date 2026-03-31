@@ -249,6 +249,25 @@ create policy "audit_isolation" on audit_log
   for all using (tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid()));
 
+-- ── Webhook Endpoints ────────────────────────────────────────
+create table webhook_endpoints (
+  id              uuid primary key default gen_random_uuid(),
+  tenant_id       uuid references tenants(id) on delete cascade not null,
+  label           text not null,
+  target_url      text not null,
+  secret          text,
+  events          text[] default '{}',
+  enabled         boolean default true,
+  last_tested_at  timestamptz,
+  created_by      uuid references tenant_users(id),
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now()
+);
+alter table webhook_endpoints enable row level security;
+create policy "webhook_endpoints_isolation" on webhook_endpoints
+  for all using (tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid()));
+
 -- ── Invitations ───────────────────────────────────────────────
 create table invitations (
   id          uuid primary key default gen_random_uuid(),

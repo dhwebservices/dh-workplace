@@ -5,6 +5,7 @@ import { inviteMember } from '../../utils/invitations'
 import { seatLimitReached } from '../../utils/entitlements'
 import { deleteMemberSafely, logAuditEvent, removePendingInvite } from '../../utils/teamMembers'
 import { assignableRoles, canManageMemberRecord, canManageTeam } from '../../utils/permissions'
+import { sendWebhookEvent } from '../../utils/webhooks'
 
 export default function Team() {
   const { tenant, tenantUser } = useAuth()
@@ -42,6 +43,15 @@ export default function Team() {
       })
       await load()
       setModal(false); setForm({email:'',role:'staff',full_name:''})
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'team.member.invited',
+        payload: {
+          email: form.email.trim().toLowerCase(),
+          role: form.role,
+          full_name: form.full_name || null,
+        },
+      })
       alert(result.emailSent ? 'Invitation sent!' : `Invite created, but email could not be sent. ${result.emailError || 'Check worker settings.'}`)
     } catch(e) { alert(e.message) }
     setSaving(false)
@@ -52,6 +62,7 @@ export default function Team() {
     await sbUpdate('tenant_users', `id=eq.${id}`, { role })
     await logAuditEvent({ tenantId: tenant.id, actorId: tenantUser?.id, action: 'member_role_updated', entity: 'tenant_user', entityId: id, metadata: { role } })
     setStaff(p=>p.map(s=>s.id===id?{...s,role}:s))
+    sendWebhookEvent({ tenantId: tenant.id, event: 'team.member.updated', payload: { member_id: id, role } })
   }
 
   const suspend = async (id, status) => {
@@ -59,6 +70,7 @@ export default function Team() {
     await sbUpdate('tenant_users', `id=eq.${id}`, { status })
     await logAuditEvent({ tenantId: tenant.id, actorId: tenantUser?.id, action: status === 'suspended' ? 'member_suspended' : 'member_reinstated', entity: 'tenant_user', entityId: id })
     setStaff(p=>p.map(s=>s.id===id?{...s,status}:s))
+    sendWebhookEvent({ tenantId: tenant.id, event: 'team.member.updated', payload: { member_id: id, status } })
   }
 
   const resendInvite = async (member) => {
@@ -72,6 +84,16 @@ export default function Team() {
         fullName: member.full_name,
       })
       await load()
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'team.member.invited',
+        payload: {
+          email: member.email,
+          role: member.role,
+          full_name: member.full_name || null,
+          resent: true,
+        },
+      })
       alert(result.emailSent ? 'Invitation resent!' : `Invite refreshed, but email could not be sent. ${result.emailError || 'Check worker settings.'}`)
     } catch (e) {
       alert(e.message)
@@ -85,6 +107,7 @@ export default function Team() {
     try {
       await removePendingInvite({ tenantId: tenant.id, memberId: member.id, email: member.email, actorId: tenantUser?.id })
       await load()
+      sendWebhookEvent({ tenantId: tenant.id, event: 'team.member.deleted', payload: { member_id: member.id, email: member.email, invited: true } })
     } catch (e) {
       alert(e.message)
     }
@@ -97,6 +120,7 @@ export default function Team() {
     try {
       await deleteMemberSafely({ tenantId: tenant.id, member, actorId: tenantUser?.id })
       await load()
+      sendWebhookEvent({ tenantId: tenant.id, event: 'team.member.deleted', payload: { member_id: member.id, email: member.email } })
     } catch (e) {
       alert(e.message)
     }

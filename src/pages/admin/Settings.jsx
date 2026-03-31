@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { sbUpdate } from '../../utils/supabase'
 import { canManageWorkspaceSettings } from '../../utils/permissions'
 import { can } from '../../utils/entitlements'
+import { sendWebhookEvent } from '../../utils/webhooks'
 
 export default function Settings() {
   const { tenant, tenantUser, refreshTenant } = useAuth()
@@ -17,6 +18,15 @@ export default function Settings() {
     setSaving(true)
     try {
       await sbUpdate('tenants', `id=eq.${tenant.id}`, { name:form.name, primary_colour:form.primary_colour, logo_url: form.logo_url || null, updated_at:new Date().toISOString() })
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'tenant.updated',
+        payload: {
+          name: form.name,
+          primary_colour: form.primary_colour,
+          logo_url: form.logo_url || null,
+        },
+      })
       await refreshTenant()
       setSaved(true); setTimeout(()=>setSaved(false),3000)
     } catch(e) { alert(e.message) }

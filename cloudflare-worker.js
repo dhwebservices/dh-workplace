@@ -614,6 +614,138 @@ async function requirePlatformAdmin(request, env) {
   return userJson
 }
 
+async function requireWorkspaceSettingsManager(request, env, tenantId) {
+  const authHeader = request.headers.get('Authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) throw new Error('Missing workspace session')
+
+  const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const userJson = await userRes.json()
+  if (!userRes.ok || !userJson?.id) {
+    throw new Error(userJson?.msg || userJson?.error_description || userJson?.error || 'Invalid workspace session')
+  }
+
+  const platformAdminRes = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_admins?user_id=eq.${userJson.id}&select=id&limit=1`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    },
+  })
+  const platformAdminJson = await platformAdminRes.json()
+  if (platformAdminRes.ok && Array.isArray(platformAdminJson) && platformAdminJson.length > 0) {
+    return userJson
+  }
+
+  const tenantUserRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_users?tenant_id=eq.${tenantId}&user_id=eq.${userJson.id}&select=id,role&limit=1`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    },
+  })
+  const tenantUserJson = await tenantUserRes.json()
+  const tenantUser = tenantUserJson?.[0]
+  if (!tenantUser || !['owner', 'superadmin'].includes(tenantUser.role)) {
+    throw new Error('Owner access required')
+  }
+  return { ...userJson, tenant_user_id: tenantUser.id }
+}
+
+async function deliverWebhookPayload(endpoint, payload) {
+  const res = await fetch(endpoint.target_url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-DH-Event': payload.event,
+      'X-DH-Tenant-ID': payload.tenant_id,
+      ...(endpoint.secret ? { 'X-DH-Webhook-Secret': endpoint.secret } : {}),
+    },
+    body: JSON.stringify(payload),
+  })
+  const responseText = await res.text().catch(() => '')
+  return {
+    id: endpoint.id,
+    label: endpoint.label,
+    status: res.status,
+    ok: res.ok,
+    body: responseText.slice(0, 500),
+  }
+}
+
+async function handleWebhookAction(type, data, request, env) {
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+  }
+
+  await requireWorkspaceSettingsManager(request, env, data.tenant_id)
+
+  if (type === 'webhook_test') {
+    const payload = {
+      event: data.event || 'tenant.test',
+      tenant_id: data.tenant_id,
+      occurred_at: new Date().toISOString(),
+      test: true,
+      data: data.payload || { ok: true },
+    }
+    return {
+      ok: true,
+      result: await deliverWebhookPayload({
+        id: 'test',
+        label: data.label || 'Test endpoint',
+        target_url: data.target_url,
+        secret: data.secret || '',
+      }, payload),
+    }
+  }
+
+  if (type === 'webhook_deliver') {
+    const endpointsRes = await fetch(`${sbUrl}/rest/v1/webhook_endpoints?tenant_id=eq.${data.tenant_id}&enabled=is.true&select=id,label,target_url,secret,events`, {
+      headers,
+    })
+    const endpoints = await endpointsRes.json()
+    if (!endpointsRes.ok) throw new Error('Unable to load webhook endpoints')
+
+    const matching = (endpoints || []).filter(endpoint => {
+      const subscribedEvents = endpoint.events || []
+      return subscribedEvents.length === 0 || subscribedEvents.includes(data.event)
+    })
+
+    const payload = {
+      event: data.event,
+      tenant_id: data.tenant_id,
+      occurred_at: new Date().toISOString(),
+      data: data.payload || {},
+    }
+
+    const results = await Promise.all(matching.map(endpoint => deliverWebhookPayload(endpoint, payload)))
+
+    if (matching.length > 0) {
+      await fetch(`${sbUrl}/rest/v1/webhook_endpoints?tenant_id=eq.${data.tenant_id}&enabled=is.true`, {
+        method: 'PATCH',
+        headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({ last_tested_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+      }).catch(() => {})
+    }
+
+    return {
+      ok: true,
+      delivered: results.filter(result => result.ok).length,
+      attempted: matching.length,
+      results,
+    }
+  }
+
+  throw new Error(`Unknown webhook action: ${type}`)
+}
+
 // ── GoCardless Webhook Handler ────────────────────────────────
 async function handleWebhook(request, env) {
   const body = await request.text()
@@ -768,6 +900,8 @@ export default {
       } else if (type.startsWith('auth_')) {
         await requirePlatformAdmin(request, env)
         result = await handleAuthAdminAction(type, data, env)
+      } else if (type.startsWith('webhook_')) {
+        result = await handleWebhookAction(type, data, request, env)
       } else {
         const emailRes = await handleEmail(type, data, env)
         if (emailRes instanceof Response) return new Response(emailRes.body, { status: emailRes.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGet, sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
 import { canManageCRM, canManageInvoices } from '../../utils/permissions'
+import { sendWebhookEvent } from '../../utils/webhooks'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -55,6 +56,7 @@ export default function ClientProfile() {
     setSaving(true)
     try {
       await sbUpdate('clients', `id=eq.${id}`, { ...form, updated_at:new Date().toISOString() })
+      sendWebhookEvent({ tenantId: tenant.id, event: 'client.updated', payload: { client_id: id, name: form.name, status: form.status, value: form.value || null } })
       setClient(form); setEditing(false)
     } catch(e) { alert(e.message) }
     setSaving(false)
@@ -90,6 +92,16 @@ export default function ClientProfile() {
           }),
         }).catch(() => {})
       }
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'invoice.created',
+        payload: {
+          client_id: id,
+          invoice_number: invForm.invoice_number || null,
+          amount: Number(invForm.amount),
+          due_date: invForm.due_date || null,
+        },
+      })
       setInvModal(false); setInvForm({invoice_number:'',description:'',amount:'',due_date:''})
       const inv = await sbGetMany('invoices', `client_id=eq.${id}&order=created_at.desc`)
       setInvoices(inv||[])
@@ -101,6 +113,7 @@ export default function ClientProfile() {
     if (!canManageClientInvoices) return
     await sbUpdate('invoices', `id=eq.${invId}`, { status:'paid', paid_at:new Date().toISOString() })
     setInvoices(p=>p.map(i=>i.id===invId?{...i,status:'paid'}:i))
+    sendWebhookEvent({ tenantId: tenant.id, event: 'invoice.updated', payload: { invoice_id: invId, status: 'paid' } })
   }
 
   const addNote = async () => {

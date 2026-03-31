@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
 import { canManageCRM } from '../../utils/permissions'
+import { sendWebhookEvent } from '../../utils/webhooks'
 
 const EMPTY = { name:'', email:'', phone:'', website:'', status:'lead', plan:'', value:'', notes:'' }
 const STATUS_COLOURS = { lead:'blue', active:'green', inactive:'grey', lost:'red' }
@@ -45,8 +46,10 @@ export default function Clients() {
       const payload = { ...form, value: form.value ? Number(form.value) : null }
       if (editing) {
         await sbUpdate('clients', `id=eq.${editing.id}`, { ...payload, updated_at: new Date().toISOString() })
+        sendWebhookEvent({ tenantId: tenant.id, event: 'client.updated', payload: { client_id: editing.id, name: payload.name, status: payload.status, value: payload.value } })
       } else {
         await sbInsert('clients', { ...payload, tenant_id: tenant.id, created_at: new Date().toISOString() })
+        sendWebhookEvent({ tenantId: tenant.id, event: 'client.created', payload: { name: payload.name, status: payload.status, value: payload.value } })
       }
       setModal(false); load()
     } catch(e) { alert('Save failed: ' + e.message) }

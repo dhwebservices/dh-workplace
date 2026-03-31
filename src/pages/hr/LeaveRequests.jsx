@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
 import { canApproveLeave } from '../../utils/permissions'
+import { sendWebhookEvent } from '../../utils/webhooks'
 
 const TYPES = ['annual','sick','compassionate','unpaid','other']
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
@@ -55,6 +56,17 @@ export default function LeaveRequests() {
         link: '/leave',
         created_at: new Date().toISOString(),
       })))
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'leave.request.created',
+        payload: {
+          tenant_user_id: tenantUser.id,
+          type: form.type,
+          start_date: form.start_date,
+          end_date: form.end_date,
+          days: calcDays(form.start_date, form.end_date),
+        },
+      })
       setModal(false); setForm({type:'annual',start_date:'',end_date:'',notes:''}); load()
     } catch(e) { alert(e.message) }
     setSaving(false)
@@ -68,6 +80,16 @@ export default function LeaveRequests() {
     setRequests(p => p.map(r => r.id===id ? {...r,status} : r))
 
     if (request && member) {
+      sendWebhookEvent({
+        tenantId: tenant.id,
+        event: 'leave.request.updated',
+        payload: {
+          request_id: id,
+          tenant_user_id: request.tenant_user_id,
+          status,
+          reviewed_by: tenantUser.id,
+        },
+      })
       await sbInsert('notifications', {
         tenant_id: tenant.id,
         tenant_user_id: member.id,
