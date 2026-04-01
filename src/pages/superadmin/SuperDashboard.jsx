@@ -65,7 +65,7 @@ export default function SuperDashboard() {
         </div>
       </div>
 
-      <div className="stats-grid" style={{ gridTemplateColumns:'repeat(6, 1fr)' }}>
+      <div className="stats-grid" style={{ gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))' }}>
         {[
           { label:'Live Tenants',    val: stats.total,    colour:'var(--blue)' },
           { label:'Demo Tenants',    val: stats.demos,    colour:'var(--faint)' },
@@ -90,7 +90,7 @@ export default function SuperDashboard() {
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1.05fr 0.95fr', gap:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))', gap:20 }}>
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -161,7 +161,7 @@ export default function SuperDashboard() {
               )}
             </div>
           )}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12 }}>
             {[
               { label:'Trials ending soon', value: attention.endingTrial.length, note:'Upgrade prompts needed', tone:'var(--amber)' },
               { label:'No billing', value: attention.noMandate.length, note:'Billing setup incomplete', tone:'var(--gold)' },
@@ -189,22 +189,24 @@ export default function SuperDashboard() {
         {loading ? (
           <div style={{ padding:20 }}>{[1,2,3].map(i=><div key={i} className="skel" style={{ height:48,marginBottom:8,borderRadius:8 }}/>)}</div>
         ) : (
-          <table className="tbl">
-            <thead><tr><th>Company</th><th>Type</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th></th></tr></thead>
-            <tbody>
-              {tenants.slice(0,10).map(t => (
-                <tr key={t.id}>
-                  <td className="t-main">{t.name}</td>
-                  <td><span className={`badge badge-${t.is_demo ? 'grey' : 'blue'}`}>{t.is_demo ? 'Demo' : 'Live'}</span></td>
-                  <td><span className="badge badge-blue" style={{ textTransform:'capitalize' }}>{t.plan}</span></td>
-                  <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{ textTransform:'capitalize' }}>{t.status}</span></td>
-                  <td style={{ fontSize:12, color:'var(--faint)' }}>{t.owner_email}</td>
-                  <td style={{ fontSize:12, fontFamily:'var(--font-mono)', color:'var(--faint)' }}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
-                  <td><Link to={`/superadmin/tenants/${t.id}`} className="btn btn-outline btn-sm">View</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ overflowX:'auto' }}>
+            <table className="tbl">
+              <thead><tr><th>Company</th><th>Type</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th></th></tr></thead>
+              <tbody>
+                {tenants.slice(0,10).map(t => (
+                  <tr key={t.id}>
+                    <td className="t-main">{t.name}</td>
+                    <td><span className={`badge badge-${t.is_demo ? 'grey' : 'blue'}`}>{t.is_demo ? 'Demo' : 'Live'}</span></td>
+                    <td><span className="badge badge-blue" style={{ textTransform:'capitalize' }}>{t.plan}</span></td>
+                    <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{ textTransform:'capitalize' }}>{t.status}</span></td>
+                    <td style={{ fontSize:12, color:'var(--faint)' }}>{t.owner_email}</td>
+                    <td style={{ fontSize:12, fontFamily:'var(--font-mono)', color:'var(--faint)' }}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
+                    <td><Link to={`/superadmin/tenants/${t.id}`} className="btn btn-outline btn-sm">View</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

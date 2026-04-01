@@ -90,12 +90,12 @@ export default function SuperTenants() {
             <button key={s} onClick={()=>setStatusFilter(s)} className={`btn btn-sm ${statusFilter===s?'btn-primary':'btn-outline'}`} style={{textTransform:'capitalize'}}>{s}</button>
           ))}
         </div>
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          <select className="inp" value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ width:'auto', minWidth:140 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', flex:'1 1 320px' }}>
+          <select className="inp" value={planFilter} onChange={e => setPlanFilter(e.target.value)} style={{ flex:'1 1 140px', minWidth:140 }}>
             <option value="all">All plans</option>
             {Object.keys(PLANS).map(plan => <option key={plan} value={plan} style={{ textTransform:'capitalize' }}>{plan}</option>)}
           </select>
-          <select className="inp" value={riskFilter} onChange={e => setRiskFilter(e.target.value)} style={{ width:'auto', minWidth:180 }}>
+          <select className="inp" value={riskFilter} onChange={e => setRiskFilter(e.target.value)} style={{ flex:'1 1 180px', minWidth:180 }}>
             <option value="all">All risk states</option>
             <option value="trial_ending">Trial ending soon</option>
             <option value="no_billing">No active billing</option>
@@ -103,8 +103,8 @@ export default function SuperTenants() {
             <option value="seat_risk">Seat risk</option>
           </select>
         </div>
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          <select className="inp" value={demoTemplate} onChange={e => setDemoTemplate(e.target.value)} style={{ width:'auto', minWidth:170 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', flex:'1 1 280px' }}>
+          <select className="inp" value={demoTemplate} onChange={e => setDemoTemplate(e.target.value)} style={{ flex:'1 1 170px', minWidth:170 }}>
             {listDemoTemplates().map(template => <option key={template.key} value={template.key}>{template.label}</option>)}
           </select>
           <button className="btn btn-primary btn-sm" onClick={createDemo} disabled={creatingDemo}>
@@ -117,36 +117,37 @@ export default function SuperTenants() {
       </div>
       <div className="card card-pad table-card">
         {loading ? <div style={{padding:24}}>{[1,2,3].map(i=><div key={i} className="skel" style={{height:52,marginBottom:8,borderRadius:8}}/>)}</div>
-        : filtered.length===0 ? <div className="empty"><p>No tenants found</p></div>
-        : <table className="tbl">
-            <thead><tr><th>Company</th><th>Type</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th>Risk</th><th></th></tr></thead>
-            <tbody>
-              {filtered.map(t=>(
-                <tr key={t.id} style={{cursor:'pointer'}} onClick={()=>navigate(`/superadmin/tenants/${t.id}`)}>
-                  <td className="t-main">{t.name}</td>
-                  <td><span className={`badge badge-${t.is_demo ? 'grey' : 'blue'}`}>{t.is_demo ? 'Demo' : 'Live'}</span></td>
-                  <td><span className="badge badge-blue" style={{textTransform:'capitalize'}}>{t.plan}</span></td>
-                  <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{textTransform:'capitalize'}}>{t.status}</span></td>
-                  <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{t.owner_email}</td>
-                  <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
-                  <td style={{ fontSize:12, color:'var(--sub)' }}>
-                    {hasRisk(t, 'blocked') ? 'Access issue' : hasRisk(t, 'trial_ending') ? 'Trial ending' : hasRisk(t, 'no_billing') ? 'No billing' : 'Healthy'}
-                  </td>
-                  <td>
-                    <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
-                      <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();navigate(`/superadmin/tenants/${t.id}`)}}>View</button>
-                      {t.status === 'blocked' ? (
-                        <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();quickUpdate(t, { status:'active' })}} disabled={savingId === t.id}>Unblock</button>
-                      ) : (
-                        <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();quickUpdate(t, { status:'blocked' })}} disabled={savingId === t.id}>Block</button>
-                      )}
-                      <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();extendTrial(t)}} disabled={savingId === t.id}>+7 days</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>}
+        : <div style={{ overflowX:'auto' }}>
+            <table className="tbl">
+              <thead><tr><th>Company</th><th>Type</th><th>Plan</th><th>Status</th><th>Owner</th><th>Joined</th><th>Risk</th><th></th></tr></thead>
+              <tbody>
+                {filtered.map(t=>(
+                  <tr key={t.id} style={{cursor:'pointer'}} onClick={()=>navigate(`/superadmin/tenants/${t.id}`)}>
+                    <td className="t-main">{t.name}</td>
+                    <td><span className={`badge badge-${t.is_demo ? 'grey' : 'blue'}`}>{t.is_demo ? 'Demo' : 'Live'}</span></td>
+                    <td><span className="badge badge-blue" style={{textTransform:'capitalize'}}>{t.plan}</span></td>
+                    <td><span className={`badge badge-${t.status==='active'?'green':t.status==='trialing'?'amber':t.status==='overdue' || t.status === 'blocked' ?'red':'grey'}`} style={{textTransform:'capitalize'}}>{t.status}</span></td>
+                    <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{t.owner_email}</td>
+                    <td style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{new Date(t.created_at).toLocaleDateString('en-GB')}</td>
+                    <td style={{ fontSize:12, color:'var(--sub)' }}>
+                      {hasRisk(t, 'blocked') ? 'Access issue' : hasRisk(t, 'trial_ending') ? 'Trial ending' : hasRisk(t, 'no_billing') ? 'No billing' : 'Healthy'}
+                    </td>
+                    <td>
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
+                        <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();navigate(`/superadmin/tenants/${t.id}`)}}>View</button>
+                        {t.status === 'blocked' ? (
+                          <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();quickUpdate(t, { status:'active' })}} disabled={savingId === t.id}>Unblock</button>
+                        ) : (
+                          <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();quickUpdate(t, { status:'blocked' })}} disabled={savingId === t.id}>Block</button>
+                        )}
+                        <button className="btn btn-outline btn-sm" onClick={e=>{e.stopPropagation();extendTrial(t)}} disabled={savingId === t.id}>+7 days</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>}
       </div>
     </div>
   )

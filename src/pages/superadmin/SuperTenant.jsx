@@ -357,7 +357,7 @@ export default function SuperTenant() {
           <div className="kpi-cell-value">{seatUsage}/{tenant.seat_limit || 5}</div>
         </div>
       </div>
-      <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:0}}>
+      <div className="stats-grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))',marginBottom:0}}>
         {[
           { label:'Users', value: `${activeUsers} active`, note: `${invitedUsers} invited · ${suspendedUsers} suspended`, colour:'var(--blue)' },
           { label:'Seat Usage', value: `${seatUsage}/${tenant.seat_limit || 5}`, note: tenant.plan, colour: seatUsage >= (tenant.seat_limit || 5) ? 'var(--red)' : 'var(--green)' },
@@ -371,7 +371,7 @@ export default function SuperTenant() {
           </div>
         ))}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1.2fr 0.8fr',gap:20,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))',gap:20,marginBottom:20}}>
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -392,7 +392,7 @@ export default function SuperTenant() {
               ))}
             </div>
           )}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:16}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:12,marginTop:16}}>
             {[
               ['Documents', stats.documents],
               ['Leave requests', stats.leave],
@@ -440,7 +440,7 @@ export default function SuperTenant() {
           </div>
         </div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'0.9fr 1.1fr',gap:20,marginBottom:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))',gap:20,marginBottom:20}}>
         <div style={{display:'flex',flexDirection:'column',gap:16}}>
           <div className="card card-pad">
             <div className="section-head">
@@ -484,7 +484,7 @@ export default function SuperTenant() {
               </div>
             </div>
             <textarea className="inp" rows={4} value={supportNote} onChange={e=>setSupportNote(e.target.value)} placeholder="Add an internal note about billing, support, onboarding, or account context." style={{resize:'vertical'}} />
-            <div style={{marginTop:12,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{marginTop:12,display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
               <span style={{fontSize:12,color:'var(--faint)'}}>Notes are stored in the tenant audit trail.</span>
               <button className="btn btn-primary btn-sm" onClick={addSupportNote} disabled={saving || !supportNote.trim()}>Save note</button>
             </div>
@@ -557,7 +557,7 @@ export default function SuperTenant() {
           </div>
         </div>
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'0.9fr 1.1fr',gap:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))',gap:20}}>
         <div className="card card-pad">
           <div className="section-head">
             <div>
