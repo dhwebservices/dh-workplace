@@ -291,9 +291,11 @@ export default function SuperTenant() {
   const invitedUsers = users.filter(user => user.status === 'invited').length
   const suspendedUsers = users.filter(user => user.status === 'suspended').length
   const seatUsage = users.filter(user => user.status !== 'suspended').length
+  const hasActiveBilling = Boolean(tenant.stripe_subscription_id || tenant.gc_subscription_id)
+  const billingReference = tenant.stripe_subscription_id ? 'Stripe' : tenant.gc_subscription_id ? 'GoCardless' : 'None'
   const trialEndsSoon = tenant.trial_ends_at && new Date(tenant.trial_ends_at) < new Date(Date.now() + 3 * 86400000)
   const healthFlags = [
-    !tenant.gc_mandate_id && tenant.status !== 'cancelled' ? 'No billing mandate on file' : null,
+    !hasActiveBilling && tenant.status !== 'cancelled' ? 'No active billing subscription on file' : null,
     trialEndsSoon ? 'Trial ends within 3 days' : null,
     tenant.status === 'overdue' ? 'Payment issue requires attention' : null,
     tenant.status === 'blocked' ? 'Workspace is blocked from signing in' : null,
@@ -348,7 +350,7 @@ export default function SuperTenant() {
         </div>
         <div className="kpi-cell">
           <div className="kpi-cell-label">Billing</div>
-          <div className="kpi-cell-value">{tenant.gc_subscription_id ? 'Live' : tenant.gc_mandate_id ? 'Mandate' : 'Action needed'}</div>
+          <div className="kpi-cell-value">{hasActiveBilling ? 'Live' : tenant.gc_mandate_id ? 'Legacy mandate' : 'Action needed'}</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-cell-label">Seat usage</div>
@@ -359,7 +361,7 @@ export default function SuperTenant() {
         {[
           { label:'Users', value: `${activeUsers} active`, note: `${invitedUsers} invited · ${suspendedUsers} suspended`, colour:'var(--blue)' },
           { label:'Seat Usage', value: `${seatUsage}/${tenant.seat_limit || 5}`, note: tenant.plan, colour: seatUsage >= (tenant.seat_limit || 5) ? 'var(--red)' : 'var(--green)' },
-          { label:'Billing', value: tenant.gc_mandate_id ? 'Mandate set' : 'No mandate', note: tenant.last_payment_at ? `Last payment ${new Date(tenant.last_payment_at).toLocaleDateString('en-GB')}` : 'No successful payment yet', colour: tenant.gc_mandate_id ? 'var(--green)' : 'var(--amber)' },
+          { label:'Billing', value: hasActiveBilling ? `${billingReference} live` : tenant.gc_mandate_id ? 'Legacy mandate' : 'No billing', note: tenant.last_payment_at ? `Last payment ${new Date(tenant.last_payment_at).toLocaleDateString('en-GB')}` : 'No successful payment yet', colour: hasActiveBilling || tenant.gc_mandate_id ? 'var(--green)' : 'var(--amber)' },
           { label:'Workspace', value: `${stats.clients} clients`, note: `${stats.tasks} tasks · ${openInvoices} invoices`, colour:'var(--gold)' },
         ].map(card => (
           <div key={card.label} className="stat-card">
@@ -421,6 +423,8 @@ export default function SuperTenant() {
               ['Demo Template', tenant.demo_template || '—'],
               ['Seat Limit', tenant.seat_limit],
               ['Owner Email', tenant.owner_email],
+              ['Stripe Customer', tenant.stripe_customer_id||'Not set'],
+              ['Stripe Subscription', tenant.stripe_subscription_id||'Not set'],
               ['GC Customer', tenant.gc_customer_id||'Not set'],
               ['GC Mandate', tenant.gc_mandate_id||'Not set'],
               ['GC Subscription', tenant.gc_subscription_id||'Not set'],

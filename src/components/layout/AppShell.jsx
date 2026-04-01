@@ -115,16 +115,18 @@ export default function AppShell({ superAdmin = false }) {
   }, [notificationsEnabled, tenantUser?.id])
 
   const unreadCount = useMemo(() => notifications.filter(item => !item.read).length, [notifications])
+  const hasLiveSubscription = Boolean(tenant?.stripe_subscription_id || tenant?.gc_subscription_id)
+  const hasLegacyMandate = Boolean(tenant?.gc_mandate_id)
   const workspaceStatus = superAdmin
     ? `${unreadCount} alert${unreadCount === 1 ? '' : 's'}`
     : isPendingActivation
       ? 'Activation required'
       : isTrial
       ? 'Trial active'
-      : tenant?.gc_subscription_id
+      : hasLiveSubscription
         ? 'Subscription active'
-        : tenant?.gc_mandate_id
-          ? 'Mandate set'
+        : hasLegacyMandate
+          ? 'Billing setup saved'
           : 'Billing needs setup'
 
   const openNotification = async (notification) => {
@@ -221,7 +223,7 @@ export default function AppShell({ superAdmin = false }) {
           <div />
           <div className="topbar-actions">
             <div className="workspace-health">
-              <span className={`workspace-health-dot ${superAdmin ? 'platform' : isTrial ? 'trial' : tenant?.gc_subscription_id ? 'active' : 'attention'}`} />
+              <span className={`workspace-health-dot ${superAdmin ? 'platform' : isTrial ? 'trial' : hasLiveSubscription ? 'active' : 'attention'}`} />
               <div>
                 <div className="workspace-health-label">{superAdmin ? 'Platform status' : 'Workspace status'}</div>
                 <div className="workspace-health-value">{workspaceStatus}</div>

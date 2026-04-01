@@ -41,10 +41,6 @@ export function clearBillingFallbackNotice(tenantId) {
   window.localStorage.removeItem(key)
 }
 
-export function needsInitialPayment(tenant, planKey) {
-  return Boolean(planKey) && !tenant?.gc_mandate_id && !tenant?.gc_subscription_id && !tenant?.last_payment_at
-}
-
 export async function startBillingSetup({
   tenant,
   tenantUser,
@@ -56,120 +52,131 @@ export async function startBillingSetup({
   if (!tenant?.id || !tenantUser) throw new Error('Billing setup requires a valid workspace owner')
 
   rememberPendingPlan(tenant.id, desiredPlan)
-
-  let customerId = tenant.gc_customer_id
-  if (!customerId) {
-    const name = (tenantUser.full_name || '').trim().split(' ')
-    const customerRes = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'gc_create_customer',
-        data: {
-          email: tenant.owner_email || tenantUser.email,
-          given_name: name[0] || 'DH',
-          family_name: name.slice(1).join(' ') || 'Workplace',
-        },
-      }),
-    })
-    const customerJson = await customerRes.json()
-    if (!customerRes.ok) throw new Error(customerJson.error || 'Failed to create billing customer')
-    customerId = customerJson.customers?.id
-    if (!customerId) throw new Error('Billing customer ID missing')
-    await sbUpdate('tenants', `id=eq.${tenant.id}`, {
-      gc_customer_id: customerId,
-      updated_at: new Date().toISOString(),
-    })
-  }
-
-  const collectInitialPayment = needsInitialPayment(tenant, desiredPlan)
-  const amountPence = collectInitialPayment ? (PLANS[desiredPlan]?.launch_price || 9) * 100 : null
-
-  const requestRes = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'gc_create_billing_request',
-      data: {
-        customer_id: customerId,
-        amount_pence: amountPence,
-        description: collectInitialPayment ? `${PLANS[desiredPlan]?.name || 'Starter'} first month` : '',
-      },
-    }),
-  })
-  const requestJson = await requestRes.json()
-  if (!requestRes.ok) throw new Error(requestJson.error || 'Failed to create billing request')
-  const billingRequestId = requestJson.billing_requests?.id
-  if (!billingRequestId) throw new Error('Billing request ID missing')
-  if (requestJson.dh_workplace_meta?.first_payment_mode === 'mandate_only_fallback') {
-    rememberBillingFallbackNotice(
-      tenant.id,
-      'Your GoCardless account accepted the Direct Debit setup but not the upfront first-payment step. We will complete the mandate now and begin recurring billing once the subscription is active.'
-    )
-  } else {
-    clearBillingFallbackNotice(tenant.id)
-  }
-
-  const redirectUri = `${window.location.origin}${redirectPath}`
-  const flowRes = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'gc_create_billing_request_flow',
-      data: {
-        billing_request_id: billingRequestId,
-        redirect_uri: redirectUri,
-        exit_uri: redirectUri,
-      },
-    }),
-  })
-  const flowJson = await flowRes.json()
-  if (!flowRes.ok) throw new Error(flowJson.error || 'Failed to start Direct Debit setup')
-  const authUrl = flowJson.billing_request_flows?.authorisation_url
-  if (!authUrl) throw new Error('Direct Debit authorisation URL missing')
-
-  await refreshTenant()
-  window.location.href = authUrl
-}
-
-export async function activateRecurringSubscription({
-  tenantId,
-  planKey,
-  refreshTenant,
-}) {
-  if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
-  if (!tenantId) throw new Error('Missing tenant ID for subscription activation')
-
-  const tenant = await sbGet('tenants', `id=eq.${tenantId}`)
-  if (!tenant?.gc_mandate_id) throw new Error('Direct Debit mandate is not ready yet')
-  if (tenant?.gc_subscription_id) {
-    await refreshTenant?.()
-    return tenant
-  }
+  const separator = redirectPath.includes('?') ? '&' : '?'
+  const successPath = `${redirectPath}${separator}billing=return`
+  const cancelPath = `${redirectPath}${separator}billing=cancelled`
 
   const res = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      type: 'gc_create_subscription',
+      type: 'stripe_create_checkout_session',
       data: {
-        amount_pence: (PLANS[planKey]?.launch_price || 9) * 100,
-        mandate_id: tenant.gc_mandate_id,
-        name: `${PLANS[planKey]?.name || 'Starter'} Plan`,
+        tenant_id: tenant.id,
+        tenant_name: tenant.name,
+        owner_email: tenant.owner_email || tenantUser.email,
+        customer_email: tenant.owner_email || tenantUser.email,
+        customer_name: tenantUser.full_name || tenant.name,
+        plan_key: desiredPlan,
+        customer_id: tenant.stripe_customer_id || '',
+        success_path: successPath,
+        cancel_path: cancelPath,
       },
     }),
   })
   const json = await res.json()
-  if (!res.ok) throw new Error(json.error || 'Failed to create subscription')
-  const subscriptionId = json.subscriptions?.id
-  if (!subscriptionId) throw new Error('Subscription ID missing from GoCardless response')
+  if (!res.ok) throw new Error(json.error || 'Failed to start Stripe checkout')
 
-  await sbUpdate('tenants', `id=eq.${tenantId}`, {
-    gc_subscription_id: subscriptionId,
-    status: 'active',
-    subscription_started_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+  if (json.customer_id && json.customer_id !== tenant.stripe_customer_id) {
+    await sbUpdate('tenants', `id=eq.${tenant.id}`, {
+      stripe_customer_id: json.customer_id,
+      updated_at: new Date().toISOString(),
+    })
+  }
+
+  await refreshTenant()
+  if (!json.url) throw new Error('Stripe checkout URL missing')
+  window.location.href = json.url
+}
+
+export async function createBillingPortalSession({
+  tenant,
+  returnPath = '/billing',
+}) {
+  if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
+  if (!tenant?.stripe_customer_id) throw new Error('Stripe customer is not ready yet')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'stripe_create_billing_portal_session',
+      data: {
+        customer_id: tenant.stripe_customer_id,
+        return_path: returnPath,
+      },
+    }),
   })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to open Stripe billing portal')
+  if (!json.url) throw new Error('Stripe billing portal URL missing')
+  window.location.href = json.url
+}
+
+export async function updateSubscriptionPlan({
+  tenantId,
+  subscriptionId,
+  planKey,
+  refreshTenant,
+}) {
+  if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
+  if (!tenantId || !subscriptionId || !planKey) throw new Error('Missing subscription information')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'stripe_update_subscription',
+      data: {
+        tenant_id: tenantId,
+        subscription_id: subscriptionId,
+        plan_key: planKey,
+      },
+    }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to update subscription')
   await refreshTenant?.()
-  return await sbGet('tenants', `id=eq.${tenantId}`)
+  return json
+}
+
+export async function cancelSubscription({
+  tenantId,
+  subscriptionId,
+  refreshTenant,
+}) {
+  if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
+  if (!tenantId || !subscriptionId) throw new Error('Missing subscription information')
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'stripe_cancel_subscription',
+      data: {
+        tenant_id: tenantId,
+        subscription_id: subscriptionId,
+      },
+    }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to cancel subscription')
+  await refreshTenant?.()
+  return json
+}
+
+export async function waitForStripeActivation(tenantId, refreshTenant, attempts = 10) {
+  if (!tenantId) throw new Error('Missing tenant ID')
+  let latestTenant = null
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    latestTenant = await sbGet('tenants', `id=eq.${tenantId}`)
+    if (latestTenant?.stripe_subscription_id && latestTenant?.status === 'active') {
+      await refreshTenant?.()
+      return latestTenant
+    }
+    await new Promise(resolve => window.setTimeout(resolve, 1500))
+  }
+
+  return latestTenant
 }

@@ -23,6 +23,7 @@ export default function Dashboard() {
   }, [tenant?.id])
 
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
+  const hasSubscription = Boolean(tenant?.stripe_subscription_id || tenant?.gc_subscription_id)
 
   return (
     <div className="fade-in page-stack">
@@ -100,7 +101,7 @@ export default function Dashboard() {
             </div>
             <div className="detail-row">
               <span className="detail-row-label">Billing</span>
-              <span className="detail-row-value">{tenant?.gc_subscription_id ? 'Subscription live' : tenant?.gc_mandate_id ? 'Mandate saved' : 'Action needed'}</span>
+              <span className="detail-row-value">{hasSubscription ? 'Subscription live' : tenant?.status === 'pending_activation' ? 'Activation needed' : 'Action needed'}</span>
             </div>
             <div className="detail-row">
               <span className="detail-row-label">Focus</span>

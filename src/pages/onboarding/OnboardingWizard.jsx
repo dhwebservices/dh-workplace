@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbGet, sbUpdate } from '../../utils/supabase'
+import { sbUpdate } from '../../utils/supabase'
 import { inviteMember } from '../../utils/invitations'
 import { markOnboardingComplete } from '../../utils/onboarding'
 import { PLANS } from '../../utils/entitlements'
-import { activateRecurringSubscription, startBillingSetup } from '../../utils/billing'
+import { startBillingSetup, waitForStripeActivation } from '../../utils/billing'
 
 const STEPS = ['Your profile', 'Invite team', 'Set up billing']
 
@@ -81,7 +81,7 @@ export default function OnboardingWizard() {
         tenantUser: { ...tenantUser, email: tenantUser?.email || user?.email, full_name: tenantUser?.full_name || profile.full_name },
         desiredPlan: tenant?.plan || 'starter',
         refreshTenant,
-        redirectPath: '/billing?onboarding=1',
+        redirectPath: '/onboarding',
       })
     } catch (e) {
       setBillingError(e.message || 'Unable to start billing setup')
@@ -98,30 +98,19 @@ export default function OnboardingWizard() {
       setBillingError('')
 
       try {
-        let latestTenant = null
-        for (let attempt = 0; attempt < 8; attempt += 1) {
-          latestTenant = await sbGet('tenants', `id=eq.${tenant.id}`)
-          if (latestTenant?.gc_mandate_id) break
-          await new Promise(resolve => window.setTimeout(resolve, 1500))
-        }
-
-        if (!latestTenant?.gc_mandate_id) {
-          throw new Error('We could not confirm your Direct Debit mandate yet. Please wait a moment and try again.')
-        }
-
-        const activatedTenant = await activateRecurringSubscription({
-          tenantId: tenant.id,
-          planKey: latestTenant.plan || tenant.plan || 'starter',
+        const activatedTenant = await waitForStripeActivation(
+          tenant.id,
           refreshTenant,
-        })
+          12,
+        )
 
-        if (activatedTenant?.gc_subscription_id && user?.id) {
+        if (activatedTenant?.stripe_subscription_id && user?.id) {
           markOnboardingComplete(user.id)
           navigate('/', { replace: true })
           return
         }
 
-        throw new Error('Your mandate is saved, but we could not activate the recurring subscription yet. Please open Billing and try again.')
+        throw new Error('Your payment completed, but we could not confirm the subscription yet. Please wait a moment and refresh Billing.')
       } catch (e) {
         setBillingError(e.message || 'Unable to finish billing setup')
       }
@@ -226,7 +215,7 @@ export default function OnboardingWizard() {
               )}
               <div>
                 <h2 style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:700, marginBottom:4 }}>Start your paid plan</h2>
-                <p style={{ fontSize:13, color:'var(--faint)' }}>Set up Direct Debit and activate your monthly plan now. Your workspace will unlock fully as soon as the mandate and recurring subscription are confirmed.</p>
+                <p style={{ fontSize:13, color:'var(--faint)' }}>Complete your Stripe checkout to take the first monthly payment now and activate your workspace subscription straight away.</p>
               </div>
               <div style={{ background:'var(--gold-soft)', border:'1px solid var(--gold-border)', borderRadius:10, padding:16 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:'var(--gold)', marginBottom:4 }}>Founding Member</div>
@@ -234,10 +223,10 @@ export default function OnboardingWizard() {
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 <button className="btn btn-gold btn-lg" onClick={setupBillingNow} disabled={saving} style={{ justifyContent:'center' }}>
-                  {saving ? (activatingBilling ? 'Finalising billing...' : 'Starting checkout...') : `Set up Direct Debit and activate £${PLANS[tenant?.plan || 'starter']?.launch_price || 9}/mo`}
+                  {saving ? (activatingBilling ? 'Finalising billing...' : 'Starting checkout...') : `Pay £${PLANS[tenant?.plan || 'starter']?.launch_price || 9} and activate subscription`}
                 </button>
               </div>
-              <div style={{ fontSize:12, color:'var(--faint)', textAlign:'center' }}>GoCardless checkout · Monthly recurring billing · Cancel anytime</div>
+              <div style={{ fontSize:12, color:'var(--faint)', textAlign:'center' }}>Stripe Checkout · Monthly recurring billing · Apple Pay where available · Cancel anytime</div>
             </div>
           )}
         </div>

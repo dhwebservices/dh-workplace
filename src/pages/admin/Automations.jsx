@@ -90,7 +90,7 @@ export default function Automations() {
         pendingLeave: (leaveRows || []).length,
         pendingTimesheets: (timesheetRows || []).length,
         daysLeft: tenant?.trial_ends_at ? Math.max(0, Math.ceil((new Date(tenant.trial_ends_at) - new Date()) / 86400000)) : 0,
-        billingState: tenant?.status === 'overdue' ? 'Overdue' : tenant?.gc_subscription_id ? 'Active' : tenant?.gc_mandate_id ? 'Mandate set' : 'Needs setup',
+        billingState: tenant?.status === 'overdue' ? 'Overdue' : tenant?.stripe_subscription_id || tenant?.gc_subscription_id ? 'Active' : 'Needs setup',
       })
       setSchemaReady(true)
     } catch (e) {

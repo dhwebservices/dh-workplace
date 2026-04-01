@@ -4,12 +4,12 @@ import { PLANS } from '../../utils/entitlements'
 import { sbGetMany, sbUpdate } from '../../utils/supabase'
 import { canManageBilling } from '../../utils/permissions'
 import {
-  clearBillingFallbackNotice,
+  cancelSubscription as cancelStripeSubscription,
   clearPendingPlan as clearStoredPendingPlan,
+  createBillingPortalSession,
   getPendingPlanStorageKey,
-  needsInitialPayment,
-  readBillingFallbackNotice,
   startBillingSetup,
+  updateSubscriptionPlan,
 } from '../../utils/billing'
 
 const FEATURE_LABELS = {
@@ -30,8 +30,6 @@ const FEATURE_LABELS = {
   api_access: 'API access',
 }
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL
-
 export default function Billing() {
   const { tenant, tenantUser, refreshTenant } = useAuth()
   const canManage = canManageBilling(tenantUser?.role)
@@ -41,24 +39,17 @@ export default function Billing() {
   const [switchingPlan, setSwitchingPlan] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [billingNotice, setBillingNotice] = useState('')
   const [activeSeats, setActiveSeats] = useState(0)
-  const hasBillingSetup = !!tenant?.gc_mandate_id
-  const hasSubscription = !!tenant?.gc_subscription_id
+  const hasStripeCustomer = !!tenant?.stripe_customer_id
+  const hasSubscription = !!(tenant?.stripe_subscription_id || tenant?.gc_subscription_id)
   const pendingPlanStorageKey = useMemo(() => getPendingPlanStorageKey(tenant?.id), [tenant?.id])
   const [pendingPlan, setPendingPlan] = useState('')
-  const initialPaymentRequired = needsInitialPayment(tenant, pendingPlan || tenant?.plan || 'starter')
 
   useEffect(() => {
     if (!pendingPlanStorageKey) return
     const stored = window.localStorage.getItem(pendingPlanStorageKey) || ''
     setPendingPlan(stored)
   }, [pendingPlanStorageKey])
-
-  useEffect(() => {
-    if (!tenant?.id) return
-    setBillingNotice(readBillingFallbackNotice(tenant.id))
-  }, [tenant?.id, tenant?.gc_mandate_id, tenant?.gc_subscription_id])
 
   useEffect(() => {
     let active = true
@@ -72,7 +63,7 @@ export default function Billing() {
   }, [tenant?.id])
 
   useEffect(() => {
-    if (!pendingPlan || hasBillingSetup || !tenant?.id) return
+    if (!pendingPlan || hasSubscription || !tenant?.id) return
     let attempts = 0
     const timer = window.setInterval(async () => {
       attempts += 1
@@ -80,12 +71,7 @@ export default function Billing() {
       if (attempts >= 10) window.clearInterval(timer)
     }, 3000)
     return () => window.clearInterval(timer)
-  }, [pendingPlan, hasBillingSetup, tenant?.id, refreshTenant])
-
-  useEffect(() => {
-    if (!pendingPlan || !hasBillingSetup || hasSubscription || switchingPlan) return
-    completePlanSubscription(pendingPlan, { silent: true })
-  }, [pendingPlan, hasBillingSetup, hasSubscription])
+  }, [pendingPlan, hasSubscription, tenant?.id, refreshTenant])
 
   const rememberPendingPlan = (key) => {
     if (!pendingPlanStorageKey) return
@@ -102,11 +88,6 @@ export default function Billing() {
     clearStoredPendingPlan(tenant?.id)
   }
 
-  const dismissBillingNotice = () => {
-    clearBillingFallbackNotice(tenant?.id)
-    setBillingNotice('')
-  }
-
   const applyPlanLocally = async (key, extra = {}) => {
     await sbUpdate('tenants', `id=eq.${tenant.id}`, {
       plan: key,
@@ -118,85 +99,35 @@ export default function Billing() {
     await refreshTenant()
   }
 
-  const completePlanSubscription = async (key, { silent = false } = {}) => {
-    if (!tenant?.id || !tenant?.gc_mandate_id || !tenantUser) return
-    if (tenant.gc_subscription_id && key !== tenant.plan) {
-      if (!silent) setError('Your current subscription is already active. Switching an existing paid plan will be enabled in the next billing pass.')
-      return
-    }
-    if (switchingPlan) return
-
-    setSwitchingPlan(key)
-    setError('')
-    if (!silent) setMessage('')
-
-    try {
-      const subscriptionRes = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'gc_create_subscription',
-          data: {
-            amount_pence: (PLANS[key]?.launch_price || 9) * 100,
-            mandate_id: tenant.gc_mandate_id,
-            name: `${PLANS[key]?.name || 'Starter'} Plan`,
-          },
-        }),
-      })
-      const subscriptionJson = await subscriptionRes.json()
-      if (!subscriptionRes.ok) throw new Error(subscriptionJson.error || 'Failed to create subscription')
-      const subscriptionId = subscriptionJson.subscriptions?.id
-      if (!subscriptionId) throw new Error('Subscription ID missing from GoCardless response')
-
-      await applyPlanLocally(key, {
-        gc_subscription_id: subscriptionId,
-        status: 'active',
-        subscription_started_at: new Date().toISOString(),
-      })
-      setMessage(`Your ${PLANS[key].name} subscription is now active.`)
-    } catch (e) {
-      if (!silent) setError(e.message || 'Failed to activate subscription')
-    }
-
-    setSwitchingPlan('')
-  }
-
   const updateLiveSubscription = async (key) => {
-    if (!tenant?.gc_subscription_id) return
+    const subscriptionId = tenant?.stripe_subscription_id
+    if (!subscriptionId) return
     setSwitchingPlan(key)
     setError('')
     setMessage('')
     try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'gc_update_subscription',
-          data: {
-            subscription_id: tenant.gc_subscription_id,
-            amount_pence: (PLANS[key]?.launch_price || 9) * 100,
-            name: `${PLANS[key]?.name || 'Starter'} Plan`,
-          },
-        }),
+      await updateSubscriptionPlan({
+        tenantId: tenant.id,
+        subscriptionId,
+        planKey: key,
+        refreshTenant,
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to update subscription')
       await applyPlanLocally(key)
-      setMessage(`${PLANS[key].name} is now your active plan. Future subscription charges will use the updated amount.`)
+      setMessage(`${PLANS[key].name} is now your active plan. Future Stripe renewals will use the updated amount.`)
     } catch (e) {
       setError(e.message || 'Failed to update subscription')
     }
     setSwitchingPlan('')
   }
 
-  const startBillingFlow = async (desiredPlan = tenant?.plan || 'starter', existingCustomerId = tenant?.gc_customer_id) => {
+  const startBillingFlow = async (desiredPlan = tenant?.plan || 'starter') => {
     setLoadingBilling(true)
     setError('')
     setMessage('')
 
     try {
       await startBillingSetup({
-        tenant: { ...tenant, gc_customer_id: existingCustomerId || tenant?.gc_customer_id },
+        tenant,
         tenantUser,
         desiredPlan,
         refreshTenant,
@@ -204,6 +135,27 @@ export default function Billing() {
       })
     } catch (e) {
       setError(e.message || 'Unable to start billing flow')
+      setLoadingBilling(false)
+      return
+    }
+  }
+
+  const openBillingPortal = async () => {
+    if (!tenant?.stripe_customer_id) {
+      setError('Stripe customer details are not ready yet.')
+      return
+    }
+    setLoadingBilling(true)
+    setError('')
+    setMessage('')
+    try {
+      await createBillingPortalSession({
+        tenantUser,
+        tenant,
+        returnPath: '/billing',
+      })
+    } catch (e) {
+      setError(e.message || 'Unable to open billing portal')
       setLoadingBilling(false)
       return
     }
@@ -217,47 +169,30 @@ export default function Billing() {
       setError(`This plan only includes ${targetSeatLimit} seats. You currently have ${activeSeats} active users, so reduce seat usage before downgrading.`)
       return
     }
-    if (!hasBillingSetup) {
+    if (!hasSubscription) {
       await startBillingFlow(key)
       return
     }
-    if (hasSubscription) {
-      await updateLiveSubscription(key)
-      return
-    }
-    setError('')
-    setMessage('')
-    try {
-      rememberPendingPlan(key)
-      await completePlanSubscription(key)
-    } catch (e) {
-      setError(e.message || 'Failed to change plan')
-    }
+    await updateLiveSubscription(key)
   }
 
-  const cancelSubscription = async () => {
+  const handleCancelSubscription = async () => {
     if (!canManage) return
-    if (!tenant?.gc_subscription_id) {
+    if (!tenant?.stripe_subscription_id) {
       setError('No active subscription found to cancel')
-      return
-    }
-    if (!WORKER_URL) {
-      setError('Billing worker URL is not configured')
       return
     }
     setLoadingBilling(true)
     setError('')
     setMessage('')
     try {
-      const res = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'gc_cancel_subscription', data: { subscription_id: tenant.gc_subscription_id } }),
+      await cancelStripeSubscription({
+        tenantId: tenant.id,
+        subscriptionId: tenant.stripe_subscription_id,
+        refreshTenant,
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to cancel subscription')
       await sbUpdate('tenants', `id=eq.${tenant.id}`, {
-        gc_subscription_id: null,
+        stripe_subscription_id: null,
         status: 'cancelled',
         updated_at: new Date().toISOString(),
       })
@@ -279,7 +214,7 @@ export default function Billing() {
       <div className="page-hd">
         <div>
           <h1 className="page-title">Billing</h1>
-          <p className="page-sub">Plans, mandates, and subscription readiness</p>
+          <p className="page-sub">Plans, Stripe checkout, and subscription readiness</p>
         </div>
       </div>
       <div className="kpi-strip">
@@ -292,8 +227,8 @@ export default function Billing() {
           <div className="kpi-cell-value">{tenant?.status === 'pending_activation' ? 'Pending activation' : tenant?.status}</div>
         </div>
         <div className="kpi-cell">
-          <div className="kpi-cell-label">Direct Debit</div>
-          <div className="kpi-cell-value">{hasBillingSetup ? 'Ready' : 'Not set'}</div>
+          <div className="kpi-cell-label">Stripe</div>
+          <div className="kpi-cell-value">{hasSubscription ? 'Active' : hasStripeCustomer ? 'Customer ready' : 'Not set'}</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-cell-label">Subscription</div>
@@ -303,19 +238,13 @@ export default function Billing() {
 
       <div style={{ maxWidth: 1120, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {!!error && <div style={{ fontSize: 13, color: 'var(--red)', background: 'var(--red-soft)', padding: '10px 14px', borderRadius: 8 }}>{error}</div>}
-        {!!billingNotice && (
-          <div style={{ fontSize: 13, color: 'var(--amber)', background: 'var(--gold-soft)', padding: '10px 14px', borderRadius: 8, display:'flex', justifyContent:'space-between', gap:12, alignItems:'center' }}>
-            <span>{billingNotice}</span>
-            <button className="btn btn-outline btn-sm" onClick={dismissBillingNotice}>Dismiss</button>
-          </div>
-        )}
         {!!message && <div style={{ fontSize: 13, color: 'var(--green)', background: 'var(--green-soft)', padding: '10px 14px', borderRadius: 8 }}>{message}</div>}
 
         <div className="card card-pad">
           <div className="section-head">
             <div>
               <h3 className="panel-title">{plan?.name || 'Starter'} plan</h3>
-              <div className="panel-sub">Your live entitlement, signup payment, and recurring billing state</div>
+              <div className="panel-sub">Your live entitlement, checkout payment, and recurring billing state</div>
             </div>
             <div>
               <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--gold)' }}>£{plan?.launch_price || 9}<span style={{ fontSize: 14, color: 'var(--faint)', fontWeight: 400 }}>/mo</span></div>
@@ -335,9 +264,9 @@ export default function Billing() {
               ['Activation', tenant?.status === 'pending_activation' ? 'Payment setup required' : 'Complete'],
               ['Seats included', plan?.max_users || 5],
               ['Active seats', activeSeats],
-              ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],
-              ['First payment', tenant?.last_payment_at ? 'Collected' : initialPaymentRequired ? `£${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} due on setup` : 'Complete'],
-              ['Subscription', tenant?.gc_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
+              ['Provider', tenant?.stripe_subscription_id ? 'Stripe subscription' : 'Stripe Checkout'],
+              ['First payment', tenant?.last_payment_at ? 'Collected at checkout' : `£${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} due at checkout`],
+              ['Subscription', tenant?.stripe_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
               ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
               ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
             ].map(([label, val]) => (
@@ -349,17 +278,15 @@ export default function Billing() {
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {!tenant?.gc_mandate_id ? (
+            {!tenant?.stripe_subscription_id ? (
               <button className="btn btn-primary" onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
-                {loadingBilling ? 'Starting setup...' : initialPaymentRequired
-                  ? `Pay £${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} now and set up Direct Debit`
-                  : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''}`}
+                {loadingBilling ? 'Starting checkout...' : `Pay £${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} and activate subscription`}
               </button>
             ) : (
-              <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>Update payment method</button>
+              <button className="btn btn-outline" onClick={openBillingPortal} disabled={loadingBilling}>Manage payment method</button>
             )}
-            {tenant?.gc_subscription_id && (
-              <button className="btn btn-outline" style={{ color: 'var(--red)' }} onClick={cancelSubscription} disabled={loadingBilling || !tenant?.gc_subscription_id}>
+            {tenant?.stripe_subscription_id && (
+              <button className="btn btn-outline" style={{ color: 'var(--red)' }} onClick={handleCancelSubscription} disabled={loadingBilling || !tenant?.stripe_subscription_id}>
                 Cancel subscription
               </button>
             )}
@@ -375,7 +302,7 @@ export default function Billing() {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {[
-              { label:'Mandate status', value: hasBillingSetup ? 'Ready' : 'Action needed', tone: hasBillingSetup ? 'var(--green)' : 'var(--amber)' },
+              { label:'Checkout status', value: hasStripeCustomer ? 'Customer created' : 'Action needed', tone: hasStripeCustomer ? 'var(--blue)' : 'var(--amber)' },
               { label:'Subscription status', value: hasSubscription ? 'Live' : 'Not active', tone: hasSubscription ? 'var(--green)' : 'var(--faint)' },
               { label:'Seat entitlement', value: `${activeSeats} / ${plan?.max_users || tenant?.seat_limit || 5} seats`, tone: activeSeats >= (plan?.max_users || tenant?.seat_limit || 5) ? 'var(--amber)' : 'var(--blue)' },
               { label:'Grace period', value: tenant?.grace_period_ends_at ? new Date(tenant.grace_period_ends_at).toLocaleDateString('en-GB') : 'None', tone: tenant?.grace_period_ends_at ? 'var(--amber)' : 'var(--faint)' },
@@ -396,11 +323,9 @@ export default function Billing() {
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 14 }}>
-            {hasBillingSetup
-              ? hasSubscription
-                ? 'Your live subscription is active. Switching plan updates the recurring subscription amount for future charges.'
-                : 'Direct Debit is set up. The first selected plan will activate once the recurring subscription is created.'
-              : 'Choose a plan, collect the first payment now, and authorise Direct Debit for future monthly charges.'}
+            {hasSubscription
+              ? 'Your live Stripe subscription is active. Switching plan updates the recurring amount for future renewals.'
+              : 'Choose a plan, then send the workspace owner through Stripe Checkout to collect the first month immediately and start recurring billing.'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {Object.entries(PLANS).map(([key, p]) => (
@@ -416,9 +341,9 @@ export default function Billing() {
                 </div>
                 {tenant?.plan === key
                   ? <span className="badge badge-blue" style={{ fontSize: 10 }}>Current plan</span>
-                  : !hasBillingSetup
+                  : !hasSubscription
                     ? <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => startBillingFlow(key)} disabled={loadingBilling}>
-                        {loadingBilling ? 'Starting setup...' : 'Set up billing first'}
+                        {loadingBilling ? 'Starting checkout...' : 'Checkout with this plan'}
                       </button>
                     : <button className="btn btn-outline btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 4 }} onClick={() => switchPlan(key)} disabled={!!switchingPlan}>
                         {switchingPlan === key ? 'Saving...' : hasSubscription ? 'Switch plan' : 'Activate plan'}

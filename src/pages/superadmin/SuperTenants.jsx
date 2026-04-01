@@ -28,7 +28,7 @@ export default function SuperTenants() {
   const hasRisk = (tenant, kind) => {
     const trialEndsSoon = tenant.status === 'trialing' && tenant.trial_ends_at && new Date(tenant.trial_ends_at).getTime() <= (Date.now() + 3 * 86400000)
     if (kind === 'trial_ending') return trialEndsSoon
-    if (kind === 'no_billing') return tenant.status !== 'cancelled' && !tenant.gc_mandate_id
+    if (kind === 'no_billing') return tenant.status !== 'cancelled' && !tenant.stripe_subscription_id && !tenant.gc_mandate_id
     if (kind === 'blocked') return tenant.status === 'blocked' || tenant.status === 'suspended'
     if (kind === 'seat_risk') return (tenant.seat_limit || 5) <= 1
     return false
@@ -98,7 +98,7 @@ export default function SuperTenants() {
           <select className="inp" value={riskFilter} onChange={e => setRiskFilter(e.target.value)} style={{ width:'auto', minWidth:180 }}>
             <option value="all">All risk states</option>
             <option value="trial_ending">Trial ending soon</option>
-            <option value="no_billing">No billing mandate</option>
+            <option value="no_billing">No active billing</option>
             <option value="blocked">Blocked or suspended</option>
             <option value="seat_risk">Seat risk</option>
           </select>

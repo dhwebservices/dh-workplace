@@ -1,17 +1,25 @@
 /**
  * DH Workplace — Cloudflare Worker
- * Handles: Email (Resend), GoCardless API, GoCardless Webhooks
+ * Handles: Email (Resend), GoCardless API, Stripe Billing, webhooks
  *
  * Environment variables needed:
  *   RESEND_API_KEY       — from resend.com
  *   FROM_EMAIL           — e.g. noreply@dhworkplace.co.uk
  *   GC_ACCESS_TOKEN      — GoCardless live token
  *   GC_WEBHOOK_SECRET    — GoCardless webhook signing secret
+ *   STRIPE_SECRET_KEY    — Stripe secret key
+ *   STRIPE_WEBHOOK_SECRET — Stripe webhook signing secret
+ *   STRIPE_PRICE_STARTER — Stripe recurring price id
+ *   STRIPE_PRICE_GROWTH  — Stripe recurring price id
+ *   STRIPE_PRICE_BUSINESS — Stripe recurring price id
+ *   APP_URL              — e.g. https://app.dhworkplace.co.uk
+ *   MARKETING_URL        — e.g. https://dhworkplace.co.uk
  *   SUPABASE_URL         — your Supabase project URL
  *   SUPABASE_SERVICE_KEY — Supabase service role key (for webhook updates)
  */
 
 const GC_API = 'https://api.gocardless.com'
+const STRIPE_API = 'https://api.stripe.com/v1'
 const RESEND  = 'https://api.resend.com/emails'
 
 function toBase64Url(str) {
@@ -79,6 +87,67 @@ async function sendEmail(to, subject, html, env, text = '') {
     throw new Error(`Resend send failed: ${err}`)
   }
   return true
+}
+
+function stripePriceIdForPlan(planKey, env) {
+  const map = {
+    starter: env.STRIPE_PRICE_STARTER,
+    growth: env.STRIPE_PRICE_GROWTH,
+    business: env.STRIPE_PRICE_BUSINESS,
+  }
+  return map[planKey]
+}
+
+function planKeyForStripePrice(priceId, env) {
+  if (!priceId) return null
+  if (priceId === env.STRIPE_PRICE_STARTER) return 'starter'
+  if (priceId === env.STRIPE_PRICE_GROWTH) return 'growth'
+  if (priceId === env.STRIPE_PRICE_BUSINESS) return 'business'
+  return null
+}
+
+async function stripeRequest(path, env, { method = 'POST', params = null } = {}) {
+  if (!env.STRIPE_SECRET_KEY) throw new Error('Stripe is not configured: STRIPE_SECRET_KEY is missing')
+  const headers = {
+    Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+  }
+
+  const init = { method, headers }
+  if (params) {
+    headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    init.body = params.toString()
+  }
+
+  const res = await fetch(`${STRIPE_API}${path}`, init)
+  const json = await res.json()
+  if (!res.ok) throw new Error(json?.error?.message || JSON.stringify(json))
+  return json
+}
+
+async function verifyStripeSignature(body, header, secret) {
+  if (!secret) throw new Error('Stripe webhook secret is not configured')
+  if (!header) return false
+
+  const parts = Object.fromEntries(
+    header.split(',').map((entry) => {
+      const [key, value] = entry.split('=')
+      return [key, value]
+    }),
+  )
+
+  const timestamp = parts.t
+  const signatures = header
+    .split(',')
+    .filter((entry) => entry.startsWith('v1='))
+    .map((entry) => entry.slice(3))
+
+  if (!timestamp || signatures.length === 0) return false
+
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const mac = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`))
+  const expected = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  return signatures.includes(expected)
 }
 
 // ── Email templates ────────────────────────────────────────────
@@ -409,6 +478,80 @@ async function handleGoCardless(type, data, env) {
     }
     default:
       throw new Error('Unknown GoCardless action: ' + type)
+  }
+}
+
+async function handleStripe(type, data, env) {
+  switch (type) {
+    case 'stripe_create_checkout_session': {
+      const priceId = stripePriceIdForPlan(data.plan_key, env)
+      if (!priceId) throw new Error(`No Stripe price configured for plan "${data.plan_key}"`)
+
+      let customerId = data.customer_id || ''
+      if (!customerId) {
+        const customerParams = new URLSearchParams()
+        if (data.customer_email) customerParams.append('email', data.customer_email)
+        if (data.customer_name) customerParams.append('name', data.customer_name)
+        if (data.tenant_id) customerParams.append('metadata[tenant_id]', data.tenant_id)
+        customerParams.append('metadata[source]', 'dh_workplace')
+        const customer = await stripeRequest('/customers', env, { params: customerParams })
+        customerId = customer.id
+      }
+
+      const successUrl = `${env.APP_URL || 'https://app.dhworkplace.co.uk'}${data.success_path || '/billing'}`
+      const cancelUrl = `${env.APP_URL || 'https://app.dhworkplace.co.uk'}${data.cancel_path || '/billing'}`
+      const params = new URLSearchParams()
+      params.append('mode', 'subscription')
+      params.append('success_url', `${successUrl}${successUrl.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`)
+      params.append('cancel_url', cancelUrl)
+      params.append('client_reference_id', data.tenant_id)
+      params.append('customer', customerId)
+      params.append('line_items[0][price]', priceId)
+      params.append('line_items[0][quantity]', '1')
+      params.append('billing_address_collection', 'auto')
+      params.append('metadata[tenant_id]', data.tenant_id)
+      params.append('metadata[plan_key]', data.plan_key)
+      params.append('subscription_data[metadata][tenant_id]', data.tenant_id)
+      params.append('subscription_data[metadata][plan_key]', data.plan_key)
+      params.append('subscription_data[metadata][source]', 'dh_workplace')
+
+      const session = await stripeRequest('/checkout/sessions', env, { params })
+      return { id: session.id, url: session.url, customer_id: customerId }
+    }
+
+    case 'stripe_create_billing_portal_session': {
+      const params = new URLSearchParams()
+      params.append('customer', data.customer_id)
+      params.append('return_url', `${env.APP_URL || 'https://app.dhworkplace.co.uk'}${data.return_path || '/billing'}`)
+      const session = await stripeRequest('/billing_portal/sessions', env, { params })
+      return { id: session.id, url: session.url }
+    }
+
+    case 'stripe_update_subscription': {
+      const subscription = await stripeRequest(`/subscriptions/${data.subscription_id}`, env, { method: 'GET' })
+      const itemId = subscription?.items?.data?.[0]?.id
+      if (!itemId) throw new Error('Stripe subscription item was not found')
+
+      const newPriceId = stripePriceIdForPlan(data.plan_key, env)
+      if (!newPriceId) throw new Error(`No Stripe price configured for plan "${data.plan_key}"`)
+
+      const params = new URLSearchParams()
+      params.append('items[0][id]', itemId)
+      params.append('items[0][price]', newPriceId)
+      params.append('proration_behavior', 'none')
+      params.append('metadata[plan_key]', data.plan_key)
+
+      const updated = await stripeRequest(`/subscriptions/${data.subscription_id}`, env, { params })
+      return updated
+    }
+
+    case 'stripe_cancel_subscription': {
+      const cancelled = await stripeRequest(`/subscriptions/${data.subscription_id}`, env, { method: 'DELETE' })
+      return cancelled
+    }
+
+    default:
+      throw new Error('Unknown Stripe action: ' + type)
   }
 }
 
@@ -1169,6 +1312,149 @@ async function handleWebhook(request, env) {
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
 }
 
+async function handleStripeWebhook(request, env) {
+  const body = await request.text()
+  const signature = request.headers.get('Stripe-Signature')
+  const valid = await verifyStripeSignature(body, signature, env.STRIPE_WEBHOOK_SECRET)
+  if (!valid) return new Response('Invalid signature', { status: 401 })
+
+  const event = JSON.parse(body)
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const sbHeaders = { apikey: sbKey, Authorization: `Bearer ${sbKey}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }
+
+  const getTenantById = async (tenantId) => {
+    if (!tenantId) return null
+    const res = await fetch(`${sbUrl}/rest/v1/tenants?id=eq.${tenantId}&limit=1`, { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } })
+    const data = await res.json()
+    return data?.[0] || null
+  }
+
+  const getTenantByStripe = async (customerId, subscriptionId) => {
+    const queries = []
+    if (subscriptionId) queries.push(`stripe_subscription_id=eq.${subscriptionId}`)
+    if (customerId) queries.push(`stripe_customer_id=eq.${customerId}`)
+    for (const query of queries) {
+      const res = await fetch(`${sbUrl}/rest/v1/tenants?${query}&limit=1`, { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } })
+      const data = await res.json()
+      if (data?.[0]) return data[0]
+    }
+    return null
+  }
+
+  const updateTenant = async (tenantId, payload) => {
+    await fetch(`${sbUrl}/rest/v1/tenants?id=eq.${tenantId}`, {
+      method: 'PATCH',
+      headers: sbHeaders,
+      body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() }),
+    })
+  }
+
+  const statusFromStripeSubscription = (status) => {
+    if (status === 'active' || status === 'trialing') return 'active'
+    if (status === 'past_due' || status === 'unpaid' || status === 'incomplete') return 'overdue'
+    if (status === 'canceled' || status === 'incomplete_expired') return 'cancelled'
+    return 'pending_activation'
+  }
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object
+      const tenantId = session.metadata?.tenant_id || session.client_reference_id
+      const tenant = await getTenantById(tenantId)
+      if (tenant) {
+        const planKey = session.metadata?.plan_key || tenant.plan
+        await updateTenant(tenant.id, {
+          stripe_customer_id: session.customer || tenant.stripe_customer_id,
+          stripe_subscription_id: session.subscription || tenant.stripe_subscription_id,
+          stripe_price_id: stripePriceIdForPlan(planKey, env),
+          plan: planKey,
+          seat_limit: ({ starter: 5, growth: 15, business: 40 }[planKey] || tenant.seat_limit || 5),
+        })
+      }
+      break
+    }
+
+    case 'invoice.paid': {
+      const invoice = event.data.object
+      const tenant = await getTenantByStripe(invoice.customer, invoice.subscription)
+      if (tenant) {
+        const paidAt = invoice.status_transitions?.paid_at ? new Date(invoice.status_transitions.paid_at * 1000).toISOString() : new Date().toISOString()
+        const nextPaymentAt = invoice.lines?.data?.[0]?.period?.end ? new Date(invoice.lines.data[0].period.end * 1000).toISOString() : null
+        const planKey = planKeyForStripePrice(invoice.lines?.data?.[0]?.price?.id, env) || tenant.plan
+        await updateTenant(tenant.id, {
+          stripe_customer_id: invoice.customer || tenant.stripe_customer_id,
+          stripe_subscription_id: invoice.subscription || tenant.stripe_subscription_id,
+          stripe_price_id: invoice.lines?.data?.[0]?.price?.id || tenant.stripe_price_id,
+          plan: planKey,
+          seat_limit: ({ starter: 5, growth: 15, business: 40 }[planKey] || tenant.seat_limit || 5),
+          status: 'active',
+          subscription_started_at: tenant.subscription_started_at || paidAt,
+          last_payment_at: paidAt,
+          next_payment_at: nextPaymentAt,
+          grace_period_ends_at: null,
+        })
+      }
+      break
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object
+      const tenant = await getTenantByStripe(invoice.customer, invoice.subscription)
+      if (tenant) {
+        const graceEnd = new Date()
+        graceEnd.setDate(graceEnd.getDate() + 7)
+        await updateTenant(tenant.id, {
+          status: 'overdue',
+          stripe_customer_id: invoice.customer || tenant.stripe_customer_id,
+          stripe_subscription_id: invoice.subscription || tenant.stripe_subscription_id,
+          grace_period_ends_at: graceEnd.toISOString(),
+        })
+        await handleEmail('payment_failed', {
+          to_email: tenant.owner_email,
+          name: tenant.name,
+          amount: ({ starter: 9, growth: 24, business: 59 }[tenant.plan] || '—'),
+          billing_url: `${env.APP_URL || 'https://app.dhworkplace.co.uk'}/billing`,
+        }, env)
+      }
+      break
+    }
+
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object
+      const tenant = await getTenantByStripe(subscription.customer, subscription.id)
+      if (tenant) {
+        const planKey = planKeyForStripePrice(subscription.items?.data?.[0]?.price?.id, env) || tenant.plan
+        await updateTenant(tenant.id, {
+          stripe_customer_id: subscription.customer || tenant.stripe_customer_id,
+          stripe_subscription_id: subscription.id,
+          stripe_price_id: subscription.items?.data?.[0]?.price?.id || tenant.stripe_price_id,
+          plan: planKey,
+          seat_limit: ({ starter: 5, growth: 15, business: 40 }[planKey] || tenant.seat_limit || 5),
+          status: statusFromStripeSubscription(subscription.status),
+          next_payment_at: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : tenant.next_payment_at,
+          grace_period_ends_at: subscription.status === 'past_due' || subscription.status === 'unpaid' ? tenant.grace_period_ends_at || new Date(Date.now() + 7 * 86400000).toISOString() : null,
+        })
+      }
+      break
+    }
+
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object
+      const tenant = await getTenantByStripe(subscription.customer, subscription.id)
+      if (tenant) {
+        await updateTenant(tenant.id, {
+          stripe_subscription_id: null,
+          status: 'cancelled',
+        })
+      }
+      break
+    }
+  }
+
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+}
+
 // ── Main handler ──────────────────────────────────────────────
 export default {
   async fetch(request, env) {
@@ -1185,6 +1471,9 @@ export default {
     if (url.pathname === '/webhook/gocardless' && request.method === 'POST') {
       return handleWebhook(request, env)
     }
+    if (url.pathname === '/webhook/stripe' && request.method === 'POST') {
+      return handleStripeWebhook(request, env)
+    }
 
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
@@ -1194,6 +1483,8 @@ export default {
 
       if (type.startsWith('gc_')) {
         result = await handleGoCardless(type, data, env)
+      } else if (type.startsWith('stripe_')) {
+        result = await handleStripe(type, data, env)
       } else if (type.startsWith('invite_')) {
         result = await handleInviteAction(type, data, env)
       } else if (type.startsWith('platform_admin_')) {

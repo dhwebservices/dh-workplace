@@ -35,16 +35,16 @@ export default function SuperDashboard() {
     blocked: tenants.filter(t => t.status === 'blocked'),
     overdue: tenants.filter(t => t.status === 'overdue' || t.status === 'suspended'),
     endingTrial: tenants.filter(t => t.status === 'trialing' && t.trial_ends_at && new Date(t.trial_ends_at).getTime() <= threeDaysFromNow),
-    noMandate: tenants.filter(t => t.status !== 'cancelled' && !t.gc_mandate_id),
+    noMandate: tenants.filter(t => t.status !== 'cancelled' && !t.stripe_subscription_id && !t.gc_mandate_id),
     seatRisk: tenants.filter(t => (t.seat_limit || 5) <= 1),
-    soloOwner: tenants.filter(t => t.status !== 'cancelled').filter(t => !t.gc_mandate_id || !t.gc_subscription_id),
+    soloOwner: tenants.filter(t => t.status !== 'cancelled').filter(t => !t.stripe_subscription_id && !t.gc_subscription_id),
   }
 
   const alerts = [
     { label: 'Blocked tenants', items: attention.blocked, tone: 'red', note: 'Cannot sign in until unblocked' },
     { label: 'Billing at risk', items: attention.overdue, tone: 'red', note: 'Overdue or suspended workspaces' },
     { label: 'Trials ending soon', items: attention.endingTrial, tone: 'amber', note: 'Trial ends within 3 days' },
-    { label: 'No mandate set', items: attention.noMandate, tone: 'amber', note: 'No Direct Debit mandate on file' },
+    { label: 'Billing not active', items: attention.noMandate, tone: 'amber', note: 'No live subscription on file' },
   ].filter(section => section.items.length > 0)
   const searchResults = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -164,7 +164,7 @@ export default function SuperDashboard() {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {[
               { label:'Trials ending soon', value: attention.endingTrial.length, note:'Upgrade prompts needed', tone:'var(--amber)' },
-              { label:'No mandate', value: attention.noMandate.length, note:'Billing setup incomplete', tone:'var(--gold)' },
+              { label:'No billing', value: attention.noMandate.length, note:'Billing setup incomplete', tone:'var(--gold)' },
               { label:'Blocked / suspended', value: attention.blocked.length + attention.overdue.length, note:'Access or payment issue', tone:'var(--red)' },
               { label:'Active revenue', value: `£${stats.mrr}`, note:`${stats.active} active tenants`, tone:'var(--green)' },
             ].map(item => (
