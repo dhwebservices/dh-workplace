@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase, sbGet, sbInsert } from '../../utils/supabase'
 import { markOnboardingPending } from '../../utils/onboarding'
+import { friendlyAuthError } from '../../utils/authErrors'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -102,7 +103,7 @@ export default function SignUp() {
         })
       }
     } catch (err) {
-      setError(err.message || 'Something went wrong')
+      setError(friendlyAuthError(err.message, 'Something went wrong'))
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../utils/supabase'
+import { friendlyAuthError } from '../../utils/authErrors'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -107,7 +108,7 @@ export default function AcceptInvite() {
         })
       }
     } catch (e) {
-      setError(e.message || 'Unable to accept invitation')
+      setError(friendlyAuthError(e.message, 'Unable to accept invitation'))
     }
     setSaving(false)
   }

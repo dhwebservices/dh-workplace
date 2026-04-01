@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../utils/supabase'
+import { friendlyAuthError } from '../../utils/authErrors'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -20,7 +21,7 @@ export default function ForgotPassword() {
       redirectTo: `${window.location.origin}/signin`,
     })
     if (resetError) {
-      setError(resetError.message)
+      setError(friendlyAuthError(resetError.message, 'Unable to send reset link'))
       setLoading(false)
       return
     }
