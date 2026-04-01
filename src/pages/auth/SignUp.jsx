@@ -42,6 +42,7 @@ export default function SignUp() {
       })
       if (authErr) throw authErr
       const userId = authData.user?.id
+      const hasSession = !!authData.session
       if (!userId) throw new Error('Sign up failed — please try again')
 
       // 2. Create tenant
@@ -93,7 +94,16 @@ export default function SignUp() {
         }).catch(() => {})
       }
 
-      navigate('/onboarding')
+      if (hasSession) {
+        navigate('/onboarding')
+      } else {
+        navigate('/signin', {
+          replace: true,
+          state: {
+            message: 'Check your email to confirm your account, then sign in to continue setting up your workspace.',
+          },
+        })
+      }
     } catch (err) {
       setError(err.message || 'Something went wrong')
     } finally {

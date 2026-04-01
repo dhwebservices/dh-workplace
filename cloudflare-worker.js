@@ -313,9 +313,21 @@ async function handleGoCardless(type, data, env) {
       return json
     }
     case 'gc_create_billing_request': {
+      const billingRequestPayload = {
+        mandate_request: { scheme: 'bacs', verify: 'when_available' },
+        links: { customer: data.customer_id },
+      }
+      if (data.amount_pence) {
+        billingRequestPayload.payment_request = {
+          amount: data.amount_pence,
+          currency: 'GBP',
+          description: data.description || 'DH Workplace first payment',
+        }
+        billingRequestPayload.fallback_enabled = true
+      }
       const res = await fetch(`${GC_API}/billing_requests`, {
         method: 'POST', headers,
-        body: JSON.stringify({ billing_requests: { mandate_request: { scheme: 'bacs', verify: 'when_available' }, links: { customer: data.customer_id } } })
+        body: JSON.stringify({ billing_requests: billingRequestPayload })
       })
       const json = await res.json()
       if (!res.ok) throw new Error(JSON.stringify(json))
@@ -1051,7 +1063,6 @@ async function handleWebhook(request, env) {
         if (tenant) {
           await updateTenant(tenant.id, {
             gc_mandate_id: links.mandate,
-            status: 'active',
             updated_at: new Date().toISOString(),
           })
         }
@@ -1069,6 +1080,7 @@ async function handleWebhook(request, env) {
         break
       }
 
+      case 'payments.confirmed':
       case 'payments.paid_out': {
         const tenant = await getTenant(links.mandate, 'gc_mandate_id')
         if (tenant) {

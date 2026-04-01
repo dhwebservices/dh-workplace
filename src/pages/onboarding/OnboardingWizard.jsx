@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { sbUpdate } from '../../utils/supabase'
 import { inviteMember } from '../../utils/invitations'
 import { markOnboardingComplete } from '../../utils/onboarding'
+import { PLANS } from '../../utils/entitlements'
+import { startBillingSetup } from '../../utils/billing'
 
 const STEPS = ['Your profile', 'Invite team', 'Set up billing']
 
@@ -13,6 +15,7 @@ export default function OnboardingWizard() {
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [inviteNotice, setInviteNotice] = useState('')
+  const [billingError, setBillingError] = useState('')
 
   // Step 0 state
   const [profile, setProfile] = useState({ full_name: '', job_title: '' })
@@ -72,6 +75,24 @@ export default function OnboardingWizard() {
     if (user?.id) markOnboardingComplete(user.id)
     await refreshTenant()
     navigate('/')
+  }
+
+  const setupBillingNow = async () => {
+    setSaving(true)
+    setBillingError('')
+    try {
+      if (user?.id) markOnboardingComplete(user.id)
+      await startBillingSetup({
+        tenant,
+        tenantUser: { ...tenantUser, email: tenantUser?.email || user?.email, full_name: tenantUser?.full_name || profile.full_name },
+        desiredPlan: tenant?.plan || 'starter',
+        refreshTenant,
+        redirectPath: '/billing?onboarding=1',
+      })
+    } catch (e) {
+      setBillingError(e.message || 'Unable to start billing setup')
+      setSaving(false)
+    }
   }
 
   return (
@@ -160,23 +181,28 @@ export default function OnboardingWizard() {
                   {inviteNotice}
                 </div>
               )}
+              {billingError && (
+                <div style={{ fontSize:13, color:'var(--red)', background:'var(--red-soft)', border:'1px solid var(--red-border)', padding:'10px 14px', borderRadius:10 }}>
+                  {billingError}
+                </div>
+              )}
               <div>
-                <h2 style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:700, marginBottom:4 }}>Set up billing</h2>
-                <p style={{ fontSize:13, color:'var(--faint)' }}>Your 14-day free trial has started. Set up Direct Debit now or later — we'll remind you before your trial ends.</p>
+                <h2 style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:700, marginBottom:4 }}>Start your paid plan</h2>
+                <p style={{ fontSize:13, color:'var(--faint)' }}>Take the first payment now and authorise Direct Debit for future monthly charges. If you prefer, you can still continue the 14-day trial and come back later.</p>
               </div>
               <div style={{ background:'var(--gold-soft)', border:'1px solid var(--gold-border)', borderRadius:10, padding:16 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:'var(--gold)', marginBottom:4 }}>Founding Member</div>
-                <div style={{ fontSize:13, color:'var(--sub)' }}>You're one of our first customers. Lock in <strong>£9/mo</strong> forever — normal price will be £19/mo.</div>
+                <div style={{ fontSize:13, color:'var(--sub)' }}>You're one of our first customers. Your first charge today will be <strong>£{PLANS[tenant?.plan || 'starter']?.launch_price || 9}</strong>, then the same amount will recur monthly until cancelled.</div>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                <button className="btn btn-gold btn-lg" onClick={finish} style={{ justifyContent:'center' }}>
-                  Set up Direct Debit later
+                <button className="btn btn-gold btn-lg" onClick={setupBillingNow} disabled={saving} style={{ justifyContent:'center' }}>
+                  {saving ? 'Starting checkout...' : `Pay £${PLANS[tenant?.plan || 'starter']?.launch_price || 9} now`}
                 </button>
                 <button className="btn btn-outline" onClick={finish} style={{ justifyContent:'center', fontSize:12 }}>
-                  Skip — go to dashboard
+                  Continue free trial instead
                 </button>
               </div>
-              <div style={{ fontSize:12, color:'var(--faint)', textAlign:'center' }}>UK Direct Debit via GoCardless · Cancel anytime</div>
+              <div style={{ fontSize:12, color:'var(--faint)', textAlign:'center' }}>GoCardless checkout · First payment now · Monthly recurring after that · Cancel anytime</div>
             </div>
           )}
         </div>

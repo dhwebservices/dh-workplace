@@ -49,12 +49,36 @@ export default function AcceptInvite() {
     setSaving(true)
     setError('')
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      let authUser = null
+      let hasSession = false
+
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: invitation.invitation.email,
         password: form.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/signin`,
+        },
       })
-      if (signUpError) throw signUpError
-      const userId = data.user?.id
+
+      if (signUpError) {
+        const message = signUpError.message || ''
+        if (/already registered|already been registered|user already registered/i.test(message)) {
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: invitation.invitation.email,
+            password: form.password,
+          })
+          if (signInError) throw new Error('This invited email already has an account. Sign in with its existing password or reset it first.')
+          authUser = signInData.user
+          hasSession = !!signInData.session
+        } else {
+          throw signUpError
+        }
+      } else {
+        authUser = signUpData.user
+        hasSession = !!signUpData.session
+      }
+
+      const userId = authUser?.id
       if (!userId) throw new Error('Account creation failed')
 
       const acceptRes = await fetch(WORKER_URL, {
@@ -72,7 +96,16 @@ export default function AcceptInvite() {
       const acceptJson = await acceptRes.json()
       if (!acceptRes.ok) throw new Error(acceptJson.error || 'Unable to accept invitation')
 
-      navigate('/')
+      if (hasSession) {
+        navigate('/')
+      } else {
+        navigate('/signin', {
+          replace: true,
+          state: {
+            message: 'Your invitation has been accepted. Confirm your email, then sign in to access the workspace.',
+          },
+        })
+      }
     } catch (e) {
       setError(e.message || 'Unable to accept invitation')
     }

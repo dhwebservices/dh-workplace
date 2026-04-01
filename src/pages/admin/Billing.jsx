@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { PLANS } from '../../utils/entitlements'
 import { sbGetMany, sbUpdate } from '../../utils/supabase'
 import { canManageBilling } from '../../utils/permissions'
+import { clearPendingPlan as clearStoredPendingPlan, getPendingPlanStorageKey, needsInitialPayment, startBillingSetup } from '../../utils/billing'
 
 const FEATURE_LABELS = {
   hr_directory: 'Staff directory',
@@ -36,8 +37,9 @@ export default function Billing() {
   const [activeSeats, setActiveSeats] = useState(0)
   const hasBillingSetup = !!tenant?.gc_mandate_id
   const hasSubscription = !!tenant?.gc_subscription_id
-  const pendingPlanStorageKey = useMemo(() => tenant?.id ? `dhwp_pending_plan_${tenant.id}` : '', [tenant?.id])
+  const pendingPlanStorageKey = useMemo(() => getPendingPlanStorageKey(tenant?.id), [tenant?.id])
   const [pendingPlan, setPendingPlan] = useState('')
+  const initialPaymentRequired = needsInitialPayment(tenant, pendingPlan || tenant?.plan || 'starter')
 
   useEffect(() => {
     if (!pendingPlanStorageKey) return
@@ -79,8 +81,12 @@ export default function Billing() {
   }
 
   const clearPendingPlan = () => {
-    if (pendingPlanStorageKey) window.localStorage.removeItem(pendingPlanStorageKey)
+    clearPendingPlanForTenant()
     setPendingPlan('')
+  }
+
+  const clearPendingPlanForTenant = () => {
+    clearStoredPendingPlan(tenant?.id)
   }
 
   const applyPlanLocally = async (key, extra = {}) => {
@@ -166,69 +172,18 @@ export default function Billing() {
   }
 
   const startBillingFlow = async (desiredPlan = tenant?.plan || 'starter', existingCustomerId = tenant?.gc_customer_id) => {
-    if (!WORKER_URL) {
-      setError('Billing worker URL is not configured')
-      return
-    }
-    if (!tenant?.id || !tenantUser) return
-
     setLoadingBilling(true)
     setError('')
     setMessage('')
-    rememberPendingPlan(desiredPlan)
 
     try {
-      let customerId = existingCustomerId
-      if (!customerId) {
-        const name = (tenantUser.full_name || '').trim().split(' ')
-        const customerRes = await fetch(WORKER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'gc_create_customer',
-            data: {
-              email: tenant.owner_email || tenantUser.email,
-              given_name: name[0] || 'DH',
-              family_name: name.slice(1).join(' ') || 'Workplace',
-            },
-          }),
-        })
-        const customerJson = await customerRes.json()
-        if (!customerRes.ok) throw new Error(customerJson.error || 'Failed to create billing customer')
-        customerId = customerJson.customers?.id
-        if (!customerId) throw new Error('Billing customer ID missing')
-        await sbUpdate('tenants', `id=eq.${tenant.id}`, { gc_customer_id: customerId, updated_at: new Date().toISOString() })
-      }
-
-      const requestRes = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'gc_create_billing_request', data: { customer_id: customerId } }),
+      await startBillingSetup({
+        tenant: { ...tenant, gc_customer_id: existingCustomerId || tenant?.gc_customer_id },
+        tenantUser,
+        desiredPlan,
+        refreshTenant,
+        redirectPath: '/billing',
       })
-      const requestJson = await requestRes.json()
-      if (!requestRes.ok) throw new Error(requestJson.error || 'Failed to create billing request')
-      const billingRequestId = requestJson.billing_requests?.id
-      if (!billingRequestId) throw new Error('Billing request ID missing')
-
-      const flowRes = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'gc_create_billing_request_flow',
-          data: {
-            billing_request_id: billingRequestId,
-            redirect_uri: `${window.location.origin}/billing`,
-            exit_uri: `${window.location.origin}/billing`,
-          },
-        }),
-      })
-      const flowJson = await flowRes.json()
-      if (!flowRes.ok) throw new Error(flowJson.error || 'Failed to start Direct Debit setup')
-      const authUrl = flowJson.billing_request_flows?.authorisation_url
-      if (!authUrl) throw new Error('Direct Debit authorisation URL missing')
-
-      await refreshTenant()
-      window.location.href = authUrl
     } catch (e) {
       setError(e.message || 'Unable to start billing flow')
       setLoadingBilling(false)
@@ -336,7 +291,7 @@ export default function Billing() {
           <div className="section-head">
             <div>
               <h3 className="panel-title">{plan?.name || 'Starter'} plan</h3>
-              <div className="panel-sub">Your live entitlement and current commercial state</div>
+              <div className="panel-sub">Your live entitlement, signup payment, and recurring billing state</div>
             </div>
             <div>
               <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--gold)' }}>£{plan?.launch_price || 9}<span style={{ fontSize: 14, color: 'var(--faint)', fontWeight: 400 }}>/mo</span></div>
@@ -347,7 +302,7 @@ export default function Billing() {
           {tenant?.status === 'trialing' && (
             <div style={{ background: 'var(--gold-soft)', border: '1px solid var(--gold-border)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gold)', marginBottom: 2 }}>Founding Member</div>
-              <div style={{ fontSize: 12, color: 'var(--sub)' }}>Lock in this price forever by setting up Direct Debit before your trial ends.</div>
+              <div style={{ fontSize: 12, color: 'var(--sub)' }}>Lock in this price forever by making your first payment now and authorising the monthly collection.</div>
             </div>
           )}
 
@@ -357,6 +312,7 @@ export default function Billing() {
               ['Seats included', plan?.max_users || 5],
               ['Active seats', activeSeats],
               ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],
+              ['First payment', tenant?.last_payment_at ? 'Collected' : initialPaymentRequired ? `£${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} due on setup` : 'Complete'],
               ['Subscription', tenant?.gc_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
               ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
               ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
@@ -371,7 +327,9 @@ export default function Billing() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {!tenant?.gc_mandate_id ? (
               <button className="btn btn-primary" onClick={() => startBillingFlow(pendingPlan || tenant?.plan || 'starter')} disabled={loadingBilling}>
-                {loadingBilling ? 'Starting setup...' : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''}`}
+                {loadingBilling ? 'Starting setup...' : initialPaymentRequired
+                  ? `Pay £${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} now and set up Direct Debit`
+                  : `Set up Direct Debit${pendingPlan ? ` for ${PLANS[pendingPlan]?.name || 'selected plan'}` : ''}`}
               </button>
             ) : (
               <button className="btn btn-outline" onClick={() => startBillingFlow(tenant?.plan || 'starter', tenant.gc_customer_id)} disabled={loadingBilling}>Update payment method</button>
@@ -417,8 +375,8 @@ export default function Billing() {
             {hasBillingSetup
               ? hasSubscription
                 ? 'Your live subscription is active. Switching plan updates the recurring subscription amount for future charges.'
-                : 'Direct Debit is set up. The first selected plan will activate once the subscription is created.'
-              : 'Choose a plan and complete Direct Debit setup. Access only upgrades after a real subscription is created.'}
+                : 'Direct Debit is set up. The first selected plan will activate once the recurring subscription is created.'
+              : 'Choose a plan, collect the first payment now, and authorise Direct Debit for future monthly charges.'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {Object.entries(PLANS).map(([key, p]) => (
