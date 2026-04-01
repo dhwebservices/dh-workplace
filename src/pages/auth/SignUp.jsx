@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase, sbGet, sbInsert } from '../../utils/supabase'
 import { markOnboardingPending } from '../../utils/onboarding'
 import { friendlyAuthError } from '../../utils/authErrors'
+import { PLANS } from '../../utils/entitlements'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
 
@@ -12,7 +13,7 @@ function slugify(str) {
 
 export default function SignUp() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ company: '', email: '', password: '' })
+  const [form, setForm] = useState({ company: '', email: '', password: '', plan: 'growth' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const sf = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -53,8 +54,8 @@ export default function SignUp() {
         id:            tenantId,
         name:          form.company,
         slug,
-        plan:          'starter',
-        seat_limit:    5,
+        plan:          form.plan,
+        seat_limit:    PLANS[form.plan]?.max_users || 5,
         owner_email:   normalizedEmail,
         status:        'pending_activation',
         trial_ends_at: null,
@@ -85,7 +86,7 @@ export default function SignUp() {
               to_email: form.email,
               name: form.email.split('@')[0],
               company: form.company,
-              plan: 'Starter',
+              plan: PLANS[form.plan]?.name || 'Starter',
               url: `${window.location.origin}/signin`,
             },
           }),
@@ -137,6 +138,53 @@ export default function SignUp() {
               <div>
                 <label className="lbl">Password</label>
                 <input className="inp" type="password" placeholder="Min. 8 characters" value={form.password} onChange={e => sf('password', e.target.value)} />
+              </div>
+              <div>
+                <label className="lbl">Choose Plan</label>
+                <div style={{ display:'grid', gap:10 }}>
+                  {Object.entries(PLANS).map(([key, plan]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => sf('plan', key)}
+                      style={{
+                        width:'100%',
+                        textAlign:'left',
+                        padding:'14px 16px',
+                        borderRadius:12,
+                        border:`2px solid ${form.plan === key ? 'var(--blue)' : 'var(--border)'}`,
+                        background: form.plan === key ? 'rgba(53,103,200,0.08)' : '#fff',
+                        cursor:'pointer',
+                      }}
+                    >
+                      <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'baseline' }}>
+                        <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>{plan.name}</div>
+                        <div style={{ fontSize:18, fontWeight:700, color:'var(--gold)' }}>£{plan.launch_price}<span style={{ fontSize:12, color:'var(--faint)', fontWeight:500 }}>/mo</span></div>
+                      </div>
+                      <div style={{ fontSize:12, color:'var(--faint)', marginTop:4 }}>Up to {plan.max_users} users</div>
+                      <div style={{ fontSize:12, color:'var(--sub)', marginTop:8 }}>
+                        {plan.features.slice(0, 3).map((feature) => ({
+                          hr_directory: 'Staff directory',
+                          hr_leave: 'Leave management',
+                          hr_documents: 'Documents and policies',
+                          hr_timesheets: 'Timesheets',
+                          hr_onboarding: 'HR onboarding',
+                          crm_clients: 'Client CRM',
+                          crm_tasks: 'Tasks',
+                          crm_pipeline: 'Sales pipeline',
+                          crm_outreach: 'Outreach',
+                          notifications: 'Notifications',
+                          audit_log: 'Audit log',
+                          reports: 'Reports',
+                          client_portal: 'Client portal',
+                          custom_branding: 'Custom branding',
+                          api_access: 'API access',
+                        }[feature] || feature)).join(' • ')}
+                        {plan.features.length > 3 ? ` • +${plan.features.length - 3} more` : ''}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
               {error && <div style={{ fontSize:13, color:'var(--red)', background:'var(--red-soft)', padding:'10px 14px', borderRadius:8 }}>{error}</div>}
               <button className="btn btn-primary btn-lg" type="submit" disabled={loading} style={{ width:'100%', justifyContent:'center', marginTop:4 }}>
