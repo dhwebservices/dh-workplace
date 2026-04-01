@@ -7,6 +7,7 @@ import {
   cancelSubscription as cancelStripeSubscription,
   clearPendingPlan as clearStoredPendingPlan,
   createBillingPortalSession,
+  getBillingHistory,
   getPendingPlanStorageKey,
   startBillingSetup,
   updateSubscriptionPlan,
@@ -40,6 +41,8 @@ export default function Billing() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [activeSeats, setActiveSeats] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [billingHistory, setBillingHistory] = useState({ invoices: [], subscription: null, upcoming: null })
   const hasStripeCustomer = !!tenant?.stripe_customer_id
   const hasSubscription = !!(tenant?.stripe_subscription_id || tenant?.gc_subscription_id)
   const pendingPlanStorageKey = useMemo(() => getPendingPlanStorageKey(tenant?.id), [tenant?.id])
@@ -50,6 +53,26 @@ export default function Billing() {
     const stored = window.localStorage.getItem(pendingPlanStorageKey) || ''
     setPendingPlan(stored)
   }, [pendingPlanStorageKey])
+
+  useEffect(() => {
+    let active = true
+    const loadHistory = async () => {
+      if (!tenant?.stripe_customer_id) {
+        if (active) setBillingHistory({ invoices: [], subscription: null, upcoming: null })
+        return
+      }
+      setHistoryLoading(true)
+      try {
+        const history = await getBillingHistory({ tenant, limit: 10 })
+        if (active) setBillingHistory(history)
+      } catch (e) {
+        if (active) setError((current) => current || e.message || 'Unable to load billing history')
+      }
+      if (active) setHistoryLoading(false)
+    }
+    loadHistory()
+    return () => { active = false }
+  }, [tenant?.stripe_customer_id, tenant?.stripe_subscription_id])
 
   useEffect(() => {
     let active = true
@@ -86,6 +109,19 @@ export default function Billing() {
 
   const clearPendingPlanForTenant = () => {
     clearStoredPendingPlan(tenant?.id)
+  }
+
+  const formatMoney = (amount, currency = 'gbp') => new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: String(currency || 'gbp').toUpperCase(),
+    maximumFractionDigits: 2,
+  }).format(Number(amount || 0) / 100)
+
+  const formatStripeDate = (value) => {
+    if (!value) return '—'
+    const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value)
+    if (Number.isNaN(date.getTime())) return '—'
+    return date.toLocaleDateString('en-GB')
   }
 
   const applyPlanLocally = async (key, extra = {}) => {
@@ -204,6 +240,10 @@ export default function Billing() {
     setLoadingBilling(false)
   }
 
+  const recentInvoices = billingHistory.invoices || []
+  const latestInvoice = recentInvoices[0] || null
+  const upcomingInvoice = billingHistory.upcoming || null
+
   return (
     <div className="fade-in page-stack">
       {!canManage && (
@@ -265,10 +305,10 @@ export default function Billing() {
               ['Seats included', plan?.max_users || 5],
               ['Active seats', activeSeats],
               ['Provider', tenant?.stripe_subscription_id ? 'Stripe subscription' : 'Stripe Checkout'],
-              ['First payment', tenant?.last_payment_at ? 'Collected at checkout' : `£${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} due at checkout`],
+              ['First payment', latestInvoice?.status === 'paid' ? `Collected ${formatMoney(latestInvoice.amount_paid, latestInvoice.currency)}` : `£${PLANS[pendingPlan || tenant?.plan || 'starter']?.launch_price || 9} due at checkout`],
               ['Subscription', tenant?.stripe_subscription_id ? 'Active' : pendingPlan ? `Pending ${PLANS[pendingPlan]?.name || 'plan'}` : 'Not active'],
-              ['Last payment', tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
-              ['Next payment', tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
+              ['Last payment', latestInvoice?.paid_at ? `${formatMoney(latestInvoice.amount_paid, latestInvoice.currency)} on ${formatStripeDate(latestInvoice.paid_at)}` : tenant?.last_payment_at ? new Date(tenant.last_payment_at).toLocaleDateString('en-GB') : 'None yet'],
+              ['Next payment', upcomingInvoice?.period_end ? `${formatMoney(upcomingInvoice.amount_due, upcomingInvoice.currency)} on ${formatStripeDate(upcomingInvoice.period_end)}` : tenant?.next_payment_at ? new Date(tenant.next_payment_at).toLocaleDateString('en-GB') : 'N/A'],
             ].map(([label, val]) => (
               <div key={label} className="detail-row" style={{ padding: '8px 0', borderBottom: '1px solid var(--border2)' }}>
                 <span className="detail-row-label">{label}</span>
@@ -296,6 +336,54 @@ export default function Billing() {
         <div className="card card-pad">
           <div className="section-head">
             <div>
+              <h3 className="panel-title">Payment history</h3>
+              <div className="panel-sub">Recent Stripe invoices, renewals, and payment outcomes for this workspace</div>
+            </div>
+          </div>
+          {historyLoading ? (
+            <div style={{ padding: 12 }}>
+              {[1, 2, 3].map((item) => <div key={item} className="skel" style={{ height: 54, marginBottom: 10, borderRadius: 10 }} />)}
+            </div>
+          ) : recentInvoices.length ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Status</th>
+                    <th>Amount</th>
+                    <th>Created</th>
+                    <th>Paid</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentInvoices.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td>{invoice.number || invoice.id}</td>
+                      <td><span className={`badge badge-${invoice.status === 'paid' ? 'green' : invoice.status === 'open' ? 'amber' : invoice.status === 'uncollectible' || invoice.status === 'void' ? 'red' : 'grey'}`}>{invoice.status || 'unknown'}</span></td>
+                      <td>{formatMoney(invoice.amount_paid || invoice.amount_due, invoice.currency)}</td>
+                      <td>{formatStripeDate(invoice.created)}</td>
+                      <td>{invoice.paid_at ? formatStripeDate(invoice.paid_at) : '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          {invoice.hosted_invoice_url && <a href={invoice.hosted_invoice_url} target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', textDecoration: 'none', fontSize: 13 }}>View</a>}
+                          {invoice.invoice_pdf && <a href={invoice.invoice_pdf} target="_blank" rel="noreferrer" style={{ color: 'var(--blue)', textDecoration: 'none', fontSize: 13 }}>PDF</a>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="compact-note">No Stripe invoices yet. The first successful checkout will appear here.</div>
+          )}
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
               <h3 className="panel-title">Billing health</h3>
               <div className="panel-sub">Safeguards before changing plan or payment state</div>
             </div>
@@ -303,9 +391,11 @@ export default function Billing() {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {[
               { label:'Checkout status', value: hasStripeCustomer ? 'Customer created' : 'Action needed', tone: hasStripeCustomer ? 'var(--blue)' : 'var(--amber)' },
-              { label:'Subscription status', value: hasSubscription ? 'Live' : 'Not active', tone: hasSubscription ? 'var(--green)' : 'var(--faint)' },
+              { label:'Subscription status', value: billingHistory.subscription?.status || (hasSubscription ? 'Live' : 'Not active'), tone: hasSubscription ? 'var(--green)' : 'var(--faint)' },
               { label:'Seat entitlement', value: `${activeSeats} / ${plan?.max_users || tenant?.seat_limit || 5} seats`, tone: activeSeats >= (plan?.max_users || tenant?.seat_limit || 5) ? 'var(--amber)' : 'var(--blue)' },
               { label:'Grace period', value: tenant?.grace_period_ends_at ? new Date(tenant.grace_period_ends_at).toLocaleDateString('en-GB') : 'None', tone: tenant?.grace_period_ends_at ? 'var(--amber)' : 'var(--faint)' },
+              { label:'Next renewal', value: upcomingInvoice?.period_end ? formatStripeDate(upcomingInvoice.period_end) : 'Not available', tone: upcomingInvoice?.period_end ? 'var(--green)' : 'var(--faint)' },
+              { label:'Latest invoice', value: latestInvoice ? `${latestInvoice.number || latestInvoice.id}` : 'None yet', tone: latestInvoice ? 'var(--blue)' : 'var(--faint)' },
             ].map(item => (
               <div key={item.label} className="detail-card">
                 <div style={{ fontSize:12, color:'var(--faint)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{item.label}</div>

@@ -113,6 +113,32 @@ export async function createBillingPortalSession({
   window.location.href = json.url
 }
 
+export async function getBillingHistory({
+  tenant,
+  limit = 12,
+}) {
+  if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
+  if (!tenant?.stripe_customer_id) {
+    return { invoices: [], subscription: null, upcoming: null }
+  }
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'stripe_get_billing_history',
+      data: {
+        customer_id: tenant.stripe_customer_id,
+        subscription_id: tenant.stripe_subscription_id || '',
+        limit,
+      },
+    }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to load billing history')
+  return json
+}
+
 export async function updateSubscriptionPlan({
   tenantId,
   subscriptionId,

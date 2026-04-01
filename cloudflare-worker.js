@@ -527,6 +527,64 @@ async function handleStripe(type, data, env) {
       return { id: session.id, url: session.url }
     }
 
+    case 'stripe_get_billing_history': {
+      if (!data.customer_id) throw new Error('Stripe customer is not ready yet')
+
+      const invoiceParams = new URLSearchParams()
+      invoiceParams.append('customer', data.customer_id)
+      invoiceParams.append('limit', String(data.limit || 12))
+      const invoices = await stripeRequest(`/invoices?${invoiceParams.toString()}`, env, { method: 'GET' })
+
+      let subscription = null
+      if (data.subscription_id) {
+        subscription = await stripeRequest(`/subscriptions/${data.subscription_id}`, env, { method: 'GET' })
+      }
+
+      let upcoming = null
+      if (data.subscription_id) {
+        const upcomingParams = new URLSearchParams()
+        upcomingParams.append('customer', data.customer_id)
+        upcomingParams.append('subscription', data.subscription_id)
+        try {
+          upcoming = await stripeRequest(`/invoices/upcoming?${upcomingParams.toString()}`, env, { method: 'GET' })
+        } catch (error) {
+          upcoming = null
+        }
+      }
+
+      return {
+        invoices: (invoices?.data || []).map((invoice) => ({
+          id: invoice.id,
+          number: invoice.number,
+          status: invoice.status,
+          currency: invoice.currency,
+          amount_due: invoice.amount_due,
+          amount_paid: invoice.amount_paid,
+          amount_remaining: invoice.amount_remaining,
+          hosted_invoice_url: invoice.hosted_invoice_url,
+          invoice_pdf: invoice.invoice_pdf,
+          created: invoice.created,
+          due_date: invoice.due_date,
+          paid_at: invoice.status_transitions?.paid_at || null,
+          period_end: invoice.lines?.data?.[0]?.period?.end || null,
+          price_id: invoice.lines?.data?.[0]?.price?.id || null,
+        })),
+        subscription: subscription ? {
+          id: subscription.id,
+          status: subscription.status,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          current_period_end: subscription.current_period_end,
+          price_id: subscription.items?.data?.[0]?.price?.id || null,
+        } : null,
+        upcoming: upcoming ? {
+          id: upcoming.id,
+          amount_due: upcoming.amount_due,
+          currency: upcoming.currency,
+          period_end: upcoming.lines?.data?.[0]?.period?.end || upcoming.period_end || null,
+        } : null,
+      }
+    }
+
     case 'stripe_update_subscription': {
       const subscription = await stripeRequest(`/subscriptions/${data.subscription_id}`, env, { method: 'GET' })
       const itemId = subscription?.items?.data?.[0]?.id
