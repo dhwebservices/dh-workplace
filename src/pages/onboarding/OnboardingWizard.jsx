@@ -133,14 +133,14 @@ export default function OnboardingWizard() {
         </div>
 
         {/* Step indicators */}
-        <div style={{ display:'flex', alignItems:'center', marginBottom:32, gap:0 }}>
+        <div style={{ display:'flex', alignItems:'center', marginBottom:32, gap:0, width:'100%', overflowX:'auto', paddingBottom:4 }}>
           {STEPS.map((s, i) => (
             <div key={i} style={{ flex:1, display:'flex', alignItems:'center' }}>
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4, flex:1 }}>
                 <div style={{ width:28, height:28, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, background: i < step ? 'var(--green)' : i === step ? 'var(--text)' : 'var(--border)', color: i <= step ? '#fff' : 'var(--faint)', transition:'all 0.2s' }}>
                   {i < step ? 'OK' : i + 1}
                 </div>
-                <div style={{ fontSize:11, fontWeight:500, color: i === step ? 'var(--text)' : 'var(--faint)', whiteSpace:'nowrap' }}>{s}</div>
+                <div style={{ fontSize:11, fontWeight:500, color: i === step ? 'var(--text)' : 'var(--faint)', whiteSpace:'nowrap', textAlign:'center' }}>{s}</div>
               </div>
               {i < STEPS.length - 1 && <div style={{ height:1, flex:1, background: i < step ? 'var(--green)' : 'var(--border)', marginBottom:20, transition:'background 0.3s' }} />}
             </div>
@@ -177,7 +177,7 @@ export default function OnboardingWizard() {
                 <p style={{ fontSize:13, color:'var(--faint)' }}>Optional — you can invite people later from Settings</p>
               </div>
               {invites.map((inv, i) => (
-                <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8 }}>
+                <div key={i} style={{ display:'grid', gridTemplateColumns:'minmax(0, 1fr) 120px', gap:8 }}>
                   <input className="inp" type="email" placeholder={`colleague${i+1}@company.co.uk`} value={inv.email} onChange={e => { const n = [...invites]; n[i].email = e.target.value; setInvites(n) }} />
                   <select className="inp" style={{ width:'auto' }} value={inv.role} onChange={e => { const n = [...invites]; n[i].role = e.target.value; setInvites(n) }}>
                     <option value="admin">Admin</option>
@@ -191,7 +191,7 @@ export default function OnboardingWizard() {
                   + Add another
                 </button>
               )}
-              <div style={{ display:'flex', justifyContent:'space-between', marginTop:8 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, gap:10, flexWrap:'wrap' }}>
                 <button className="btn btn-outline" onClick={() => setStep(2)}>Skip for now</button>
                 <button className="btn btn-primary" onClick={saveInvites} disabled={saving}>
                   {saving ? 'Sending...' : 'Continue'}

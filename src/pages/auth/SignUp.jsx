@@ -31,7 +31,7 @@ export default function SignUp() {
       const normalizedEmail = form.email.trim().toLowerCase()
       const platformInvite = await sbGet('platform_admins', `email=eq.${encodeURIComponent(normalizedEmail)}`)
       if (platformInvite) {
-        throw new Error('This email has platform admin access waiting. Use the platform invite link or sign in instead of starting a tenant trial.')
+        throw new Error('This email has platform admin access waiting. Use the platform invite link or sign in instead of creating a new workspace.')
       }
 
       // 1. Create auth user
@@ -112,7 +112,7 @@ export default function SignUp() {
 
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-      <div style={{ width:'100%', maxWidth:420 }}>
+      <div style={{ width:'100%', maxWidth:520 }}>
         {/* Logo */}
         <div style={{ textAlign:'center', marginBottom:32 }}>
           <div style={{ fontFamily:'var(--font-display)', fontSize:28, color:'var(--text)' }}>DH Workplace</div>
@@ -157,7 +157,7 @@ export default function SignUp() {
                         cursor:'pointer',
                       }}
                     >
-                      <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'baseline' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'baseline', flexWrap:'wrap' }}>
                         <div style={{ fontSize:15, fontWeight:700, color:'var(--text)' }}>{plan.name}</div>
                         <div style={{ fontSize:18, fontWeight:700, color:'var(--gold)' }}>£{plan.launch_price}<span style={{ fontSize:12, color:'var(--faint)', fontWeight:500 }}>/mo</span></div>
                       </div>
