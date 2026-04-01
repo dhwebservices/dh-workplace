@@ -64,6 +64,7 @@ export default function Automations() {
   const [runningKey, setRunningKey] = useState('')
   const [schemaReady, setSchemaReady] = useState(true)
   const [rules, setRules] = useState([])
+  const [runs, setRuns] = useState([])
   const [metrics, setMetrics] = useState({
     pendingInvites: 0,
     pendingLeave: 0,
@@ -78,13 +79,15 @@ export default function Automations() {
     if (!tenant?.id) return
     setLoading(true)
     try {
-      const [ruleRows, inviteRows, leaveRows, timesheetRows] = await Promise.all([
+      const [ruleRows, inviteRows, leaveRows, timesheetRows, runRows] = await Promise.all([
         sbGetMany('automation_rules', `tenant_id=eq.${tenant.id}&order=created_at.asc`),
         sbGetMany('invitations', `tenant_id=eq.${tenant.id}&accepted_at=is.null`),
         sbGetMany('leave_requests', `tenant_id=eq.${tenant.id}&status=eq.pending`),
         sbGetMany('timesheets', `tenant_id=eq.${tenant.id}&status=eq.pending`),
+        sbGetMany('automation_runs', `tenant_id=eq.${tenant.id}&order=started_at.desc&limit=12`),
       ])
       setRules(ruleRows || [])
+      setRuns(runRows || [])
       setMetrics({
         pendingInvites: (inviteRows || []).length,
         pendingLeave: (leaveRows || []).length,
@@ -97,11 +100,20 @@ export default function Automations() {
       console.error(e)
       setSchemaReady(false)
       setRules([])
+      setRuns([])
     }
     setLoading(false)
   }
 
   const ruleMap = useMemo(() => Object.fromEntries(rules.map((rule) => [rule.rule_type, rule])), [rules])
+  const runMap = useMemo(() => {
+    const grouped = {}
+    for (const run of runs) {
+      if (!grouped[run.rule_type]) grouped[run.rule_type] = []
+      grouped[run.rule_type].push(run)
+    }
+    return grouped
+  }, [runs])
 
   const cards = RULES.map((definition) => {
     const existing = ruleMap[definition.key]
@@ -159,11 +171,12 @@ export default function Automations() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
+            body: JSON.stringify({
           type: 'automation_run',
           data: {
             tenant_id: tenant.id,
             rule_type: card.key,
+            triggered_by: tenantUser?.id || null,
           },
         }),
       })
@@ -226,7 +239,7 @@ export default function Automations() {
       <div className="page-hd">
         <div>
           <h1 className="page-title">Automations</h1>
-          <p className="page-sub">Scheduled reminders for joins, approvals, trials, and billing attention</p>
+          <p className="page-sub">Scheduled reminders for joins, approvals, billing follow-up, and day-to-day operational nudges</p>
         </div>
       </div>
 
@@ -244,9 +257,9 @@ export default function Automations() {
         <div className="stat-card"><div className="stat-val" style={{ color: 'var(--green)' }}>{metrics.billingState}</div><div className="stat-lbl">Billing state</div></div>
       </div>
 
-      <div className="compact-note">These rules can be run manually now, and they are stored with next-run timing so they are ready for scheduled execution later.</div>
+      <div className="compact-note">These rules can be run manually now, track their run history, and are stored with next-run timing so they are ready for scheduled execution later.</div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         {(loading ? RULES : RULES.map(liveCard)).map((card) => (
           <div key={card.key} className="card card-pad">
             {loading ? (
@@ -316,6 +329,33 @@ export default function Automations() {
                   </div>
                 </div>
 
+                <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>Recent runs</div>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {(runMap[card.key] || []).slice(0, 3).map((run) => (
+                      <div key={run.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', background: 'var(--surface-strong)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                          <span className={`badge badge-${run.status === 'success' ? 'green' : run.status === 'failed' ? 'red' : 'amber'}`}>
+                            {run.status}
+                          </span>
+                          <span style={{ fontSize: 12, color: 'var(--faint)' }}>
+                            {run.started_at ? new Date(run.started_at).toLocaleString('en-GB') : 'Unknown'}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--sub)' }}>
+                          {run.notifications_sent || 0} notification{run.notifications_sent === 1 ? '' : 's'} · {run.emails_sent || 0} email{run.emails_sent === 1 ? '' : 's'}
+                        </div>
+                        {run.error_message && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red)' }}>{run.error_message}</div>
+                        )}
+                      </div>
+                    ))}
+                    {!(runMap[card.key] || []).length && (
+                      <div style={{ fontSize: 13, color: 'var(--faint)' }}>No run history yet.</div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="modal-ft" style={{ padding: 0, borderTop: 'none', marginTop: 18, justifyContent: 'space-between' }}>
                   <div className="compact-note">
                     Last run: {card.last_run_at ? new Date(card.last_run_at).toLocaleString('en-GB') : 'Never'}
@@ -334,6 +374,50 @@ export default function Automations() {
           </div>
         ))}
       </div>
+
+      {!loading && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Automation activity</h3>
+              <div className="panel-sub">A workspace-wide view of the latest automation runs and their outcomes.</div>
+            </div>
+          </div>
+          {runs.length ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Rule</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                    <th>Notifications</th>
+                    <th>Emails</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runs.map((run) => {
+                    const definition = RULES.find((item) => item.key === run.rule_type)
+                    return (
+                      <tr key={run.id}>
+                        <td>{definition?.title || run.rule_type}</td>
+                        <td><span className={`badge badge-${run.status === 'success' ? 'green' : run.status === 'failed' ? 'red' : 'amber'}`}>{run.status}</span></td>
+                        <td>{run.started_at ? new Date(run.started_at).toLocaleString('en-GB') : 'Unknown'}</td>
+                        <td>{run.notifications_sent || 0}</td>
+                        <td>{run.emails_sent || 0}</td>
+                        <td style={{ color: run.error_message ? 'var(--red)' : 'var(--faint)' }}>{run.error_message || 'Completed cleanly'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="compact-note">No automation history yet. Run a rule once and it will appear here.</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

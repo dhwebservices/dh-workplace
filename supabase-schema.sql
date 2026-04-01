@@ -350,6 +350,25 @@ create policy "automation_rules_isolation" on automation_rules
   for all using (tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid()));
 
+-- ── Automation Runs ──────────────────────────────────────────
+create table automation_runs (
+  id                uuid primary key default gen_random_uuid(),
+  tenant_id         uuid references tenants(id) on delete cascade not null,
+  rule_type         text not null check (rule_type in ('invite_follow_up', 'leave_approval', 'timesheet_approval', 'trial_ending', 'billing_attention')),
+  status            text default 'running' check (status in ('running', 'success', 'failed')),
+  notifications_sent integer default 0,
+  emails_sent       integer default 0,
+  error_message     text,
+  triggered_by      uuid references tenant_users(id),
+  started_at        timestamptz default now(),
+  completed_at      timestamptz,
+  created_at        timestamptz default now()
+);
+alter table automation_runs enable row level security;
+create policy "automation_runs_isolation" on automation_runs
+  for all using (tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid()));
+
 -- ── Indexes for performance ────────────────────────────────────
 create index if not exists idx_tenant_users_tenant_id on tenant_users(tenant_id);
 create index if not exists idx_tenant_users_user_id on tenant_users(user_id);
@@ -361,6 +380,7 @@ create index if not exists idx_notifications_user_id on notifications(tenant_use
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
 create index if not exists idx_tenants_demo_slug on tenants(is_demo, slug);
 create index if not exists idx_automation_rules_tenant_id on automation_rules(tenant_id);
+create index if not exists idx_automation_runs_tenant_id on automation_runs(tenant_id);
 
 -- ── Insert DH as first platform admin ────────────────────────
 -- Run this AFTER creating your account via the sign-up page:
