@@ -48,9 +48,6 @@ export default function SignUp() {
       // 2. Create tenant
       const tenantId = crypto.randomUUID()
       const slug = slugify(form.company) + '-' + Math.random().toString(36).slice(2, 6)
-      const trialEnds = new Date()
-      trialEnds.setDate(trialEnds.getDate() + 14)
-
       await sbInsert('tenants', {
         id:            tenantId,
         name:          form.company,
@@ -58,8 +55,8 @@ export default function SignUp() {
         plan:          'starter',
         seat_limit:    5,
         owner_email:   normalizedEmail,
-        status:        'trialing',
-        trial_ends_at: trialEnds.toISOString(),
+        status:        'pending_activation',
+        trial_ends_at: null,
         created_at:    new Date().toISOString(),
       })
 
@@ -117,12 +114,12 @@ export default function SignUp() {
         {/* Logo */}
         <div style={{ textAlign:'center', marginBottom:32 }}>
           <div style={{ fontFamily:'var(--font-display)', fontSize:28, color:'var(--text)' }}>DH Workplace</div>
-          <div style={{ fontSize:13, color:'var(--faint)', marginTop:4 }}>Start your free 14-day trial</div>
+          <div style={{ fontSize:13, color:'var(--faint)', marginTop:4 }}>Create your workspace and activate billing in onboarding</div>
         </div>
 
         {/* Founding member badge */}
         <div style={{ background:'var(--gold-soft)', border:'1px solid var(--gold-border)', borderRadius:10, padding:'10px 16px', marginBottom:24, textAlign:'center' }}>
-          <span style={{ fontSize:12, color:'var(--gold)', fontWeight:600 }}>Founding Member Offer — Lock in launch pricing forever</span>
+          <span style={{ fontSize:12, color:'var(--gold)', fontWeight:600 }}>Founding Member Offer — Activate now and lock in launch pricing forever</span>
         </div>
 
         <div className="card card-pad">
@@ -142,12 +139,12 @@ export default function SignUp() {
               </div>
               {error && <div style={{ fontSize:13, color:'var(--red)', background:'var(--red-soft)', padding:'10px 14px', borderRadius:8 }}>{error}</div>}
               <button className="btn btn-primary btn-lg" type="submit" disabled={loading} style={{ width:'100%', justifyContent:'center', marginTop:4 }}>
-                {loading ? 'Creating your workspace...' : 'Start free trial'}
+                {loading ? 'Creating your workspace...' : 'Create workspace'}
               </button>
             </div>
           </form>
           <div style={{ textAlign:'center', marginTop:16, fontSize:13, color:'var(--faint)' }}>
-            No card required · Cancel anytime
+            Billing is set up during onboarding · Cancel anytime
           </div>
         </div>
 

@@ -91,8 +91,8 @@ async function handleEmail(type, data, env) {
         <p style="color:#555;margin:0 0 20px">Hi ${data.name || 'there'}, your workspace is ready.</p>
         <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px">
           <p style="margin:0;font-size:14px;color:#333"><strong>Workspace:</strong> ${data.company}</p>
-          <p style="margin:8px 0 0;font-size:14px;color:#333"><strong>Plan:</strong> ${data.plan || 'Starter'} (14-day free trial)</p>
-          <p style="margin:8px 0 0;font-size:13px;color:#777">Founding Member price: <strong>£9/mo</strong> after trial</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#333"><strong>Plan:</strong> ${data.plan || 'Starter'}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:#777">Billing is activated during onboarding at <strong>£9/mo</strong>.</p>
         </div>
         <a href="${data.url || 'https://app.dhworkplace.co.uk'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Go to your workspace</a>
         <p style="color:#86868B;font-size:12px;margin-top:20px">Questions? Reply to this email or contact clients@dhwebsiteservices.co.uk</p>
@@ -104,8 +104,8 @@ Hi ${data.name || 'there'},
 Your workspace is ready.
 
 Workspace: ${data.company}
-Plan: ${data.plan || 'Starter'} (14-day free trial)
-Founding Member price: £9/mo after trial
+Plan: ${data.plan || 'Starter'}
+Billing is activated during onboarding at £9/mo.
 
 Go to your workspace:
 ${data.url || 'https://app.dhworkplace.co.uk'}

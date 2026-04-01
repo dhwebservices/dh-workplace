@@ -111,9 +111,9 @@ export default function Settings() {
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             {[
               ['Plan', <span className="badge badge-blue" style={{textTransform:'capitalize'}}>{tenant?.plan||'starter'}</span>],
-              ['Status', <span className={`badge badge-${tenant?.status==='trialing'?'amber':tenant?.status==='active'?'green':'red'}`} style={{textTransform:'capitalize'}}>{tenant?.status}</span>],
+              ['Status', <span className={`badge badge-${tenant?.status==='active'?'green':'amber'}`} style={{textTransform:'capitalize'}}>{tenant?.status === 'pending_activation' ? 'pending activation' : tenant?.status}</span>],
               ['Seats', `${tenant?.seat_limit||5} max`],
-              ['Trial Ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
+              ['Activation', tenant?.status === 'pending_activation' ? 'Billing setup required' : 'Complete'],
             ].map(([label,val])=>(
               <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border2)'}}>
                 <span style={{fontSize:13,color:'var(--faint)'}}>{label}</span>

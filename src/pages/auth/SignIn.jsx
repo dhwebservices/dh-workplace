@@ -114,7 +114,7 @@ export default function SignIn() {
           </div>
         </div>
         <div style={{ textAlign:'center', marginTop:20, fontSize:13, color:'var(--faint)' }}>
-          Don't have an account? <Link to="/signup" style={{ color:'var(--blue)', textDecoration:'none' }}>Start free trial</Link>
+          Don't have an account? <Link to="/signup" style={{ color:'var(--blue)', textDecoration:'none' }}>Create workspace</Link>
         </div>
       </div>
     </div>

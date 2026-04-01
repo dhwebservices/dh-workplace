@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { sbGetMany } from '../utils/supabase'
-import { getTrialDaysLeft } from '../utils/entitlements'
 import { Link } from 'react-router-dom'
 
 export default function Dashboard() {
@@ -23,7 +22,6 @@ export default function Dashboard() {
     })
   }, [tenant?.id])
 
-  const trialDays = getTrialDaysLeft(tenant)
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
   return (
@@ -92,16 +90,10 @@ export default function Dashboard() {
             </div>
             <div className="detail-row">
               <span className="detail-row-label">Status</span>
-              <span className={`badge badge-${tenant?.status === 'active' || tenant?.status === 'trialing' ? 'green' : 'amber'}`} style={{ textTransform:'capitalize' }}>
-                {tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}
+              <span className={`badge badge-${tenant?.status === 'active' ? 'green' : tenant?.status === 'pending_activation' ? 'amber' : 'amber'}`} style={{ textTransform:'capitalize' }}>
+                {tenant?.status === 'pending_activation' ? 'Pending activation' : tenant?.status}
               </span>
             </div>
-            {tenant?.status === 'trialing' && (
-              <div className="detail-row">
-                <span className="detail-row-label">Trial</span>
-                <span className="detail-row-value">{trialDays > 0 ? `${trialDays} days remaining` : 'Ended'}</span>
-              </div>
-            )}
             <div className="detail-row">
               <span className="detail-row-label">Seat limit</span>
               <span className="detail-row-value">{stats.staff} / {tenant?.seat_limit || 5} used</span>

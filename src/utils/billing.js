@@ -1,4 +1,4 @@
-import { sbUpdate } from './supabase'
+import { sbGet, sbUpdate } from './supabase'
 import { PLANS } from './entitlements'
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL
@@ -130,4 +130,46 @@ export async function startBillingSetup({
 
   await refreshTenant()
   window.location.href = authUrl
+}
+
+export async function activateRecurringSubscription({
+  tenantId,
+  planKey,
+  refreshTenant,
+}) {
+  if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
+  if (!tenantId) throw new Error('Missing tenant ID for subscription activation')
+
+  const tenant = await sbGet('tenants', `id=eq.${tenantId}`)
+  if (!tenant?.gc_mandate_id) throw new Error('Direct Debit mandate is not ready yet')
+  if (tenant?.gc_subscription_id) {
+    await refreshTenant?.()
+    return tenant
+  }
+
+  const res = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'gc_create_subscription',
+      data: {
+        amount_pence: (PLANS[planKey]?.launch_price || 9) * 100,
+        mandate_id: tenant.gc_mandate_id,
+        name: `${PLANS[planKey]?.name || 'Starter'} Plan`,
+      },
+    }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Failed to create subscription')
+  const subscriptionId = json.subscriptions?.id
+  if (!subscriptionId) throw new Error('Subscription ID missing from GoCardless response')
+
+  await sbUpdate('tenants', `id=eq.${tenantId}`, {
+    gc_subscription_id: subscriptionId,
+    status: 'active',
+    subscription_started_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })
+  await refreshTenant?.()
+  return await sbGet('tenants', `id=eq.${tenantId}`)
 }

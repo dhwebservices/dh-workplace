@@ -289,7 +289,7 @@ export default function Billing() {
         </div>
         <div className="kpi-cell">
           <div className="kpi-cell-label">Status</div>
-          <div className="kpi-cell-value">{tenant?.status === 'trialing' ? 'Free Trial' : tenant?.status}</div>
+          <div className="kpi-cell-value">{tenant?.status === 'pending_activation' ? 'Pending activation' : tenant?.status}</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-cell-label">Direct Debit</div>
@@ -323,16 +323,16 @@ export default function Billing() {
             </div>
           </div>
 
-          {tenant?.status === 'trialing' && (
+          {tenant?.status === 'pending_activation' && (
             <div style={{ background: 'var(--gold-soft)', border: '1px solid var(--gold-border)', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gold)', marginBottom: 2 }}>Founding Member</div>
-              <div style={{ fontSize: 12, color: 'var(--sub)' }}>Lock in this price forever by making your first payment now and authorising the monthly collection.</div>
+              <div style={{ fontSize: 12, color: 'var(--sub)' }}>Activate billing now to unlock the workspace and keep this launch price forever.</div>
             </div>
           )}
 
           <div className="stack-sm" style={{ marginBottom: 20 }}>
             {[
-              ['Trial ends', tenant?.trial_ends_at ? new Date(tenant.trial_ends_at).toLocaleDateString('en-GB') : 'N/A'],
+              ['Activation', tenant?.status === 'pending_activation' ? 'Payment setup required' : 'Complete'],
               ['Seats included', plan?.max_users || 5],
               ['Active seats', activeSeats],
               ['Direct Debit', tenant?.gc_mandate_id ? 'Set up' : 'Not set'],

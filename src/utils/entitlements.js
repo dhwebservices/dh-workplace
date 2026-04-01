@@ -48,6 +48,7 @@ export function seatLimitReached(tenant, currentUserCount) {
 
 export function isAccessBlocked(tenant) {
   if (!tenant) return true
+  if (tenant.status === 'pending_activation') return false
   if (tenant.status === 'trialing') return false
   if (tenant.status === 'active') return false
   if (tenant.status === 'overdue') {

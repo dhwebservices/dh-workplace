@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { PLANS, can, getTrialDaysLeft } from '../../utils/entitlements'
+import { PLANS, can } from '../../utils/entitlements'
 import { sbGetMany, sbUpdate, supabase } from '../../utils/supabase'
 import { canManageBilling, canManageTeam, canManageWorkspaceSettings, canViewAudit, canViewReports } from '../../utils/permissions'
 
@@ -47,11 +47,11 @@ export default function AppShell({ superAdmin = false }) {
   const { tenant, tenantUser, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const trialDays = getTrialDaysLeft(tenant)
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
 
   const isTrial = tenant?.status === 'trialing'
+  const isPendingActivation = tenant?.status === 'pending_activation'
   const isAdminUser = ['owner', 'admin', 'superadmin'].includes(tenantUser?.role)
   const plan = PLANS[tenant?.plan || 'starter']
   const notificationsEnabled = !superAdmin && can(tenant, 'notifications')
@@ -117,8 +117,10 @@ export default function AppShell({ superAdmin = false }) {
   const unreadCount = useMemo(() => notifications.filter(item => !item.read).length, [notifications])
   const workspaceStatus = superAdmin
     ? `${unreadCount} alert${unreadCount === 1 ? '' : 's'}`
-    : isTrial
-      ? `${trialDays} day${trialDays === 1 ? '' : 's'} left in trial`
+    : isPendingActivation
+      ? 'Activation required'
+      : isTrial
+      ? 'Trial active'
       : tenant?.gc_subscription_id
         ? 'Subscription active'
         : tenant?.gc_mandate_id
@@ -162,8 +164,8 @@ export default function AppShell({ superAdmin = false }) {
               {!showWhiteLabel && <div className="sidebar-brand-name">{tenant.name}</div>}
               <div className="sidebar-brand-meta">
                 <span className="badge badge-blue" style={{ textTransform: 'capitalize', ...(tenant?.primary_colour ? { background: `${tenant.primary_colour}1A`, color: tenant.primary_colour, borderColor: `${tenant.primary_colour}40` } : {}) }}>{plan?.name || 'Starter'}</span>
-                <span className={`badge badge-${isTrial ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`} style={{ textTransform: 'capitalize' }}>
-                  {isTrial ? 'Trial' : tenant?.status}
+                <span className={`badge badge-${isPendingActivation ? 'amber' : isTrial ? 'amber' : tenant?.status === 'active' ? 'green' : 'red'}`} style={{ textTransform: 'capitalize' }}>
+                  {isPendingActivation ? 'Pending activation' : isTrial ? 'Trial' : tenant?.status}
                 </span>
               </div>
             </>
@@ -227,7 +229,7 @@ export default function AppShell({ superAdmin = false }) {
             </div>
             {!superAdmin && (
               <button className="workspace-chip" onClick={() => navigate('/billing')}>
-                <span>{isTrial ? 'Trial' : plan?.name || 'Starter'}</span>
+                <span>{isPendingActivation ? 'Activate' : isTrial ? 'Trial' : plan?.name || 'Starter'}</span>
                 <span className="workspace-chip-arrow">Details</span>
               </button>
             )}

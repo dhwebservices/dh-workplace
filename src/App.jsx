@@ -51,10 +51,11 @@ function RequireAuth({ children }) {
 }
 
 function RequireOnboarded({ children }) {
-  const { tenant, isPlatformAdmin, loading } = useAuth()
+  const { user, tenant, isPlatformAdmin, loading } = useAuth()
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
   if (isPlatformAdmin && !tenant) return <Navigate to="/superadmin" replace />
   if (!tenant) return <Navigate to="/signin" replace />
+  if (user?.id && shouldShowOnboarding(user.id)) return <Navigate to="/onboarding" replace />
   if (isAccessBlocked(tenant)) return <PaymentWall />
   return children
 }
