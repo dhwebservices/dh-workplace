@@ -158,7 +158,7 @@ export default function Integrations() {
       {!enabled && (
         <div className="card card-pad" style={{background:'var(--surface-strong)'}}>
           <div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:8}}>API access is a Business plan feature</div>
-          <div style={{fontSize:13,color:'var(--sub)'}}>The foundation is visible during trial, but production webhook and API rollout is positioned for Business workspaces.</div>
+          <div style={{fontSize:13,color:'var(--sub)'}}>Webhook delivery and API access are best suited to Business workspaces, but the setup foundation is available here so you can prepare integrations in advance.</div>
         </div>
       )}
 
@@ -221,7 +221,7 @@ export default function Integrations() {
         ) : (
           <div style={{display:'grid',gap:12}}>
             {endpoints.map(endpoint => (
-              <div key={endpoint.id} className="detail-card" style={{display:'flex',justifyContent:'space-between',gap:16,alignItems:'center'}}>
+              <div key={endpoint.id} className="detail-card" style={{display:'flex',justifyContent:'space-between',gap:16,alignItems:'center',flexWrap:'wrap'}}>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:15,fontWeight:700,color:'var(--text)'}}>{endpoint.label}</div>
                   <div style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--faint)',marginTop:6,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{endpoint.target_url}</div>
@@ -254,7 +254,7 @@ export default function Integrations() {
             <div className="panel-sub">A practical first event list for payroll, ops, CRM, and automation tools.</div>
           </div>
         </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))',gap:12}}>
           {EVENTS.map(event => (
             <div key={event.key} className="detail-card">
               <div style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--blue)'}}>{event.key}</div>

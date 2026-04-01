@@ -82,26 +82,28 @@ function TrendBars({ title, subtitle, data, tone = 'var(--blue)', formatter = va
           <div className="panel-sub">{subtitle}</div>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${data.length || 1}, minmax(0, 1fr))`, gap: 12, alignItems: 'end', minHeight: 220 }}>
-        {data.map(point => (
-          <div key={point.label} style={{ display: 'grid', gap: 10, alignItems: 'end' }}>
-            <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 700, textAlign: 'center' }}>{formatter(point.value)}</div>
-            <div style={{ height: 160, display: 'flex', alignItems: 'end', justifyContent: 'center' }}>
-              <div
-                style={{
-                  width: '100%',
-                  maxWidth: 52,
-                  height: `${Math.max((point.value / max) * 100, point.value ? 12 : 4)}%`,
-                  minHeight: point.value ? 12 : 4,
-                  borderRadius: 16,
-                  background: tone,
-                  opacity: point.value ? 1 : 0.25,
-                }}
-              />
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${data.length || 1}, minmax(88px, 1fr))`, gap: 12, alignItems: 'end', minHeight: 220, minWidth: Math.max((data.length || 1) * 88, 320) }}>
+          {data.map(point => (
+            <div key={point.label} style={{ display: 'grid', gap: 10, alignItems: 'end' }}>
+              <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 700, textAlign: 'center' }}>{formatter(point.value)}</div>
+              <div style={{ height: 160, display: 'flex', alignItems: 'end', justifyContent: 'center' }}>
+                <div
+                  style={{
+                    width: '100%',
+                    maxWidth: 52,
+                    height: `${Math.max((point.value / max) * 100, point.value ? 12 : 4)}%`,
+                    minHeight: point.value ? 12 : 4,
+                    borderRadius: 16,
+                    background: tone,
+                    opacity: point.value ? 1 : 0.25,
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{point.label}</div>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{point.label}</div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -564,7 +566,7 @@ export default function Reports() {
         {loading ? (
           <div style={{ padding: 24 }}>{[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 64, marginBottom: 10, borderRadius: 10 }} />)}</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             {exports.map(config => (
               <div key={config.key} style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface-strong)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
@@ -574,7 +576,7 @@ export default function Reports() {
                 <div style={{ fontSize: 12, color: 'var(--faint)' }}>
                   {config.rows.length} row{config.rows.length === 1 ? '' : 's'} available
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: 'var(--font-mono)' }}>{config.filename}</span>
                   <button className="btn btn-outline btn-sm" onClick={() => handleExport(config)} disabled={saving === config.key || config.rows.length === 0}>
                     {saving === config.key ? 'Preparing...' : 'Export CSV'}

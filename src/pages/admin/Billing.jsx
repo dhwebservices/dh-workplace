@@ -388,7 +388,7 @@ export default function Billing() {
               <div className="panel-sub">Safeguards before changing plan or payment state</div>
             </div>
           </div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:12 }}>
             {[
               { label:'Checkout status', value: hasStripeCustomer ? 'Customer created' : 'Action needed', tone: hasStripeCustomer ? 'var(--blue)' : 'var(--amber)' },
               { label:'Subscription status', value: billingHistory.subscription?.status || (hasSubscription ? 'Live' : 'Not active'), tone: hasSubscription ? 'var(--green)' : 'var(--faint)' },
@@ -417,7 +417,7 @@ export default function Billing() {
               ? 'Your live Stripe subscription is active. Switching plan updates the recurring amount for future renewals.'
               : 'Choose a plan, then send the workspace owner through Stripe Checkout to collect the first month immediately and start recurring billing.'}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {Object.entries(PLANS).map(([key, p]) => (
               <div key={key} className="detail-card" style={{ border: `2px solid ${tenant?.plan === key ? 'var(--blue)' : 'var(--border)'}`, background: tenant?.plan === key ? 'linear-gradient(180deg, rgba(53,103,200,0.12), rgba(255,255,255,0.92))' : 'rgba(255,255,255,0.78)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 4, textTransform: 'capitalize' }}>{p.name}</div>
@@ -450,7 +450,7 @@ export default function Billing() {
               <div className="panel-sub">What this plan already unlocks across HR, CRM, and admin</div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {Object.entries(FEATURE_LABELS).map(([feature, label]) => (
               <div key={feature} className="detail-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: currentFeatures.has(feature) ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.55)' }}>
                 <span style={{ fontSize: 13, color: 'var(--text)' }}>{label}</span>
