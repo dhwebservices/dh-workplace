@@ -8,6 +8,105 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleDateString('en-GB') : ''
 }
 
+function formatMoney(value) {
+  return new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0))
+}
+
+function startOfMonth(value) {
+  const date = new Date(value)
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+function monthKey(value) {
+  const date = startOfMonth(value)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel(key) {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
+}
+
+function tallyBy(items, getKey) {
+  return items.reduce((acc, item) => {
+    const key = getKey(item) || 'Unknown'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+}
+
+function sumBy(items, getKey, getValue) {
+  return items.reduce((acc, item) => {
+    const key = getKey(item) || 'Unknown'
+    acc[key] = (acc[key] || 0) + Number(getValue(item) || 0)
+    return acc
+  }, {})
+}
+
+function StatusList({ items, tone = 'var(--blue)' }) {
+  if (!items.length) {
+    return <div style={{ fontSize: 13, color: 'var(--faint)' }}>No data in this period.</div>
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      {items.map(item => (
+        <div key={item.label} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 12, alignItems: 'center' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{item.label}</span>
+              <span style={{ fontSize: 12, color: 'var(--faint)' }}>{item.value}</span>
+            </div>
+            <div style={{ height: 8, borderRadius: 999, background: 'var(--surface)', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${item.share}%`, background: tone, borderRadius: 999 }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TrendBars({ title, subtitle, data, tone = 'var(--blue)', formatter = value => value }) {
+  const max = Math.max(...data.map(item => item.value), 1)
+
+  return (
+    <div className="card card-pad">
+      <div className="section-head" style={{ marginBottom: 18 }}>
+        <div>
+          <h3 className="panel-title">{title}</h3>
+          <div className="panel-sub">{subtitle}</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${data.length || 1}, minmax(0, 1fr))`, gap: 12, alignItems: 'end', minHeight: 220 }}>
+        {data.map(point => (
+          <div key={point.label} style={{ display: 'grid', gap: 10, alignItems: 'end' }}>
+            <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 700, textAlign: 'center' }}>{formatter(point.value)}</div>
+            <div style={{ height: 160, display: 'flex', alignItems: 'end', justifyContent: 'center' }}>
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: 52,
+                  height: `${Math.max((point.value / max) * 100, point.value ? 12 : 4)}%`,
+                  minHeight: point.value ? 12 : 4,
+                  borderRadius: 16,
+                  background: tone,
+                  opacity: point.value ? 1 : 0.25,
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center' }}>{point.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Reports() {
   const { tenant, tenantUser } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -78,6 +177,108 @@ export default function Reports() {
     tasks: data.tasks.filter(task => inRange(task.created_at || task.due_date)),
     outreach: data.outreach.filter(lead => inRange(lead.created_at || lead.last_contacted)),
   }), [data, rangeCutoff])
+
+  const revenueSummary = useMemo(() => {
+    const invoiced = reportData.invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0)
+    const collected = reportData.invoices
+      .filter(invoice => invoice.status === 'paid')
+      .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0)
+    const overdue = reportData.invoices
+      .filter(invoice => invoice.status === 'overdue' || invoice.status === 'unpaid')
+      .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0)
+    return { invoiced, collected, overdue }
+  }, [reportData.invoices])
+
+  const hoursSummary = useMemo(() => {
+    const total = reportData.timesheets.reduce((sum, entry) => sum + Number(entry.hours || 0), 0)
+    const approved = reportData.timesheets
+      .filter(entry => entry.status === 'approved')
+      .reduce((sum, entry) => sum + Number(entry.hours || 0), 0)
+    const pending = reportData.timesheets
+      .filter(entry => entry.status === 'pending')
+      .reduce((sum, entry) => sum + Number(entry.hours || 0), 0)
+    return { total, approved, pending }
+  }, [reportData.timesheets])
+
+  const operatingSnapshot = useMemo(() => ([
+    { label: 'Open tasks', value: reportData.tasks.filter(task => task.status !== 'done' && task.status !== 'cancelled').length, note: 'Work still moving through the workspace' },
+    { label: 'Pending leave', value: reportData.leave.filter(request => request.status === 'pending').length, note: 'Manager decisions still outstanding' },
+    { label: 'Pending timesheets', value: reportData.timesheets.filter(entry => entry.status === 'pending').length, note: 'Hours waiting for review' },
+    { label: 'Outstanding invoices', value: reportData.invoices.filter(invoice => invoice.status === 'unpaid' || invoice.status === 'overdue').length, note: 'Customer billing needing attention' },
+  ]), [reportData])
+
+  const monthlyRevenueTrend = useMemo(() => {
+    const keys = []
+    const base = new Date()
+    for (let i = 5; i >= 0; i--) {
+      keys.push(monthKey(new Date(base.getFullYear(), base.getMonth() - i, 1)))
+    }
+    const totals = Object.fromEntries(keys.map(key => [key, 0]))
+    reportData.invoices.forEach(invoice => {
+      const date = invoice.paid_at || invoice.created_at || invoice.due_date
+      if (!date) return
+      const key = monthKey(date)
+      if (!(key in totals)) return
+      totals[key] += Number(invoice.amount || 0)
+    })
+    return keys.map(key => ({ label: monthLabel(key), value: totals[key] }))
+  }, [reportData.invoices])
+
+  const monthlyHoursTrend = useMemo(() => {
+    const keys = []
+    const base = new Date()
+    for (let i = 5; i >= 0; i--) {
+      keys.push(monthKey(new Date(base.getFullYear(), base.getMonth() - i, 1)))
+    }
+    const totals = Object.fromEntries(keys.map(key => [key, 0]))
+    reportData.timesheets.forEach(entry => {
+      if (!entry.date) return
+      const key = monthKey(entry.date)
+      if (!(key in totals)) return
+      totals[key] += Number(entry.hours || 0)
+    })
+    return keys.map(key => ({ label: monthLabel(key), value: totals[key] }))
+  }, [reportData.timesheets])
+
+  const leaveBreakdown = useMemo(() => {
+    const counts = tallyBy(reportData.leave, request => request.status || 'unknown')
+    const total = Math.max(reportData.leave.length, 1)
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({ label: label.replace('_', ' '), value, share: Math.round((value / total) * 100) }))
+  }, [reportData.leave])
+
+  const taskBreakdown = useMemo(() => {
+    const counts = tallyBy(reportData.tasks, task => task.status || 'unknown')
+    const total = Math.max(reportData.tasks.length, 1)
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({ label: label.replace('_', ' '), value, share: Math.round((value / total) * 100) }))
+  }, [reportData.tasks])
+
+  const outreachBreakdown = useMemo(() => {
+    const counts = tallyBy(reportData.outreach, lead => lead.status || 'unknown')
+    const total = Math.max(reportData.outreach.length, 1)
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({ label: label.replace('_', ' '), value, share: Math.round((value / total) * 100) }))
+  }, [reportData.outreach])
+
+  const topStaffHours = useMemo(() => {
+    const totals = sumBy(reportData.timesheets, entry => lookups.staffNames[entry.tenant_user_id], entry => entry.hours)
+    return Object.entries(totals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value: `${value}h` }))
+  }, [reportData.timesheets, lookups.staffNames])
+
+  const topClientRevenue = useMemo(() => {
+    const totals = sumBy(reportData.invoices, invoice => lookups.clientNames[invoice.client_id], invoice => invoice.amount)
+    return Object.entries(totals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([label, value]) => ({ label, value: formatMoney(value) }))
+  }, [reportData.invoices, lookups.clientNames])
 
   const cards = [
     { label: 'Team records', value: reportData.staff.length, note: 'Active, invited, and suspended users' },
@@ -248,6 +449,108 @@ export default function Reports() {
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>{card.note}</div>
           </div>
         ))}
+      </div>
+
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        <div className="stat-card">
+          <div className="stat-lbl">Invoiced in range</div>
+          <div className="stat-val" style={{ color: 'var(--text)', fontSize: 30 }}>{formatMoney(revenueSummary.invoiced)}</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>{formatMoney(revenueSummary.collected)} collected · {formatMoney(revenueSummary.overdue)} outstanding</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-lbl">Hours logged</div>
+          <div className="stat-val" style={{ color: 'var(--text)', fontSize: 30 }}>{hoursSummary.total}h</div>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>{hoursSummary.approved}h approved · {hoursSummary.pending}h pending</div>
+        </div>
+        {operatingSnapshot.map(card => (
+          <div key={card.label} className="stat-card">
+            <div className="stat-lbl">{card.label}</div>
+            <div className="stat-val" style={{ color: 'var(--text)', fontSize: 30 }}>{card.value}</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>{card.note}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <TrendBars
+          title="Revenue trend"
+          subtitle="Invoice value across the last six months"
+          data={monthlyRevenueTrend}
+          formatter={formatMoney}
+        />
+        <TrendBars
+          title="Hours trend"
+          subtitle="Team time logged across the last six months"
+          data={monthlyHoursTrend}
+          tone="var(--green)"
+          formatter={value => `${value}h`}
+        />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">Leave status mix</h3>
+              <div className="panel-sub">Where people requests are sitting right now</div>
+            </div>
+          </div>
+          <StatusList items={leaveBreakdown} tone="var(--blue)" />
+        </div>
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">Task status mix</h3>
+              <div className="panel-sub">Operational workload across the workspace</div>
+            </div>
+          </div>
+          <StatusList items={taskBreakdown} tone="var(--amber)" />
+        </div>
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">Outreach pipeline</h3>
+              <div className="panel-sub">Lead movement in the selected period</div>
+            </div>
+          </div>
+          <StatusList items={outreachBreakdown} tone="var(--green)" />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">Top staff by logged hours</h3>
+              <div className="panel-sub">Useful for spotting who is carrying the workload</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {topStaffHours.length ? topStaffHours.map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{item.label}</span>
+                <span style={{ fontSize: 13, color: 'var(--sub)' }}>{item.value}</span>
+              </div>
+            )) : <div style={{ fontSize: 13, color: 'var(--faint)' }}>No timesheet data in this period.</div>}
+          </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">Top clients by invoice value</h3>
+              <div className="panel-sub">The customers contributing most commercial value</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {topClientRevenue.length ? topClientRevenue.map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{item.label}</span>
+                <span style={{ fontSize: 13, color: 'var(--sub)' }}>{item.value}</span>
+              </div>
+            )) : <div style={{ fontSize: 13, color: 'var(--faint)' }}>No invoice data in this period.</div>}
+          </div>
+        </div>
       </div>
 
       <div className="card card-pad">
