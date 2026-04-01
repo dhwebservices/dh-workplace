@@ -7,6 +7,7 @@ import { shouldShowOnboarding } from './utils/onboarding'
 const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
+const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
 const DemoWorkspace = lazy(() => import('./pages/demo/DemoWorkspace'))
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/signup"  element={<SignUp />} />
         <Route path="/signin"  element={<SignIn />} />
         <Route path="/forgot"  element={<ForgotPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/platform-access/:token" element={<AcceptPlatformAdmin />} />
         <Route path="/demo/:slug" element={<DemoWorkspace />} />
