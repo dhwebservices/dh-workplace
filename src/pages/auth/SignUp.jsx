@@ -37,7 +37,7 @@ export default function SignUp() {
         email: normalizedEmail,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/signin`,
+          emailRedirectTo: window.location.origin,
         },
       })
       if (authErr) throw authErr

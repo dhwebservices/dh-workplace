@@ -56,7 +56,7 @@ export default function AcceptInvite() {
         email: invitation.invitation.email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/signin`,
+          emailRedirectTo: window.location.origin,
         },
       })
 

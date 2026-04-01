@@ -330,7 +330,31 @@ async function handleGoCardless(type, data, env) {
         body: JSON.stringify({ billing_requests: billingRequestPayload })
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(JSON.stringify(json))
+      if (!res.ok) {
+        const isPaymentRequestForbidden = data.amount_pence && res.status === 403
+          && JSON.stringify(json).includes('"reason":"forbidden"')
+        if (isPaymentRequestForbidden) {
+          const fallbackRes = await fetch(`${GC_API}/billing_requests`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              billing_requests: {
+                mandate_request: { scheme: 'bacs', verify: 'when_available' },
+                links: { customer: data.customer_id },
+              },
+            }),
+          })
+          const fallbackJson = await fallbackRes.json()
+          if (!fallbackRes.ok) throw new Error(JSON.stringify(fallbackJson))
+          return {
+            ...fallbackJson,
+            dh_workplace_meta: {
+              first_payment_mode: 'mandate_only_fallback',
+            },
+          }
+        }
+        throw new Error(JSON.stringify(json))
+      }
       return json
     }
     case 'gc_create_billing_request_flow': {

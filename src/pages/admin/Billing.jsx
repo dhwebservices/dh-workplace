@@ -3,7 +3,14 @@ import { useAuth } from '../../contexts/AuthContext'
 import { PLANS } from '../../utils/entitlements'
 import { sbGetMany, sbUpdate } from '../../utils/supabase'
 import { canManageBilling } from '../../utils/permissions'
-import { clearPendingPlan as clearStoredPendingPlan, getPendingPlanStorageKey, needsInitialPayment, startBillingSetup } from '../../utils/billing'
+import {
+  clearBillingFallbackNotice,
+  clearPendingPlan as clearStoredPendingPlan,
+  getPendingPlanStorageKey,
+  needsInitialPayment,
+  readBillingFallbackNotice,
+  startBillingSetup,
+} from '../../utils/billing'
 
 const FEATURE_LABELS = {
   hr_directory: 'Staff directory',
@@ -34,6 +41,7 @@ export default function Billing() {
   const [switchingPlan, setSwitchingPlan] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [billingNotice, setBillingNotice] = useState('')
   const [activeSeats, setActiveSeats] = useState(0)
   const hasBillingSetup = !!tenant?.gc_mandate_id
   const hasSubscription = !!tenant?.gc_subscription_id
@@ -46,6 +54,11 @@ export default function Billing() {
     const stored = window.localStorage.getItem(pendingPlanStorageKey) || ''
     setPendingPlan(stored)
   }, [pendingPlanStorageKey])
+
+  useEffect(() => {
+    if (!tenant?.id) return
+    setBillingNotice(readBillingFallbackNotice(tenant.id))
+  }, [tenant?.id, tenant?.gc_mandate_id, tenant?.gc_subscription_id])
 
   useEffect(() => {
     let active = true
@@ -87,6 +100,11 @@ export default function Billing() {
 
   const clearPendingPlanForTenant = () => {
     clearStoredPendingPlan(tenant?.id)
+  }
+
+  const dismissBillingNotice = () => {
+    clearBillingFallbackNotice(tenant?.id)
+    setBillingNotice('')
   }
 
   const applyPlanLocally = async (key, extra = {}) => {
@@ -285,6 +303,12 @@ export default function Billing() {
 
       <div style={{ maxWidth: 1120, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {!!error && <div style={{ fontSize: 13, color: 'var(--red)', background: 'var(--red-soft)', padding: '10px 14px', borderRadius: 8 }}>{error}</div>}
+        {!!billingNotice && (
+          <div style={{ fontSize: 13, color: 'var(--amber)', background: 'var(--gold-soft)', padding: '10px 14px', borderRadius: 8, display:'flex', justifyContent:'space-between', gap:12, alignItems:'center' }}>
+            <span>{billingNotice}</span>
+            <button className="btn btn-outline btn-sm" onClick={dismissBillingNotice}>Dismiss</button>
+          </div>
+        )}
         {!!message && <div style={{ fontSize: 13, color: 'var(--green)', background: 'var(--green-soft)', padding: '10px 14px', borderRadius: 8 }}>{message}</div>}
 
         <div className="card card-pad">

@@ -7,6 +7,10 @@ export function getPendingPlanStorageKey(tenantId) {
   return tenantId ? `dhwp_pending_plan_${tenantId}` : ''
 }
 
+export function getBillingFallbackNoticeKey(tenantId) {
+  return tenantId ? `dhwp_billing_notice_${tenantId}` : ''
+}
+
 export function rememberPendingPlan(tenantId, planKey) {
   const key = getPendingPlanStorageKey(tenantId)
   if (!key) return
@@ -15,6 +19,24 @@ export function rememberPendingPlan(tenantId, planKey) {
 
 export function clearPendingPlan(tenantId) {
   const key = getPendingPlanStorageKey(tenantId)
+  if (!key) return
+  window.localStorage.removeItem(key)
+}
+
+export function rememberBillingFallbackNotice(tenantId, message) {
+  const key = getBillingFallbackNoticeKey(tenantId)
+  if (!key) return
+  window.localStorage.setItem(key, message)
+}
+
+export function readBillingFallbackNotice(tenantId) {
+  const key = getBillingFallbackNoticeKey(tenantId)
+  if (!key) return ''
+  return window.localStorage.getItem(key) || ''
+}
+
+export function clearBillingFallbackNotice(tenantId) {
+  const key = getBillingFallbackNoticeKey(tenantId)
   if (!key) return
   window.localStorage.removeItem(key)
 }
@@ -79,6 +101,14 @@ export async function startBillingSetup({
   if (!requestRes.ok) throw new Error(requestJson.error || 'Failed to create billing request')
   const billingRequestId = requestJson.billing_requests?.id
   if (!billingRequestId) throw new Error('Billing request ID missing')
+  if (requestJson.dh_workplace_meta?.first_payment_mode === 'mandate_only_fallback') {
+    rememberBillingFallbackNotice(
+      tenant.id,
+      'Your GoCardless account accepted the Direct Debit setup but not the upfront first-payment step. We will complete the mandate now and begin recurring billing once the subscription is active.'
+    )
+  } else {
+    clearBillingFallbackNotice(tenant.id)
+  }
 
   const redirectUri = `${window.location.origin}${redirectPath}`
   const flowRes = await fetch(WORKER_URL, {
