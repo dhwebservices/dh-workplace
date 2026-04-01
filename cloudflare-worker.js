@@ -1072,7 +1072,7 @@ function nextAutomationRun(cadence) {
   return date.toISOString()
 }
 
-async function handleAutomationAction(type, data, request, env) {
+async function executeAutomationRun(data, env) {
   const sbUrl = env.SUPABASE_URL
   const sbKey = env.SUPABASE_SERVICE_KEY
   const headers = {
@@ -1080,10 +1080,6 @@ async function handleAutomationAction(type, data, request, env) {
     Authorization: `Bearer ${sbKey}`,
     'Content-Type': 'application/json',
   }
-
-  await requireWorkspaceSettingsManager(request, env, data.tenant_id)
-
-  if (type !== 'automation_run') throw new Error(`Unknown automation action: ${type}`)
   if (!data?.rule_type) throw new Error('Missing automation rule')
 
   let runId = null
@@ -1295,6 +1291,54 @@ async function handleAutomationAction(type, data, request, env) {
     }
     throw error
   }
+}
+
+async function handleAutomationAction(type, data, request, env) {
+  if (type !== 'automation_run') throw new Error(`Unknown automation action: ${type}`)
+  await requireWorkspaceSettingsManager(request, env, data.tenant_id)
+  return executeAutomationRun(data, env)
+}
+
+async function runDueAutomations(env) {
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+  }
+  const nowIso = new Date().toISOString()
+  const dueRes = await fetch(
+    `${sbUrl}/rest/v1/automation_rules?enabled=eq.true&next_run_at=lte.${encodeURIComponent(nowIso)}&select=tenant_id,rule_type&order=next_run_at.asc`,
+    { headers }
+  )
+  if (!dueRes.ok) {
+    const text = await dueRes.text()
+    throw new Error(`Failed to fetch due automations: ${text}`)
+  }
+
+  const dueRules = await dueRes.json()
+  let processed = 0
+  const failures = []
+
+  for (const rule of dueRules || []) {
+    try {
+      await executeAutomationRun({
+        tenant_id: rule.tenant_id,
+        rule_type: rule.rule_type,
+        triggered_by: null,
+      }, env)
+      processed += 1
+    } catch (error) {
+      failures.push({
+        tenant_id: rule.tenant_id,
+        rule_type: rule.rule_type,
+        error: error.message || 'Unknown automation error',
+      })
+    }
+  }
+
+  return { ok: true, processed, failed: failures.length, failures }
 }
 
 // ── GoCardless Webhook Handler ────────────────────────────────
@@ -1616,5 +1660,9 @@ export default {
       console.error(err)
       return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
-  }
+  },
+
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runDueAutomations(env))
+  },
 }
