@@ -116,12 +116,16 @@ export default function Reports() {
   const [range, setRange] = useState('all')
   const [data, setData] = useState({
     staff: [],
+    employees: [],
+    hrProfiles: [],
     leave: [],
     clients: [],
     invoices: [],
     timesheets: [],
     tasks: [],
     outreach: [],
+    documents: [],
+    acknowledgements: [],
   })
   const canView = canViewReports({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
@@ -130,23 +134,31 @@ export default function Reports() {
   const load = async () => {
     if (!tenant?.id) return
     setLoading(true)
-    const [staff, leave, clients, invoices, timesheets, tasks, outreach] = await Promise.all([
+    const [staff, employees, hrProfiles, leave, clients, invoices, timesheets, tasks, outreach, documents, acknowledgements] = await Promise.all([
       sbGetMany('tenant_users', `tenant_id=eq.${tenant.id}&order=created_at.asc`),
+      sbGetMany('employees', `tenant_id=eq.${tenant.id}&order=display_name.asc`),
+      sbGetMany('hr_profiles', `tenant_id=eq.${tenant.id}`),
       sbGetMany('leave_requests', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('clients', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('invoices', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('timesheets', `tenant_id=eq.${tenant.id}&order=date.desc`),
       sbGetMany('tasks', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
       sbGetMany('outreach', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
+      sbGetMany('documents', `tenant_id=eq.${tenant.id}&order=created_at.desc`),
+      sbGetMany('document_acknowledgements', `tenant_id=eq.${tenant.id}&order=acknowledged_at.desc`),
     ])
     setData({
       staff: staff || [],
+      employees: employees || [],
+      hrProfiles: hrProfiles || [],
       leave: leave || [],
       clients: clients || [],
       invoices: invoices || [],
       timesheets: timesheets || [],
       tasks: tasks || [],
       outreach: outreach || [],
+      documents: documents || [],
+      acknowledgements: acknowledgements || [],
     })
     setLoading(false)
   }
@@ -154,8 +166,9 @@ export default function Reports() {
   const lookups = useMemo(() => {
     const staffNames = Object.fromEntries(data.staff.map(member => [member.id, member.full_name || member.email || 'Unknown']))
     const clientNames = Object.fromEntries(data.clients.map(client => [client.id, client.name]))
-    return { staffNames, clientNames }
-  }, [data.staff, data.clients])
+    const employeeNames = Object.fromEntries(data.employees.map(employee => [employee.id, employee.display_name || employee.primary_email || 'Unknown']))
+    return { staffNames, clientNames, employeeNames }
+  }, [data.staff, data.clients, data.employees])
 
   const rangeCutoff = useMemo(() => {
     if (range === 'all') return null
@@ -172,13 +185,66 @@ export default function Reports() {
 
   const reportData = useMemo(() => ({
     staff: data.staff,
+    employees: data.employees,
+    hrProfiles: data.hrProfiles,
     leave: data.leave.filter(request => inRange(request.created_at || request.start_date)),
     clients: data.clients.filter(client => inRange(client.created_at)),
     invoices: data.invoices.filter(invoice => inRange(invoice.created_at || invoice.due_date)),
     timesheets: data.timesheets.filter(entry => inRange(entry.date || entry.created_at)),
     tasks: data.tasks.filter(task => inRange(task.created_at || task.due_date)),
     outreach: data.outreach.filter(lead => inRange(lead.created_at || lead.last_contacted)),
+    documents: data.documents.filter(document => inRange(document.created_at || document.expires_at)),
+    acknowledgements: data.acknowledgements.filter(ack => inRange(ack.acknowledged_at || ack.created_at)),
   }), [data, rangeCutoff])
+
+  const peopleSummary = useMemo(() => {
+    const employees = reportData.employees.filter(employee => employee.is_person && !employee.is_shared_mailbox)
+    const hrByEmployee = new Map(reportData.hrProfiles.filter(profile => profile.employee_id).map(profile => [profile.employee_id, profile]))
+    const managers = employees.filter(employee => employees.some(candidate => candidate.manager_employee_id === employee.id))
+    const incompleteHr = employees.filter(employee => {
+      const profile = hrByEmployee.get(employee.id)
+      if (!profile) return true
+      const requiredFields = [profile.contract_type, profile.start_date, profile.phone, profile.personal_email]
+      return requiredFields.some(value => !value)
+    })
+    const missingManagers = employees.filter(employee => employee.status === 'active' && !employee.manager_employee_id).length
+    const suspended = employees.filter(employee => employee.status === 'suspended').length
+    return {
+      employees,
+      managers: managers.length,
+      incompleteHr: incompleteHr.length,
+      missingManagers,
+      suspended,
+    }
+  }, [reportData.employees, reportData.hrProfiles])
+
+  const complianceSummary = useMemo(() => {
+    const people = reportData.employees.filter(employee => employee.is_person && !employee.is_shared_mailbox && employee.status === 'active')
+    const acknowledgementDocs = reportData.documents.filter(document => document.requires_acknowledgement)
+    const expectedAcknowledgements = acknowledgementDocs.length * people.length
+    const actualAcknowledgements = reportData.acknowledgements.length
+    const now = new Date()
+    const inThirtyDays = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30)
+    const expiringSoon = reportData.documents.filter(document => document.expires_at && new Date(document.expires_at) >= now && new Date(document.expires_at) <= inThirtyDays).length
+    const expired = reportData.documents.filter(document => document.expires_at && new Date(document.expires_at) < now).length
+    const payslips = reportData.documents.filter(document => document.category === 'payslip').length
+    return {
+      policiesTracked: acknowledgementDocs.length,
+      outstandingAcknowledgements: Math.max(expectedAcknowledgements - actualAcknowledgements, 0),
+      expiringSoon,
+      expired,
+      payslips,
+    }
+  }, [reportData.documents, reportData.acknowledgements, reportData.employees])
+
+  const peoplePressure = useMemo(() => ([
+    { label: 'Canonical employees', value: peopleSummary.employees.length, note: 'Live people records inside the workspace' },
+    { label: 'Managers with reports', value: peopleSummary.managers, note: 'People currently leading at least one teammate' },
+    { label: 'Incomplete HR profiles', value: peopleSummary.incompleteHr, note: 'Profiles missing key HR details' },
+    { label: 'Missing manager links', value: peopleSummary.missingManagers, note: 'Active staff with no manager relationship stored' },
+    { label: 'Expiring documents', value: complianceSummary.expiringSoon, note: 'Docs due inside the next 30 days' },
+    { label: 'Outstanding acknowledgements', value: complianceSummary.outstandingAcknowledgements, note: 'Policy or document confirmations still missing' },
+  ]), [peopleSummary, complianceSummary])
 
   const revenueSummary = useMemo(() => {
     const invoiced = reportData.invoices.reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0)
@@ -284,6 +350,7 @@ export default function Reports() {
 
   const cards = [
     { label: 'Team records', value: reportData.staff.length, note: 'Active, invited, and suspended users' },
+    { label: 'People records', value: peopleSummary.employees.length, note: 'Canonical employee identities' },
     { label: 'Leave requests', value: reportData.leave.length, note: 'Requests in the selected period' },
     { label: 'Clients', value: reportData.clients.length, note: 'Lead and active customer records' },
     { label: 'Invoices', value: reportData.invoices.length, note: 'Commercial records in range' },
@@ -473,6 +540,65 @@ export default function Reports() {
         ))}
       </div>
 
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">People summary</h3>
+              <div className="panel-sub">Headcount integrity, reporting lines, and HR completeness.</div>
+            </div>
+          </div>
+          <div className="detail-grid">
+            <div className="detail-card">
+              <div className="detail-card-value">{peopleSummary.employees.length}</div>
+              <div className="detail-card-label">Canonical employees</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-card-value">{peopleSummary.managers}</div>
+              <div className="detail-card-label">Managers with reports</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-card-value">{peopleSummary.incompleteHr}</div>
+              <div className="detail-card-label">Incomplete HR profiles</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-card-value">{peopleSummary.suspended}</div>
+              <div className="detail-card-label">Suspended staff</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="section-head" style={{ marginBottom: 18 }}>
+            <div>
+              <h3 className="panel-title">Compliance summary</h3>
+              <div className="panel-sub">Policy coverage, document expiry, and payroll-adjacent records.</div>
+            </div>
+          </div>
+          <div className="detail-grid">
+            <div className="detail-card">
+              <div className="detail-card-value">{complianceSummary.policiesTracked}</div>
+              <div className="detail-card-label">Docs requiring acknowledgement</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-card-value">{complianceSummary.outstandingAcknowledgements}</div>
+              <div className="detail-card-label">Acknowledgements missing</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-card-value">{complianceSummary.expiringSoon}</div>
+              <div className="detail-card-label">Expiring in 30 days</div>
+            </div>
+            <div className="detail-card">
+              <div className="detail-card-value">{complianceSummary.expired}</div>
+              <div className="detail-card-label">Already expired</div>
+            </div>
+          </div>
+          <div style={{ marginTop: 14, fontSize: 12, color: 'var(--faint)' }}>
+            {complianceSummary.payslips} payslip and employee-linked records are currently indexed in the document centre.
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
         <TrendBars
           title="Revenue trend"
@@ -516,6 +642,24 @@ export default function Reports() {
             </div>
           </div>
           <StatusList items={outreachBreakdown} tone="var(--green)" />
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="section-head" style={{ marginBottom: 18 }}>
+          <div>
+            <h3 className="panel-title">Pressure points</h3>
+            <div className="panel-sub">The people and compliance issues most likely to create admin drag next.</div>
+          </div>
+        </div>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+          {peoplePressure.map(card => (
+            <div key={card.label} className="stat-card">
+              <div className="stat-lbl">{card.label}</div>
+              <div className="stat-val" style={{ color: 'var(--text)', fontSize: 30 }}>{card.value}</div>
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--faint)' }}>{card.note}</div>
+            </div>
+          ))}
         </div>
       </div>
 

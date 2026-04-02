@@ -18,6 +18,7 @@ function formatDate(value) {
 export default function Dashboard() {
   const { tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, setPortalPreferences, refreshTenant } = useAuth()
   const [stats, setStats] = useState({ staff: 0, clients: 0, tasks: 0, leaves: 0, unread: 0 })
+  const [signals, setSignals] = useState({ onboarding: 0, overdueInvoices: 0, policies: 0, unapprovedTimesheets: 0 })
   const [loading, setLoading] = useState(true)
   const [personaliseOpen, setPersonaliseOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -36,13 +37,25 @@ export default function Dashboard() {
       sbGetMany('tasks', `${tid}&status=neq.done`),
       sbGetMany('leave_requests', `${tid}&status=eq.pending`),
       sbGetMany('notifications', `${tid}&tenant_user_id=eq.${tenantUser.id}&read=is.false`),
-    ]).then(([staff, clients, tasks, leaves, unread]) => {
+      sbGetMany('invoices', `${tid}&status=in.(unpaid,overdue)`),
+      sbGetMany('document_acknowledgements', `${tid}`),
+      sbGetMany('documents', `${tid}&requires_acknowledgement=is.true`),
+      sbGetMany('timesheets', `${tid}&status=eq.pending`),
+    ]).then(([staff, clients, tasks, leaves, unread, invoices, acknowledgements, requiredDocuments, pendingTimesheets]) => {
       setStats({
         staff: staff.length,
         clients: clients.length,
         tasks: tasks.length,
         leaves: leaves.length,
         unread: unread.length,
+      })
+      const invited = (staff || []).filter((member) => member.status === 'invited').length
+      const expectedAcks = (requiredDocuments || []).length * Math.max((staff || []).filter((member) => member.status === 'active').length, 1)
+      setSignals({
+        onboarding: invited,
+        overdueInvoices: (invoices || []).length,
+        policies: Math.max(expectedAcks - (acknowledgements || []).length, 0),
+        unapprovedTimesheets: (pendingTimesheets || []).length,
       })
       setLoading(false)
     })
@@ -148,7 +161,7 @@ export default function Dashboard() {
         <div className="section-head">
           <div>
             <h3 className="panel-title">Operational signals</h3>
-            <div className="panel-sub">The pressure points this user should see quickly at the top of the day.</div>
+            <div className="panel-sub">Unread alerts, approvals, onboarding pressure, and compliance signals surfaced together.</div>
           </div>
         </div>
         <div className="detail-grid">
@@ -163,6 +176,22 @@ export default function Dashboard() {
           <div className="detail-card">
             <div className="detail-card-value">{stats.leaves}</div>
             <div className="detail-card-label">Pending approvals</div>
+          </div>
+          <div className="detail-card">
+            <div className="detail-card-value">{signals.onboarding}</div>
+            <div className="detail-card-label">Onboarding still open</div>
+          </div>
+          <div className="detail-card">
+            <div className="detail-card-value">{signals.overdueInvoices}</div>
+            <div className="detail-card-label">Outstanding invoices</div>
+          </div>
+          <div className="detail-card">
+            <div className="detail-card-value">{signals.policies}</div>
+            <div className="detail-card-label">Policy acknowledgements missing</div>
+          </div>
+          <div className="detail-card">
+            <div className="detail-card-value">{signals.unapprovedTimesheets}</div>
+            <div className="detail-card-label">Timesheets awaiting review</div>
           </div>
           <div className="detail-card">
             <div className="detail-card-value">{tenant?.status === 'pending_activation' ? 'Billing' : 'Stable'}</div>

@@ -6,6 +6,7 @@ export const PAGE_PERMISSION_GROUPS = [
     label: 'Workspace shell',
     items: [
       { key: 'dashboard', label: 'Dashboard', paths: ['/'] },
+      { key: 'search', label: 'Global search', paths: ['/search'] },
       { key: 'portal', label: 'Personalisation', paths: ['/portal'] },
       { key: 'notifications', label: 'Notifications', paths: ['/notifications'] },
     ],
@@ -55,6 +56,7 @@ const PAGE_KEY_BY_PATH = PAGE_PERMISSION_GROUPS
 const ROLE_PRESET_ACCESS = {
   owner: {
     dashboard: true,
+    search: true,
     portal: true,
     notifications: true,
     hr_directory: true,
@@ -82,6 +84,7 @@ const ROLE_PRESET_ACCESS = {
   },
   admin: {
     dashboard: true,
+    search: true,
     portal: true,
     notifications: true,
     hr_directory: true,
@@ -109,6 +112,7 @@ const ROLE_PRESET_ACCESS = {
   },
   manager: {
     dashboard: true,
+    search: true,
     portal: true,
     notifications: true,
     hr_directory: true,
@@ -136,6 +140,7 @@ const ROLE_PRESET_ACCESS = {
   },
   staff: {
     dashboard: true,
+    search: true,
     portal: true,
     notifications: true,
     hr_directory: true,
@@ -163,6 +168,7 @@ const ROLE_PRESET_ACCESS = {
   },
   onboarding: {
     dashboard: true,
+    search: false,
     portal: false,
     notifications: false,
     hr_directory: false,

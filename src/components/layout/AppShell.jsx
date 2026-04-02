@@ -54,6 +54,7 @@ export default function AppShell({ superAdmin = false }) {
   const { tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [search, setSearch] = useState('')
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
   const [banners, setBanners] = useState([])
@@ -175,6 +176,13 @@ export default function AppShell({ superAdmin = false }) {
     setNotifications(prev => sortNotifications(prev.map(item => ({ ...item, read: true, read_at: item.read_at || new Date().toISOString() }))))
   }
 
+  const submitSearch = (event) => {
+    event.preventDefault()
+    if (!search.trim()) return
+    navigate(`/search?q=${encodeURIComponent(search.trim())}`)
+    setSearch('')
+  }
+
   return (
     <div className={`app-shell dashboard-density-${portalPreferences?.dashboard_density || 'comfortable'}`}>
       <aside className="sidebar">
@@ -251,7 +259,12 @@ export default function AppShell({ superAdmin = false }) {
 
       <main className="main-content">
         <div className="topbar">
-          <div />
+          {!superAdmin && canAccessNavItem({ to: '/search' }, { permissionRecord: employeePermissions, fallbackRole: tenantUser?.role }) ? (
+            <form className="search-shell app-search-shell" onSubmit={submitSearch}>
+              <input className="inp" placeholder="Search staff, tasks, clients, documents..." value={search} onChange={(event) => setSearch(event.target.value)} />
+              <span className="search-icon" />
+            </form>
+          ) : <div />}
           <div className="topbar-actions">
             <div className="workspace-health">
               <span className={`workspace-health-dot ${superAdmin ? 'platform' : isTrial ? 'trial' : hasLiveSubscription ? 'active' : 'attention'}`} />

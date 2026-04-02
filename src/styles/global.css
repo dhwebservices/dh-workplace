@@ -832,6 +832,10 @@ a { color: inherit; }
   border-radius: 999px;
 }
 
+.app-search-shell {
+  max-width: 420px;
+}
+
 .search-icon {
   position: absolute;
   left: 15px;
@@ -1555,6 +1559,10 @@ a { color: inherit; }
   .search-shell {
     min-width: 0;
     width: 100%;
+  }
+
+  .app-search-shell {
+    max-width: 100%;
   }
 
   .workspace-health,

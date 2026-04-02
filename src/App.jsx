@@ -11,6 +11,7 @@ const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
 const NotificationsPage = lazy(() => import('./pages/Notifications'))
+const SearchPage = lazy(() => import('./pages/Search'))
 const PortalPreferencesPage = lazy(() => import('./pages/PortalPreferences'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
@@ -136,6 +137,7 @@ export default function App() {
         {/* Main App */}
         <Route path="/" element={<RequireAuth><RequireOnboarded><AppShell /></RequireOnboarded></RequireAuth>}>
           <Route index element={<WorkspaceHome />} />
+          <Route path="search"            element={<SearchPage />} />
           <Route path="portal"            element={<PortalPreferencesPage />} />
 
           {/* HR */}
