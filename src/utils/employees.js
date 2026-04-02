@@ -214,17 +214,19 @@ export async function syncEmployeesForTenant(tenantId) {
 }
 
 export async function listEmployees(tenantId) {
-  const [employees, tenantUsers, permissions, hrProfiles] = await Promise.all([
+  const [employees, tenantUsers, permissions, hrProfiles, portalPreferences] = await Promise.all([
     syncEmployeesForTenant(tenantId),
     sbGetMany('tenant_users', `tenant_id=eq.${tenantId}&order=full_name.asc`),
     sbGetMany('employee_permissions', `tenant_id=eq.${tenantId}`),
     sbGetMany('hr_profiles', `tenant_id=eq.${tenantId}`),
+    sbGetMany('portal_preferences', `tenant_id=eq.${tenantId}`),
   ])
 
   const tenantUserById = new Map((tenantUsers || []).map(user => [user.id, user]))
   const permissionsByEmployee = new Map((permissions || []).map(row => [row.employee_id, row]))
   const hrByEmployee = new Map((hrProfiles || []).filter(row => row.employee_id).map(row => [row.employee_id, row]))
   const hrByTenantUser = new Map((hrProfiles || []).filter(row => row.tenant_user_id).map(row => [row.tenant_user_id, row]))
+  const portalByEmployee = new Map((portalPreferences || []).map(row => [row.employee_id, row]))
 
   return (employees || []).map(employee => {
     const tenantUser = employee.tenant_user || tenantUserById.get(employee.tenant_user_id) || null
@@ -233,6 +235,7 @@ export async function listEmployees(tenantId) {
       tenant_user: tenantUser,
       permissions: employee.permissions || permissionsByEmployee.get(employee.id) || null,
       hr_profile: hrByEmployee.get(employee.id) || hrByTenantUser.get(employee.tenant_user_id) || null,
+      portal_preferences: portalByEmployee.get(employee.id) || null,
     }
   })
 }

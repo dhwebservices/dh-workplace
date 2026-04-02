@@ -10,6 +10,7 @@ import { canAccessNavItem, canManageBilling, canManageTeam, canManageWorkspaceSe
 const NAV = [
   { label: 'Overview', items: [
     { to: '/', label: 'Dashboard' },
+    { to: '/portal', label: 'Personalisation' },
     { to: '/notifications', label: 'Notifications', feature: 'notifications' },
   ]},
   { label: 'HR', items: [
@@ -50,7 +51,7 @@ const SUPER_NAV = [
 ]
 
 export default function AppShell({ superAdmin = false }) {
-  const { tenant, tenantUser, employeeRecord, employeePermissions, signOut } = useAuth()
+  const { tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [notifications, setNotifications] = useState([])
@@ -137,12 +138,13 @@ export default function AppShell({ superAdmin = false }) {
   const unreadCount = useMemo(() => notifications.filter(item => !item.read).length, [notifications])
   const visibleBanners = useMemo(() => {
     if (superAdmin) return []
+    if (portalPreferences?.show_system_banners === false) return []
     return (banners || []).filter((banner) => appliesBanner(banner, {
       pathname: location.pathname,
       role: employeePermissions?.role_preset || tenantUser?.role,
       employeeId: employeeRecord?.id,
     }))
-  }, [banners, superAdmin, location.pathname, employeePermissions?.role_preset, tenantUser?.role, employeeRecord?.id])
+  }, [banners, superAdmin, portalPreferences?.show_system_banners, location.pathname, employeePermissions?.role_preset, tenantUser?.role, employeeRecord?.id])
   const hasLiveSubscription = Boolean(tenant?.stripe_subscription_id || tenant?.gc_subscription_id)
   const hasLegacyMandate = Boolean(tenant?.gc_mandate_id)
   const workspaceStatus = superAdmin
@@ -174,7 +176,7 @@ export default function AppShell({ superAdmin = false }) {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell dashboard-density-${portalPreferences?.dashboard_density || 'comfortable'}`}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="brand-kicker">{superAdmin ? 'Platform Console' : 'Workspace'}</div>

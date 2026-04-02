@@ -64,6 +64,7 @@ const ROLE_PRESET_ACCESS = {
 }
 
 const ROUTE_PERMISSION_KEYS = [
+  { prefix: '/portal', key: null },
   { prefix: '/team', key: 'team' },
   { prefix: '/billing', key: 'billing' },
   { prefix: '/banners', key: 'settings' },
@@ -97,6 +98,7 @@ export function canAccessPath(pathname, { permissionRecord, fallbackRole = 'staf
   const effective = getEffectivePermissionSet(permissionRecord, fallbackRole)
   const match = ROUTE_PERMISSION_KEYS.find(route => pathname.startsWith(route.prefix))
   if (!match) return true
+  if (!match.key) return true
   return !!effective[match.key]
 }
 
@@ -116,8 +118,8 @@ export function canAccessNavItem(item, { permissionRecord, fallbackRole = 'staff
 
 export function visibleStaffProfileTabs(permissionRecord, canManage) {
   if (isOnboardingOnlyMode(permissionRecord)) return ['profile', 'onboarding', 'notifications']
-  if (canManage) return ['profile', 'hr', 'permissions', 'manager', 'onboarding', 'lifecycle', 'notifications']
-  return ['profile', 'notifications']
+  if (canManage) return ['profile', 'hr', 'permissions', 'manager', 'portal', 'onboarding', 'lifecycle', 'notifications']
+  return ['profile', 'portal', 'notifications']
 }
 
 export function hasRoleAtLeast(role, minimumRole) {

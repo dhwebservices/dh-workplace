@@ -4,12 +4,15 @@ import { useAuth } from '../../contexts/AuthContext'
 import { canManageStaffAccess, visibleStaffProfileTabs } from '../../utils/permissions'
 import { getEmployeeByIdentifier, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
 import { sendCustomNotification } from '../../utils/notifications'
+import PortalPreferencesEditor from '../../components/portal/PortalPreferencesEditor'
+import { applyPortalAppearance, savePortalPreferences, sanitizePortalPreferences } from '../../utils/portalPreferences'
 
 const TABS = [
   ['profile', 'Profile'],
   ['hr', 'HR details'],
   ['permissions', 'Permissions'],
   ['manager', 'Manager summary'],
+  ['portal', 'Portal'],
   ['onboarding', 'Onboarding'],
   ['lifecycle', 'Lifecycle'],
   ['notifications', 'Notifications'],
@@ -34,6 +37,7 @@ export default function StaffProfile() {
   const [saving, setSaving] = useState(false)
   const [profileForm, setProfileForm] = useState({ display_name: '', job_title: '', department: '', primary_email: '' })
   const [permissionForm, setPermissionForm] = useState({ role_preset: 'staff', onboarding_only: false })
+  const [portalForm, setPortalForm] = useState(null)
   const [notificationForm, setNotificationForm] = useState({
     title: '',
     message: '',
@@ -59,6 +63,11 @@ export default function StaffProfile() {
       role_preset: data?.permissions?.role_preset || data?.tenant_user?.role || 'staff',
       onboarding_only: !!(data?.permissions?.onboarding_only || data?.onboarding_mode),
     })
+    setPortalForm(sanitizePortalPreferences(data?.portal_preferences || {}, {
+      permissionRecord: data?.permissions,
+      fallbackRole: data?.tenant_user?.role || 'staff',
+      selfStaffPaths: [data?.id, data?.tenant_user_id].filter(Boolean).map((identifier) => `/staff/${identifier}`),
+    }))
     setLoading(false)
   }
 
@@ -73,6 +82,7 @@ export default function StaffProfile() {
   const notifications = employee?.notifications || []
   const allowedTabs = visibleStaffProfileTabs(employeePermissions, canManage)
   const safeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0]
+  const staffSelfPaths = [employee?.id, employee?.tenant_user_id, employee?.tenant_user?.user_id].filter(Boolean).map((identifier) => `/staff/${identifier}`)
 
   const saveProfile = async () => {
     if (!employee?.id) return
@@ -102,6 +112,27 @@ export default function StaffProfile() {
       await saveEmployeeProfile(employee.id, { onboarding_mode: permissionForm.onboarding_only })
       await load()
       alert('Permissions updated.')
+    } catch (error) {
+      alert(error.message)
+    }
+    setSaving(false)
+  }
+
+  const savePortal = async () => {
+    if (!employee?.id || !portalForm) return
+    setSaving(true)
+    try {
+      await savePortalPreferences({
+        preferenceId: employee.portal_preferences?.id,
+        tenantId: tenant.id,
+        employeeId: employee.id,
+        values: portalForm,
+      })
+      if (viewingOwnProfile) {
+        applyPortalAppearance(portalForm, tenant?.primary_colour || null)
+      }
+      await load()
+      alert('Portal preferences updated.')
     } catch (error) {
       alert(error.message)
     }
@@ -326,6 +357,32 @@ export default function StaffProfile() {
               </button>
             )) : <div className="compact-note">No direct reports yet.</div>}
           </div>
+        </div>
+      )}
+
+      {safeTab === 'portal' && portalForm && (
+        <div className="card card-pad">
+          <PortalPreferencesEditor
+            values={portalForm}
+            onChange={(next) => setPortalForm(sanitizePortalPreferences(next, {
+              permissionRecord: employee.permissions,
+              fallbackRole: employee.tenant_user?.role || 'staff',
+              selfStaffPaths: staffSelfPaths,
+            }))}
+            permissionRecord={employee.permissions}
+            fallbackRole={employee.tenant_user?.role || 'staff'}
+            selfStaffPaths={staffSelfPaths}
+            disabled={!canManage && !viewingOwnProfile}
+            heading={viewingOwnProfile ? 'My portal settings' : 'Portal settings'}
+            subtitle={viewingOwnProfile
+              ? 'Tune your own shell, dashboard, and entry point.'
+              : 'Adjust this staff member’s portal theme, density, shortcuts, and dashboard shape without affecting the wider workspace.'}
+          />
+          {(canManage || viewingOwnProfile) && (
+            <div style={{ marginTop: 18, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm" onClick={savePortal} disabled={saving}>Save portal settings</button>
+            </div>
+          )}
         </div>
       )}
 

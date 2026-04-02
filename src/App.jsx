@@ -4,12 +4,14 @@ import { useAuth } from './contexts/AuthContext'
 import { isAccessBlocked } from './utils/entitlements'
 import { shouldShowOnboarding } from './utils/onboarding'
 import { canAccessPath } from './utils/permissions'
+import { resolveDefaultLandingPath } from './utils/portalPreferences'
 
 const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
 const NotificationsPage = lazy(() => import('./pages/Notifications'))
+const PortalPreferencesPage = lazy(() => import('./pages/PortalPreferences'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
 const DemoWorkspace = lazy(() => import('./pages/demo/DemoWorkspace'))
@@ -81,6 +83,21 @@ function RequireInitialOnboarding({ children }) {
   return children
 }
 
+function WorkspaceHome() {
+  const { user, tenantUser, employeeRecord, employeePermissions, portalPreferences } = useAuth()
+  const selfStaffPaths = [employeeRecord?.id, employeeRecord?.tenant_user_id, tenantUser?.id, user?.id]
+    .filter(Boolean)
+    .map(identifier => `/staff/${identifier}`)
+  const nextPath = resolveDefaultLandingPath(portalPreferences, {
+    permissionRecord: employeePermissions,
+    fallbackRole: tenantUser?.role,
+    selfStaffPaths,
+  })
+
+  if (nextPath && nextPath !== '/') return <Navigate to={nextPath} replace />
+  return <Dashboard />
+}
+
 function RequireSuperAdmin({ children }) {
   const { tenantUser, isPlatformAdmin, loading } = useAuth()
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
@@ -118,7 +135,8 @@ export default function App() {
 
         {/* Main App */}
         <Route path="/" element={<RequireAuth><RequireOnboarded><AppShell /></RequireOnboarded></RequireAuth>}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<WorkspaceHome />} />
+          <Route path="portal"            element={<PortalPreferencesPage />} />
 
           {/* HR */}
           <Route path="staff"              element={<StaffDirectory />} />

@@ -478,6 +478,7 @@ create index if not exists idx_documents_expires_at on documents(expires_at);
 create index if not exists idx_document_acknowledgements_document_id on document_acknowledgements(document_id);
 create index if not exists idx_banners_tenant_id on banners(tenant_id);
 create index if not exists idx_banners_target_employee on banners(target_employee_id);
+create index if not exists idx_portal_preferences_tenant_id on portal_preferences(tenant_id);
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
 create index if not exists idx_tenants_demo_slug on tenants(is_demo, slug);
 create index if not exists idx_automation_rules_tenant_id on automation_rules(tenant_id);
@@ -537,6 +538,30 @@ create table if not exists banners (
 alter table banners enable row level security;
 drop policy if exists banners_isolation on banners;
 create policy "banners_isolation" on banners
+  for all using (
+    tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid())
+  );
+
+create table if not exists portal_preferences (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants(id) on delete cascade not null,
+  employee_id uuid references employees(id) on delete cascade not null unique,
+  theme_mode text default 'light' check (theme_mode in ('light', 'dark')),
+  accent_scheme text default 'workspace',
+  dashboard_density text default 'comfortable' check (dashboard_density in ('comfortable', 'compact')),
+  dashboard_header_style text default 'full' check (dashboard_header_style in ('full', 'minimal')),
+  show_system_banners boolean default true,
+  visible_dashboard_sections jsonb default '["metrics","quick_actions","workspace","signals"]'::jsonb,
+  default_landing_page text default 'dashboard',
+  pinned_quick_actions jsonb default '["tasks","notifications","clients","timesheets"]'::jsonb,
+  dashboard_section_order jsonb default '["metrics","quick_actions","workspace","signals"]'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table portal_preferences enable row level security;
+drop policy if exists portal_preferences_isolation on portal_preferences;
+create policy "portal_preferences_isolation" on portal_preferences
   for all using (
     tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid())
