@@ -9,6 +9,7 @@ const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
+const NotificationsPage = lazy(() => import('./pages/Notifications'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
 const DemoWorkspace = lazy(() => import('./pages/demo/DemoWorkspace'))
@@ -94,6 +95,9 @@ export default function App() {
         <Route path="/signin"  element={<SignIn />} />
         <Route path="/forgot"  element={<ForgotPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/notifications" element={<RequireAuth><RequireOnboarded><AppShell /></RequireOnboarded></RequireAuth>}>
+          <Route index element={<NotificationsPage />} />
+        </Route>
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/platform-access/:token" element={<AcceptPlatformAdmin />} />
         <Route path="/demo/:slug" element={<DemoWorkspace />} />

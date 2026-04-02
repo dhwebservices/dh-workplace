@@ -271,8 +271,14 @@ create table notifications (
   title           text not null,
   message         text,
   type            text default 'info' check (type in ('info','success','warning','error')),
+  category        text default 'general',
+  is_urgent       boolean default false,
+  is_pinned       boolean default false,
   link            text,
+  sent_via_email  boolean default false,
+  created_by      uuid references tenant_users(id),
   read            boolean default false,
+  read_at         timestamptz,
   created_at      timestamptz default now()
 );
 alter table notifications enable row level security;
@@ -424,6 +430,8 @@ create index if not exists idx_tasks_tenant_id on tasks(tenant_id);
 create index if not exists idx_tasks_assigned_to on tasks(assigned_to);
 create index if not exists idx_leave_tenant_id on leave_requests(tenant_id);
 create index if not exists idx_notifications_user_id on notifications(tenant_user_id);
+create index if not exists idx_notifications_tenant_created_at on notifications(tenant_id, created_at desc);
+create index if not exists idx_notifications_read_state on notifications(tenant_user_id, read);
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
 create index if not exists idx_tenants_demo_slug on tenants(is_demo, slug);
 create index if not exists idx_automation_rules_tenant_id on automation_rules(tenant_id);
@@ -439,3 +447,9 @@ create index if not exists idx_automation_runs_tenant_id on automation_runs(tena
 -- alter table tenants add column if not exists is_demo boolean default false;
 -- alter table tenants add column if not exists demo_template text;
 -- alter table tenants add column if not exists demo_access_key text;
+alter table notifications add column if not exists category text default 'general';
+alter table notifications add column if not exists is_urgent boolean default false;
+alter table notifications add column if not exists is_pinned boolean default false;
+alter table notifications add column if not exists sent_via_email boolean default false;
+alter table notifications add column if not exists created_by uuid references tenant_users(id);
+alter table notifications add column if not exists read_at timestamptz;

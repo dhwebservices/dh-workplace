@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS, can } from '../../utils/entitlements'
-import { sbGetMany, sbUpdate, supabase } from '../../utils/supabase'
+import { supabase } from '../../utils/supabase'
+import { getNotificationsForUser, markNotificationRead, markNotificationsRead, sortNotifications } from '../../utils/notifications'
 import { canAccessNavItem, canManageBilling, canManageTeam, canManageWorkspaceSettings, canViewAudit, canViewReports, isOnboardingOnlyMode } from '../../utils/permissions'
 
 const NAV = [
   { label: 'Overview', items: [
     { to: '/', label: 'Dashboard' },
+    { to: '/notifications', label: 'Notifications', feature: 'notifications' },
   ]},
   { label: 'HR', items: [
     { to: '/staff', label: 'Staff Directory', feature: 'hr_directory' },
@@ -95,7 +97,7 @@ export default function AppShell({ superAdmin = false }) {
 
     let active = true
     const loadNotifications = async () => {
-      const data = await sbGetMany('notifications', `tenant_user_id=eq.${tenantUser.id}&order=created_at.desc`)
+      const data = await getNotificationsForUser(tenantUser.id)
       if (active) setNotifications((data || []).slice(0, 12))
     }
 
@@ -134,8 +136,8 @@ export default function AppShell({ superAdmin = false }) {
 
   const openNotification = async (notification) => {
     if (!notification.read) {
-      await sbUpdate('notifications', `id=eq.${notification.id}`, { read: true })
-      setNotifications(prev => prev.map(item => item.id === notification.id ? { ...item, read: true } : item))
+      await markNotificationRead(notification.id, true)
+      setNotifications(prev => sortNotifications(prev.map(item => item.id === notification.id ? { ...item, read: true, read_at: new Date().toISOString() } : item)))
     }
     setNotifOpen(false)
     if (notification.link) navigate(notification.link)
@@ -144,8 +146,8 @@ export default function AppShell({ superAdmin = false }) {
   const markAllRead = async () => {
     const unread = notifications.filter(item => !item.read)
     if (unread.length === 0) return
-    await Promise.all(unread.map(item => sbUpdate('notifications', `id=eq.${item.id}`, { read: true })))
-    setNotifications(prev => prev.map(item => ({ ...item, read: true })))
+    await markNotificationsRead(unread.map(item => item.id))
+    setNotifications(prev => sortNotifications(prev.map(item => ({ ...item, read: true, read_at: item.read_at || new Date().toISOString() }))))
   }
 
   return (
@@ -249,7 +251,10 @@ export default function AppShell({ superAdmin = false }) {
                   <div className="notif-panel">
                     <div className="notif-head">
                       <span>Notifications</span>
-                      <button onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => { setNotifOpen(false); navigate('/notifications') }}>Open centre</button>
+                        <button onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+                      </div>
                     </div>
                     {notifications.length === 0 ? (
                       <div className="notif-empty">No notifications yet</div>
@@ -258,9 +263,10 @@ export default function AppShell({ superAdmin = false }) {
                         {notifications.map(notification => (
                           <button key={notification.id} className={`notif-item ${notification.read ? 'read' : ''}`} onClick={() => openNotification(notification)}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                              <span className={`badge badge-${notification.type === 'success' ? 'green' : notification.type === 'warning' ? 'amber' : notification.type === 'error' ? 'red' : 'blue'}`} style={{ fontSize: 10 }}>
-                                {notification.type}
+                              <span className={`badge badge-${notification.is_urgent ? 'red' : notification.type === 'success' ? 'green' : notification.type === 'warning' ? 'amber' : notification.type === 'error' ? 'red' : 'blue'}`} style={{ fontSize: 10 }}>
+                                {notification.is_urgent ? 'urgent' : notification.type}
                               </span>
+                              {notification.is_pinned && <span className="badge badge-grey" style={{ fontSize: 10 }}>pinned</span>}
                               {!notification.read && <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--blue)', display: 'inline-block' }} />}
                             </div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>{notification.title}</div>

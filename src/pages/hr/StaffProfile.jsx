@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { canManageStaffAccess, visibleStaffProfileTabs } from '../../utils/permissions'
 import { getEmployeeByIdentifier, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
+import { sendCustomNotification } from '../../utils/notifications'
 
 const TABS = [
   ['profile', 'Profile'],
@@ -33,6 +34,14 @@ export default function StaffProfile() {
   const [saving, setSaving] = useState(false)
   const [profileForm, setProfileForm] = useState({ display_name: '', job_title: '', department: '', primary_email: '' })
   const [permissionForm, setPermissionForm] = useState({ role_preset: 'staff', onboarding_only: false })
+  const [notificationForm, setNotificationForm] = useState({
+    title: '',
+    message: '',
+    category: 'admin',
+    isUrgent: false,
+    isPinned: false,
+    sendEmail: false,
+  })
   const canManage = canManageStaffAccess(tenantUser?.role)
 
   const load = async () => {
@@ -106,6 +115,44 @@ export default function StaffProfile() {
       await updateEmployeeLifecycle(employee, nextStatus)
       await load()
       alert(`Employee marked ${nextStatus}.`)
+    } catch (error) {
+      alert(error.message)
+    }
+    setSaving(false)
+  }
+
+  const sendNotification = async () => {
+    if (!employee?.tenant_user_id) {
+      alert('This employee is not linked to a live portal account yet.')
+      return
+    }
+    if (!notificationForm.title.trim()) {
+      alert('Add a notification title first.')
+      return
+    }
+    setSaving(true)
+    try {
+      await sendCustomNotification({
+        tenant_id: tenant.id,
+        recipient_tenant_user_id: employee.tenant_user_id,
+        title: notificationForm.title.trim(),
+        message: notificationForm.message.trim(),
+        category: notificationForm.category,
+        is_urgent: notificationForm.isUrgent,
+        is_pinned: notificationForm.isPinned,
+        send_email: notificationForm.sendEmail,
+        link: '/notifications',
+      })
+      setNotificationForm({
+        title: '',
+        message: '',
+        category: 'admin',
+        isUrgent: false,
+        isPinned: false,
+        sendEmail: false,
+      })
+      await load()
+      alert('Notification sent.')
     } catch (error) {
       alert(error.message)
     }
@@ -318,15 +365,63 @@ export default function StaffProfile() {
         <div className="card card-pad">
           <div className="section-head">
             <div>
-              <h3 className="panel-title">Notification history</h3>
-              <div className="panel-sub">This is the first staff-level history view that later custom notifications and targeted banner delivery will build on.</div>
+              <h3 className="panel-title">Notifications</h3>
+              <div className="panel-sub">Send targeted updates to this employee and keep a clear history of what reached their portal and inbox.</div>
             </div>
           </div>
+          {canManage && (
+            <div className="detail-card" style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Send custom notification</div>
+              <div className="fg" style={{ marginBottom: 14 }}>
+                <div>
+                  <label className="lbl">Title</label>
+                  <input className="inp" value={notificationForm.title} onChange={e => setNotificationForm(prev => ({ ...prev, title: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="lbl">Category</label>
+                  <select className="inp" value={notificationForm.category} onChange={e => setNotificationForm(prev => ({ ...prev, category: e.target.value }))}>
+                    {['admin', 'hr', 'billing', 'task', 'policy', 'general'].map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="fc" style={{ gridColumn: '1 / -1' }}>
+                  <label className="lbl">Message</label>
+                  <textarea className="inp" rows="4" value={notificationForm.message} onChange={e => setNotificationForm(prev => ({ ...prev, message: e.target.value }))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 14 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)' }}>
+                  <input type="checkbox" checked={notificationForm.isUrgent} onChange={e => setNotificationForm(prev => ({ ...prev, isUrgent: e.target.checked }))} />
+                  Mark as urgent
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)' }}>
+                  <input type="checkbox" checked={notificationForm.isPinned} onChange={e => setNotificationForm(prev => ({ ...prev, isPinned: e.target.checked }))} />
+                  Pin in their centre
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)' }}>
+                  <input type="checkbox" checked={notificationForm.sendEmail} onChange={e => setNotificationForm(prev => ({ ...prev, sendEmail: e.target.checked }))} />
+                  Send to email too
+                </label>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary btn-sm" onClick={sendNotification} disabled={saving}>Send notification</button>
+              </div>
+            </div>
+          )}
           <div style={{ display: 'grid', gap: 12 }}>
             {notifications.length ? notifications.map(note => (
               <div key={note.id} className="detail-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{note.title}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{note.title}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span className={`badge badge-${note.is_urgent ? 'red' : note.type === 'success' ? 'green' : note.type === 'warning' ? 'amber' : note.type === 'error' ? 'red' : 'blue'}`}>{note.is_urgent ? 'Urgent' : (note.type || 'info')}</span>
+                      <span className="badge badge-grey">{note.category || 'general'}</span>
+                      {note.is_pinned && <span className="badge badge-blue">Pinned</span>}
+                      {note.sent_via_email && <span className="badge badge-green">Email sent</span>}
+                    </div>
+                  </div>
                   <span className={`badge badge-${note.read ? 'grey' : 'blue'}`}>{note.read ? 'Read' : 'Unread'}</span>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--sub)' }}>{note.message || 'No message'}</div>

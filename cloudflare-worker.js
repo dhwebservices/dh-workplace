@@ -358,6 +358,25 @@ ${data.billing_url || '#'}`
       return sendEmail(data.to_email, `Your DH Workplace trial ends in ${data.days_left} days`, html, env, text)
     }
 
+    case 'custom_notification': {
+      const html = emailWrap(`
+        <h2 style="color:#1D1D1F;margin:0 0 8px">${data.title || 'New workspace notification'}</h2>
+        <p style="color:#555;margin:0 0 20px">Hi ${data.name || 'there'}, an update has been sent to your DH Workplace account.</p>
+        <div style="background:#f9f9f9;border-radius:8px;padding:20px;margin-bottom:20px">
+          <p style="margin:0 0 10px;font-size:14px;color:#333"><strong>Category:</strong> ${data.category || 'general'}</p>
+          ${data.message ? `<p style="margin:0;font-size:14px;color:#333;line-height:1.6">${data.message}</p>` : ''}
+        </div>
+        <a href="${data.url || 'https://app.dhworkplace.co.uk/notifications'}" style="display:inline-block;background:#1D1D1F;color:#fff;padding:12px 24px;border-radius:100px;text-decoration:none;font-weight:500;font-size:14px">Open notifications</a>
+      `)
+      const text = `${data.title || 'New workspace notification'}
+
+${data.message || ''}
+
+Open notifications:
+${data.url || 'https://app.dhworkplace.co.uk/notifications'}`
+      return sendEmail(data.to_email, data.subject || data.title || 'New DH Workplace notification', html, env, text)
+    }
+
     default:
       return new Response(JSON.stringify({ error: 'Unknown email type: ' + type }), { status: 400 })
   }
@@ -890,6 +909,123 @@ async function requireWorkspaceSettingsManager(request, env, tenantId) {
     throw new Error('Owner access required')
   }
   return { ...userJson, tenant_user_id: tenantUser.id }
+}
+
+async function requireWorkspaceNotificationManager(request, env, tenantId) {
+  const authHeader = request.headers.get('Authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) throw new Error('Missing workspace session')
+
+  const userRes = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  const userJson = await userRes.json()
+  if (!userRes.ok || !userJson?.id) {
+    throw new Error(userJson?.msg || userJson?.error_description || userJson?.error || 'Invalid workspace session')
+  }
+
+  const platformAdminRes = await fetch(`${env.SUPABASE_URL}/rest/v1/platform_admins?user_id=eq.${userJson.id}&select=id&limit=1`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    },
+  })
+  const platformAdminJson = await platformAdminRes.json()
+  if (platformAdminRes.ok && Array.isArray(platformAdminJson) && platformAdminJson.length > 0) {
+    return userJson
+  }
+
+  const tenantUserRes = await fetch(`${env.SUPABASE_URL}/rest/v1/tenant_users?tenant_id=eq.${tenantId}&user_id=eq.${userJson.id}&select=id,role,full_name,email&limit=1`, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+    },
+  })
+  const tenantUserJson = await tenantUserRes.json()
+  const tenantUser = tenantUserJson?.[0]
+  if (!tenantUser || !['owner', 'admin', 'manager', 'superadmin'].includes(tenantUser.role)) {
+    throw new Error('Manager access required')
+  }
+  return { ...userJson, tenant_user_id: tenantUser.id, tenant_role: tenantUser.role, tenant_full_name: tenantUser.full_name, tenant_email: tenantUser.email }
+}
+
+async function handleNotificationAction(type, data, request, env) {
+  if (type !== 'notification_send_custom') throw new Error(`Unknown notification action: ${type}`)
+
+  const actor = await requireWorkspaceNotificationManager(request, env, data.tenant_id)
+  const sbUrl = env.SUPABASE_URL
+  const sbKey = env.SUPABASE_SERVICE_KEY
+  const headers = {
+    apikey: sbKey,
+    Authorization: `Bearer ${sbKey}`,
+    'Content-Type': 'application/json',
+  }
+
+  if (!data.recipient_tenant_user_id) throw new Error('Recipient is required')
+  if (!data.title?.trim()) throw new Error('Notification title is required')
+
+  const recipientRes = await fetch(`${sbUrl}/rest/v1/tenant_users?tenant_id=eq.${data.tenant_id}&id=eq.${data.recipient_tenant_user_id}&select=id,full_name,email&limit=1`, { headers })
+  const recipient = (await recipientRes.json())?.[0]
+  if (!recipient) throw new Error('Recipient not found')
+
+  const notification = {
+    tenant_id: data.tenant_id,
+    tenant_user_id: recipient.id,
+    title: data.title.trim(),
+    message: data.message?.trim() || null,
+    type: data.is_urgent ? 'warning' : (data.type || 'info'),
+    category: data.category || 'general',
+    is_urgent: !!data.is_urgent,
+    is_pinned: !!data.is_pinned,
+    link: data.link || '/notifications',
+    sent_via_email: !!data.send_email,
+    created_by: actor.tenant_user_id || null,
+    created_at: new Date().toISOString(),
+  }
+
+  const insertRes = await fetch(`${sbUrl}/rest/v1/notifications`, {
+    method: 'POST',
+    headers: { ...headers, Prefer: 'return=representation' },
+    body: JSON.stringify(notification),
+  })
+  const insertedRows = await insertRes.json().catch(() => [])
+  if (!insertRes.ok) throw new Error(insertedRows?.message || 'Unable to create notification')
+
+  if (data.send_email && recipient.email) {
+    await handleEmail('custom_notification', {
+      to_email: recipient.email,
+      name: recipient.full_name || recipient.email,
+      title: notification.title,
+      subject: notification.is_urgent ? `Urgent: ${notification.title}` : notification.title,
+      message: notification.message,
+      category: notification.category,
+      url: `${env.APP_URL || 'https://app.dhworkplace.co.uk'}${notification.link || '/notifications'}`,
+    }, env)
+  }
+
+  await fetch(`${sbUrl}/rest/v1/audit_log`, {
+    method: 'POST',
+    headers: { ...headers, Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      tenant_id: data.tenant_id,
+      tenant_user_id: actor.tenant_user_id || null,
+      action: 'notification_sent',
+      entity: 'notification',
+      entity_id: insertedRows?.[0]?.id || null,
+      metadata: {
+        recipient_tenant_user_id: recipient.id,
+        category: notification.category,
+        is_urgent: notification.is_urgent,
+        sent_via_email: notification.sent_via_email,
+      },
+      created_at: new Date().toISOString(),
+    }),
+  })
+
+  return { ok: true, id: insertedRows?.[0]?.id || null }
 }
 
 async function deliverWebhookPayload(endpoint, payload) {
@@ -1645,6 +1781,8 @@ export default {
         result = await handleAuthAdminAction(type, data, env)
       } else if (type.startsWith('automation_')) {
         result = await handleAutomationAction(type, data, request, env)
+      } else if (type.startsWith('notification_')) {
+        result = await handleNotificationAction(type, data, request, env)
       } else if (type.startsWith('demo_')) {
         result = await handleDemoAction(type, data, env)
       } else if (type.startsWith('webhook_')) {
