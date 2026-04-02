@@ -1,178 +1,339 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbGet, sbGetMany, sbInsert, sbUpdate } from '../../utils/supabase'
-import { assignableRoles, canManageMemberRecord, canManageStaffAccess } from '../../utils/permissions'
+import { canManageStaffAccess } from '../../utils/permissions'
+import { getEmployeeByIdentifier, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
 
-const EMPTY_HR = { contract_type:'', start_date:'', phone:'', personal_email:'', address:'', emergency_name:'', emergency_phone:'', bank_name:'', account_name:'', sort_code:'', account_number:'', hr_notes:'' }
+const TABS = [
+  ['profile', 'Profile'],
+  ['hr', 'HR details'],
+  ['permissions', 'Permissions'],
+  ['manager', 'Manager summary'],
+  ['onboarding', 'Onboarding'],
+  ['lifecycle', 'Lifecycle'],
+  ['notifications', 'Notifications'],
+]
+
+function InfoRow({ label, value, mono = false }) {
+  return (
+    <div className="detail-row">
+      <span className="detail-row-label">{label}</span>
+      <span className="detail-row-value" style={mono ? { fontFamily: 'var(--font-mono)' } : undefined}>{value || '—'}</span>
+    </div>
+  )
+}
 
 export default function StaffProfile() {
   const { userId } = useParams()
   const navigate = useNavigate()
-  const { tenant, tenantUser } = useAuth()
-  const [member, setMember] = useState(null)
-  const [hrProfile, setHrProfile] = useState({ ...EMPTY_HR })
-  const [hrId, setHrId] = useState(null)
-  const [tab, setTab] = useState('profile')
+  const { tenant, tenantUser, user } = useAuth()
+  const [employee, setEmployee] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState('profile')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const canManageAccess = canManageStaffAccess(tenantUser?.role)
-
-  useEffect(() => { load() }, [userId, tenant?.id])
+  const [profileForm, setProfileForm] = useState({ display_name: '', job_title: '', department: '', primary_email: '' })
+  const [permissionForm, setPermissionForm] = useState({ role_preset: 'staff', onboarding_only: false })
+  const canManage = canManageStaffAccess(tenantUser?.role)
 
   const load = async () => {
-    if (!tenant?.id||!userId) return
+    if (!tenant?.id || !userId) return
     setLoading(true)
-    const [tu, hr] = await Promise.all([
-      sbGet('tenant_users', `id=eq.${userId}&tenant_id=eq.${tenant.id}`),
-      sbGet('hr_profiles', `tenant_user_id=eq.${userId}&tenant_id=eq.${tenant.id}`),
-    ])
-    if (tu) setMember(tu)
-    if (hr) { setHrProfile({...EMPTY_HR,...hr}); setHrId(hr.id) }
+    const data = await getEmployeeByIdentifier(tenant.id, userId)
+    setEmployee(data)
+    setProfileForm({
+      display_name: data?.display_name || '',
+      job_title: data?.job_title || '',
+      department: data?.department || '',
+      primary_email: data?.primary_email || '',
+    })
+    setPermissionForm({
+      role_preset: data?.permissions?.role_preset || data?.tenant_user?.role || 'staff',
+      onboarding_only: !!(data?.permissions?.onboarding_only || data?.onboarding_mode),
+    })
     setLoading(false)
   }
 
-  const save = async () => {
+  useEffect(() => { load() }, [tenant?.id, userId])
+
+  const viewingOwnProfile = useMemo(() => {
+    if (!employee || !user) return false
+    return employee.tenant_user?.user_id === user.id
+  }, [employee, user])
+
+  const directReports = employee?.direct_reports || []
+  const notifications = employee?.notifications || []
+
+  const saveProfile = async () => {
+    if (!employee?.id) return
     setSaving(true)
     try {
-      const payload = {
-        ...hrProfile,
-        start_date: hrProfile.start_date || null,
-        tenant_id: tenant.id,
-        tenant_user_id: userId,
-        updated_at: new Date().toISOString(),
-      }
-      if (hrId) {
-        await sbUpdate('hr_profiles', `id=eq.${hrId}`, payload)
-      } else {
-        await sbInsert('hr_profiles', { ...payload, created_at:new Date().toISOString() })
-        const newHr = await sbGet('hr_profiles', `tenant_user_id=eq.${userId}`)
-        if (newHr?.id) setHrId(newHr.id)
-      }
-      setSaved(true); setTimeout(()=>setSaved(false),3000)
-    } catch(e) { alert('Save failed: '+e.message) }
+      await saveEmployeeProfile(employee.id, profileForm)
+      await load()
+      alert('Profile updated.')
+    } catch (error) {
+      alert(error.message)
+    }
     setSaving(false)
   }
 
-  const updateRole = async (role) => {
-    if (!canManageAccess) return
-    await sbUpdate('tenant_users', `id=eq.${userId}`, { role })
-    setMember(p=>({...p,role}))
+  const savePermissions = async () => {
+    if (!employee?.id) return
+    setSaving(true)
+    try {
+      await saveEmployeePermissions({
+        permissionId: employee.permissions?.id,
+        tenantId: tenant.id,
+        employeeId: employee.id,
+        rolePreset: permissionForm.role_preset,
+        onboardingOnly: permissionForm.onboarding_only,
+        pageOverrides: employee.permissions?.page_overrides || {},
+      })
+      await saveEmployeeProfile(employee.id, { onboarding_mode: permissionForm.onboarding_only })
+      await load()
+      alert('Permissions updated.')
+    } catch (error) {
+      alert(error.message)
+    }
+    setSaving(false)
   }
 
-  const updateStatus = async (status) => {
-    if (!canManageAccess) return
-    await sbUpdate('tenant_users', `id=eq.${userId}`, { status })
-    setMember(p=>({...p,status}))
+  const setLifecycle = async (nextStatus) => {
+    if (!employee) return
+    setSaving(true)
+    try {
+      await updateEmployeeLifecycle(employee, nextStatus)
+      await load()
+      alert(`Employee marked ${nextStatus}.`)
+    } catch (error) {
+      alert(error.message)
+    }
+    setSaving(false)
   }
 
-  const hp = (k,v) => setHrProfile(p=>({...p,[k]:v}))
-  const initials = n => (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
-
-  if (loading) return <div className="spin-wrap"><div className="spin"/></div>
-  if (!member) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>Staff member not found.</p></div>
-
-  const canEditOwn = tenantUser?.id === userId
-  const canEdit = canManageAccess || canEditOwn
-  const roleOptions = assignableRoles(tenantUser?.role)
-  const canManageThisMember = canManageMemberRecord(tenantUser?.role, member.role, tenantUser?.id, member.id)
-  const showHrSave = canEdit && tab !== 'access'
-
-  if (!canManageAccess && !canEditOwn) return <div className="card card-pad"><p style={{color:'var(--faint)'}}>You can only view your own staff profile.</p></div>
+  if (loading) return <div className="spin-wrap"><div className="spin" /></div>
+  if (!employee) return <div className="card card-pad"><p style={{ color: 'var(--faint)' }}>Employee not found.</p></div>
+  if (!canManage && !viewingOwnProfile) return <div className="card card-pad"><p style={{ color: 'var(--faint)' }}>You can only view your own profile.</p></div>
 
   return (
     <div className="fade-in page-stack">
       <div>
-        <button onClick={()=>navigate('/staff')} className="btn btn-outline btn-sm">Back to staff directory</button>
+        <button onClick={() => navigate('/staff')} className="btn btn-outline btn-sm">Back to staff directory</button>
       </div>
-      <div className="card card-pad" style={{display:'flex',alignItems:'center',gap:20}}>
-        <div style={{width:72,height:72,borderRadius:'50%',background:'var(--blue-soft)',border:'2px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,fontWeight:600,fontFamily:'var(--font-display)',color:'var(--blue)',flexShrink:0}}>
-          {initials(member.full_name||member.email)}
+
+      <div className="page-hd">
+        <div>
+          <h1 className="page-title">{employee.display_name}</h1>
+          <p className="page-sub">{employee.job_title || employee.tenant_user?.role || 'Employee'} · {employee.department || 'No department set'}</p>
         </div>
-        <div style={{flex:1}}>
-          <h1 style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:400,lineHeight:1,marginBottom:4}}>{member.full_name||member.email}</h1>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-            {member.job_title&&<span style={{fontSize:13,color:'var(--sub)'}}>{member.job_title}</span>}
-            {member.department&&<><span style={{color:'var(--border2)'}}>·</span><span style={{fontSize:13,color:'var(--sub)'}}>{member.department}</span></>}
-            <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--faint)'}}>{member.email}</span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span className={`badge badge-${employee.status === 'active' ? 'green' : employee.status === 'suspended' ? 'grey' : 'amber'}`} style={{ textTransform: 'capitalize' }}>{employee.status}</span>
+          {employee.is_shared_mailbox && <span className="badge badge-red">Shared mailbox</span>}
+          {permissionForm.onboarding_only && <span className="badge badge-blue">Onboarding only</span>}
+        </div>
+      </div>
+
+      <div className="table-toolbar">
+        <div className="filter-pills">
+          {TABS.map(([key, label]) => (
+            <button key={key} className={`btn btn-sm ${tab === key ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="kpi-strip">
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Identity</div>
+          <div className="kpi-cell-value">{employee.is_shared_mailbox ? 'Mailbox' : 'Person'}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Role preset</div>
+          <div className="kpi-cell-value" style={{ textTransform: 'capitalize' }}>{permissionForm.role_preset}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Manager</div>
+          <div className="kpi-cell-value">{employee.manager?.display_name || 'Not assigned'}</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-cell-label">Direct reports</div>
+          <div className="kpi-cell-value">{directReports.length}</div>
+        </div>
+      </div>
+
+      {tab === 'profile' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Canonical profile</h3>
+              <div className="panel-sub">This employee record is the source of truth for staff identity, manager linking, and future sync safety.</div>
+            </div>
           </div>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-          <span className={`badge badge-${member.status==='active'?'green':'amber'}`} style={{textTransform:'capitalize'}}>{member.status}</span>
-          <span className="badge badge-blue" style={{textTransform:'capitalize'}}>{member.role}</span>
-          {showHrSave&&(
-            <div style={{display:'flex',gap:6}}>
-              {saved&&<span style={{fontSize:13,color:'var(--green)',alignSelf:'center'}}>Saved</span>}
-              <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>{saving?'Saving...':'Save Changes'}</button>
+          <div className="fg" style={{ marginBottom: 20 }}>
+            <div>
+              <label className="lbl">Display name</label>
+              <input className="inp" value={profileForm.display_name} onChange={e => setProfileForm(prev => ({ ...prev, display_name: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Primary work email</label>
+              <input className="inp" value={profileForm.primary_email} onChange={e => setProfileForm(prev => ({ ...prev, primary_email: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Job title</label>
+              <input className="inp" value={profileForm.job_title} onChange={e => setProfileForm(prev => ({ ...prev, job_title: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Department</label>
+              <input className="inp" value={profileForm.department} onChange={e => setProfileForm(prev => ({ ...prev, department: e.target.value }))} disabled={!canManage} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 2 }}>
+            <InfoRow label="Canonical employee ID" value={employee.id} mono />
+            <InfoRow label="Linked tenant user" value={employee.tenant_user_id || 'Not linked'} mono />
+            <InfoRow label="Auth user" value={employee.tenant_user?.user_id || 'Not linked'} mono />
+            <InfoRow label="Microsoft object" value={employee.external_microsoft_id || 'Not set'} mono />
+          </div>
+          {canManage && (
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm" onClick={saveProfile} disabled={saving}>Save profile</button>
             </div>
           )}
         </div>
-      </div>
-      <div className="tabs">
-        {[['profile','Profile'],['hr','HR Details'],['bank','Bank'],['access','Access']].map(([k,l])=>(
-          <button key={k} className={`tab${tab===k?' on':''}`} onClick={()=>setTab(k)}>{l}</button>
-        ))}
-      </div>
-      <div className="compact-note">Keep personal details, HR records, banking information, and access controls in one staff record.</div>
-      <div style={{maxWidth:680}}>
-        {tab==='profile'&&(
-          <div className="card card-pad">
-            <div className="fg">
-              <div><label className="lbl">Full Name</label><input className="inp" value={member.full_name||''} disabled={!canEdit} onChange={async e=>{setMember(p=>({...p,full_name:e.target.value}));await sbUpdate('tenant_users',`id=eq.${userId}`,{full_name:e.target.value})}}/></div>
-              <div><label className="lbl">Job Title</label><input className="inp" value={member.job_title||''} disabled={!canEdit} onChange={async e=>{setMember(p=>({...p,job_title:e.target.value}));await sbUpdate('tenant_users',`id=eq.${userId}`,{job_title:e.target.value})}}/></div>
-              <div><label className="lbl">Department</label><input className="inp" value={member.department||''} disabled={!canEdit} onChange={async e=>{setMember(p=>({...p,department:e.target.value}));await sbUpdate('tenant_users',`id=eq.${userId}`,{department:e.target.value})}}/></div>
-              <div><label className="lbl">Phone</label><input className="inp" value={hrProfile.phone||''} disabled={!canEdit} onChange={e=>hp('phone',e.target.value)}/></div>
-              <div><label className="lbl">Personal Email</label><input className="inp" value={hrProfile.personal_email||''} disabled={!canEdit} onChange={e=>hp('personal_email',e.target.value)}/></div>
-              <div className="fc"><label className="lbl">Address</label><textarea className="inp" rows={2} value={hrProfile.address||''} disabled={!canEdit} onChange={e=>hp('address',e.target.value)} style={{resize:'vertical'}}/></div>
-              <div><label className="lbl">Emergency Contact</label><input className="inp" placeholder="Name" value={hrProfile.emergency_name||''} disabled={!canEdit} onChange={e=>hp('emergency_name',e.target.value)}/></div>
-              <div><label className="lbl">Emergency Phone</label><input className="inp" value={hrProfile.emergency_phone||''} disabled={!canEdit} onChange={e=>hp('emergency_phone',e.target.value)}/></div>
+      )}
+
+      {tab === 'hr' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">HR details</h3>
+              <div className="panel-sub">Current HR profile data linked to this canonical employee record.</div>
             </div>
           </div>
-        )}
-        {tab==='hr'&&canManageAccess&&(
-          <div className="card card-pad">
-            <div className="fg">
-              <div><label className="lbl">Contract Type</label>
-                <select className="inp" value={hrProfile.contract_type||''} onChange={e=>hp('contract_type',e.target.value)}>
-                  {['','Full-time','Part-time','Contractor','Zero Hours','Apprentice'].map(t=><option key={t}>{t}</option>)}
-                </select>
+          <div style={{ display: 'grid', gap: 2 }}>
+            <InfoRow label="Contract type" value={employee.hr_profile?.contract_type} />
+            <InfoRow label="Start date" value={employee.hr_profile?.start_date} />
+            <InfoRow label="Phone" value={employee.hr_profile?.phone} />
+            <InfoRow label="Personal email" value={employee.hr_profile?.personal_email} />
+            <InfoRow label="Address" value={employee.hr_profile?.address} />
+            <InfoRow label="Emergency contact" value={employee.hr_profile?.emergency_name} />
+            <InfoRow label="Emergency phone" value={employee.hr_profile?.emergency_phone} />
+            <InfoRow label="Bank details" value={employee.hr_profile?.bank_name ? 'Captured' : 'Not captured'} />
+          </div>
+        </div>
+      )}
+
+      {tab === 'permissions' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Permissions</h3>
+              <div className="panel-sub">Role presets now live separately so page overrides and onboarding-only access can sit on top cleanly.</div>
+            </div>
+          </div>
+          <div className="fg">
+            <div>
+              <label className="lbl">Role preset</label>
+              <select className="inp" value={permissionForm.role_preset} onChange={e => setPermissionForm(prev => ({ ...prev, role_preset: e.target.value }))} disabled={!canManage}>
+                {['owner', 'admin', 'manager', 'staff', 'onboarding'].map(role => (
+                  <option key={role} value={role}>{role.charAt(0).toUpperCase() + role.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="fc">
+              <label className="lbl">Onboarding-only access</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text)', marginTop: 10 }}>
+                <input type="checkbox" checked={permissionForm.onboarding_only} onChange={e => setPermissionForm(prev => ({ ...prev, onboarding_only: e.target.checked }))} disabled={!canManage} />
+                Force onboarding-only navigation and hide normal app access
+              </label>
+            </div>
+          </div>
+          <div className="compact-note">Per-page overrides and hidden tabs will hang off this record next, without making admins untick every route manually.</div>
+          {canManage && (
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm" onClick={savePermissions} disabled={saving}>Save permissions</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'manager' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Manager summary</h3>
+              <div className="panel-sub">The reporting line is now anchored to canonical employees instead of loose text fields.</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 2, marginBottom: 18 }}>
+            <InfoRow label="Manager" value={employee.manager?.display_name || 'Not assigned'} />
+            <InfoRow label="Manager email" value={employee.manager?.primary_email || '—'} mono />
+            <InfoRow label="Direct reports" value={String(directReports.length)} />
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {directReports.length ? directReports.map(report => (
+              <button key={report.id} className="detail-card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate(`/staff/${report.id}`)}>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{report.display_name}</div>
+                <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>{report.job_title || report.permissions?.role_preset || report.tenant_user?.role || 'Employee'}</div>
+              </button>
+            )) : <div className="compact-note">No direct reports yet.</div>}
+          </div>
+        </div>
+      )}
+
+      {tab === 'onboarding' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Onboarding mode</h3>
+              <div className="panel-sub">This is the first foundation for onboarding-only access without manually unchecking every page.</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 2 }}>
+            <InfoRow label="Current mode" value={permissionForm.onboarding_only ? 'Onboarding only' : 'Normal access'} />
+            <InfoRow label="Account status" value={employee.status} />
+            <InfoRow label="Unread notifications" value={String(notifications.filter(item => !item.read).length)} />
+          </div>
+        </div>
+      )}
+
+      {tab === 'lifecycle' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Lifecycle controls</h3>
+              <div className="panel-sub">Suspend, reinstate, and keep the canonical employee state aligned with the live portal account.</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-outline btn-sm" onClick={() => setLifecycle('active')} disabled={saving || !canManage}>Mark active</button>
+            <button className="btn btn-outline btn-sm" onClick={() => setLifecycle('invited')} disabled={saving || !canManage}>Return to onboarding</button>
+            <button className="btn btn-outline btn-sm" onClick={() => setLifecycle('suspended')} disabled={saving || !canManage}>Suspend access</button>
+          </div>
+        </div>
+      )}
+
+      {tab === 'notifications' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Notification history</h3>
+              <div className="panel-sub">This is the first staff-level history view that later custom notifications and targeted banner delivery will build on.</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {notifications.length ? notifications.map(note => (
+              <div key={note.id} className="detail-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{note.title}</div>
+                  <span className={`badge badge-${note.read ? 'grey' : 'blue'}`}>{note.read ? 'Read' : 'Unread'}</span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--sub)' }}>{note.message || 'No message'}</div>
+                <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 8 }}>{new Date(note.created_at).toLocaleString('en-GB')}</div>
               </div>
-              <div><label className="lbl">Start Date</label><input className="inp" type="date" value={hrProfile.start_date||''} onChange={e=>hp('start_date',e.target.value)}/></div>
-              <div className="fc"><label className="lbl">HR Notes (admin only)</label><textarea className="inp" rows={5} value={hrProfile.hr_notes||''} onChange={e=>hp('hr_notes',e.target.value)} style={{resize:'vertical'}} placeholder="Performance notes, training records..."/></div>
-            </div>
+            )) : <div className="compact-note">No notifications recorded for this user yet.</div>}
           </div>
-        )}
-        {tab==='bank'&&canManageAccess&&(
-          <div className="card card-pad">
-            <div style={{padding:'10px 14px',background:'var(--amber-soft)',border:'1px solid rgba(200,154,45,0.22)',borderRadius:10,fontSize:13,color:'var(--amber)',marginBottom:16}}>
-              Bank details are sensitive — admin access only.
-            </div>
-            <div className="fg">
-              <div><label className="lbl">Bank Name</label><input className="inp" value={hrProfile.bank_name||''} onChange={e=>hp('bank_name',e.target.value)}/></div>
-              <div><label className="lbl">Account Name</label><input className="inp" value={hrProfile.account_name||''} onChange={e=>hp('account_name',e.target.value)}/></div>
-              <div><label className="lbl">Sort Code</label><input className="inp" value={hrProfile.sort_code||''} onChange={e=>hp('sort_code',e.target.value)} placeholder="12-34-56" style={{fontFamily:'var(--font-mono)'}}/></div>
-              <div><label className="lbl">Account Number</label><input className="inp" value={hrProfile.account_number||''} onChange={e=>hp('account_number',e.target.value)} placeholder="12345678" style={{fontFamily:'var(--font-mono)'}}/></div>
-            </div>
-          </div>
-        )}
-        {tab==='access'&&canManageAccess&&canManageThisMember&&(
-          <div className="card card-pad">
-            <div style={{display:'flex',flexDirection:'column',gap:16}}>
-              <div><label className="lbl">Role</label>
-                <select className="inp" value={member.role} onChange={e=>updateRole(e.target.value)}>
-                  {[...new Set([member.role, ...roleOptions])].map(r=><option key={r} value={r} style={{textTransform:'capitalize'}}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
-                </select>
-              </div>
-              <div><label className="lbl">Status</label>
-                <select className="inp" value={member.status} onChange={e=>updateStatus(e.target.value)}>
-                  {['active','suspended'].map(s=><option key={s} value={s} style={{textTransform:'capitalize'}}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

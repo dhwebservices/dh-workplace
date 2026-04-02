@@ -85,10 +85,54 @@ create policy "tenant_users_isolation" on tenant_users
   for all using (tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid()));
 
+-- ── Canonical Employees ──────────────────────────────────────
+create table if not exists employees (
+  id                uuid primary key default gen_random_uuid(),
+  tenant_id         uuid references tenants(id) on delete cascade not null,
+  tenant_user_id    uuid references tenant_users(id) on delete set null,
+  primary_email     text,
+  first_name        text,
+  last_name         text,
+  display_name      text not null,
+  job_title         text,
+  department        text,
+  manager_employee_id uuid references employees(id) on delete set null,
+  is_person         boolean default true,
+  is_shared_mailbox boolean default false,
+  status            text default 'active' check (status in ('active','invited','suspended')),
+  avatar_url        text,
+  external_microsoft_id text,
+  external_microsoft_user_principal_name text,
+  onboarding_mode   boolean default false,
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now(),
+  unique (tenant_id, primary_email)
+);
+alter table employees enable row level security;
+create policy "employees_isolation" on employees
+  for all using (tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid()));
+
+create table if not exists employee_permissions (
+  id                uuid primary key default gen_random_uuid(),
+  tenant_id         uuid references tenants(id) on delete cascade not null,
+  employee_id       uuid references employees(id) on delete cascade not null unique,
+  role_preset       text default 'staff' check (role_preset in ('owner','admin','manager','staff','onboarding')),
+  page_overrides    jsonb default '{}'::jsonb,
+  onboarding_only   boolean default false,
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now()
+);
+alter table employee_permissions enable row level security;
+create policy "employee_permissions_isolation" on employee_permissions
+  for all using (tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid()));
+
 -- ── HR Profiles ──────────────────────────────────────────────
 create table hr_profiles (
   id              uuid primary key default gen_random_uuid(),
   tenant_id       uuid references tenants(id) on delete cascade not null,
+  employee_id     uuid references employees(id) on delete cascade,
   tenant_user_id  uuid references tenant_users(id) on delete cascade,
   contract_type   text,
   start_date      date,
@@ -372,6 +416,9 @@ create policy "automation_runs_isolation" on automation_runs
 -- ── Indexes for performance ────────────────────────────────────
 create index if not exists idx_tenant_users_tenant_id on tenant_users(tenant_id);
 create index if not exists idx_tenant_users_user_id on tenant_users(user_id);
+create index if not exists idx_employees_tenant_id on employees(tenant_id);
+create index if not exists idx_employees_tenant_user_id on employees(tenant_user_id);
+create index if not exists idx_employee_permissions_tenant_id on employee_permissions(tenant_id);
 create index if not exists idx_clients_tenant_id on clients(tenant_id);
 create index if not exists idx_tasks_tenant_id on tasks(tenant_id);
 create index if not exists idx_tasks_assigned_to on tasks(assigned_to);

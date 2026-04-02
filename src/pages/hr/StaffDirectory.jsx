@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { sbGetMany } from '../../utils/supabase'
 import { inviteMember } from '../../utils/invitations'
 import { seatLimitReached } from '../../utils/entitlements'
+import { listEmployees } from '../../utils/employees'
 
 export default function StaffDirectory() {
   const { tenant, tenantUser } = useAuth()
@@ -20,8 +20,8 @@ export default function StaffDirectory() {
   const load = async () => {
     if (!tenant?.id) return
     setLoading(true)
-    const data = await sbGetMany('tenant_users', `tenant_id=eq.${tenant.id}&order=full_name.asc`)
-    setStaff(data)
+    const data = await listEmployees(tenant.id)
+    setStaff(data.filter(employee => employee.is_person && !employee.is_shared_mailbox))
     setLoading(false)
   }
 
@@ -51,7 +51,9 @@ export default function StaffDirectory() {
 
   const filtered = staff.filter(u => {
     const q = search.toLowerCase()
-    return !q || u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
+    const displayName = u.display_name || u.tenant_user?.full_name || u.primary_email
+    const email = u.primary_email || u.tenant_user?.email
+    return !q || displayName?.toLowerCase().includes(q) || email?.toLowerCase().includes(q)
   })
 
   const canInvite = tenantUser?.role === 'owner' || tenantUser?.role === 'admin'
@@ -61,7 +63,7 @@ export default function StaffDirectory() {
       <div className="page-hd">
         <div>
           <h1 className="page-title">Staff Directory</h1>
-          <p className="page-sub">{staff.length} team member{staff.length !== 1 ? 's' : ''} · {tenant?.seat_limit || 5} seat limit</p>
+          <p className="page-sub">{staff.length} canonical employee record{staff.length !== 1 ? 's' : ''} · {tenant?.seat_limit || 5} seat limit</p>
         </div>
         {canInvite && (
           <button className="btn btn-primary" onClick={() => setInviteModal(true)}>+ Invite member</button>
@@ -83,19 +85,23 @@ export default function StaffDirectory() {
       ) : (
         <div className="record-grid">
           {filtered.map(u => {
-            const colour = colourFor(u.email)
+            const email = u.primary_email || u.tenant_user?.email
+            const displayName = u.display_name || u.tenant_user?.full_name || email
+            const roleLabel = u.permissions?.role_preset || u.tenant_user?.role || 'staff'
+            const status = u.status || u.tenant_user?.status || 'active'
+            const colour = colourFor(email)
             return (
               <button key={u.id} onClick={() => navigate(`/staff/${u.id}`)}
                 className="record-card"
                 onMouseOver={e => { e.currentTarget.style.borderColor=colour }}
                 onMouseOut={e => { e.currentTarget.style.borderColor='var(--border)' }}>
                 <div className="record-card-avatar" style={{background:colour+'18',border:`2px solid ${colour}33`,color:colour}}>
-                  {initials(u.full_name || u.email)}
+                  {initials(displayName)}
                 </div>
-                <div className="record-card-title">{u.full_name || u.email}</div>
-                <div className="record-card-meta">{u.job_title || u.role}</div>
+                <div className="record-card-title">{displayName}</div>
+                <div className="record-card-meta">{u.job_title || u.tenant_user?.job_title || roleLabel}</div>
                 <div style={{ marginTop: 12 }}>
-                  <span className={`badge badge-${u.status === 'active' ? 'green' : 'amber'}`} style={{ textTransform:'capitalize' }}>{u.status}</span>
+                  <span className={`badge badge-${status === 'active' ? 'green' : status === 'suspended' ? 'grey' : 'amber'}`} style={{ textTransform:'capitalize' }}>{status}</span>
                 </div>
               </button>
             )
