@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { isAccessBlocked } from './utils/entitlements'
 import { shouldShowOnboarding } from './utils/onboarding'
+import { canAccessPath } from './utils/permissions'
 
 const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
@@ -52,11 +53,17 @@ function RequireAuth({ children }) {
 }
 
 function RequireOnboarded({ children }) {
-  const { user, tenant, isPlatformAdmin, loading } = useAuth()
+  const { user, tenant, tenantUser, employeeRecord, employeePermissions, isPlatformAdmin, loading } = useAuth()
   if (loading) return <div className="spin-wrap"><div className="spin"/></div>
   if (isPlatformAdmin && !tenant) return <Navigate to="/superadmin" replace />
   if (!tenant) return <Navigate to="/signin" replace />
   if (user?.id && shouldShowOnboarding(user.id)) return <Navigate to="/onboarding" replace />
+  const selfStaffPaths = [employeeRecord?.id, employeeRecord?.tenant_user_id, tenantUser?.id, user?.id]
+    .filter(Boolean)
+    .map(identifier => `/staff/${identifier}`)
+  if (!canAccessPath(window.location.pathname, { permissionRecord: employeePermissions, fallbackRole: tenantUser?.role, selfStaffPaths })) {
+    return <Navigate to="/onboarding-hr" replace />
+  }
   if (isAccessBlocked(tenant)) return <PaymentWall />
   return children
 }

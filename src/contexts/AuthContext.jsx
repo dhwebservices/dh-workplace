@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase, sbGet } from '../utils/supabase'
+import { supabase, sbGet, sbGetMany } from '../utils/supabase'
 
 const AuthContext = createContext(null)
 
@@ -7,6 +7,8 @@ export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
   const [tenant, setTenant]   = useState(null)
   const [tenantUser, setTenantUser] = useState(null)
+  const [employeeRecord, setEmployeeRecord] = useState(null)
+  const [employeePermissions, setEmployeePermissions] = useState(null)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -17,7 +19,7 @@ export function AuthProvider({ children }) {
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) loadUserContext(session.user)
-      else { setUser(null); setTenant(null); setTenantUser(null); setIsPlatformAdmin(false); setLoading(false) }
+      else { setUser(null); setTenant(null); setTenantUser(null); setEmployeeRecord(null); setEmployeePermissions(null); setIsPlatformAdmin(false); setLoading(false) }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -32,11 +34,20 @@ export function AuthProvider({ children }) {
       setIsPlatformAdmin(!!platformAdmin)
       if (tu) {
         setTenantUser(tu)
-        const t = await sbGet('tenants', `id=eq.${tu.tenant_id}`)
+        const [t, employees, permissions] = await Promise.all([
+          sbGet('tenants', `id=eq.${tu.tenant_id}`),
+          sbGetMany('employees', `tenant_id=eq.${tu.tenant_id}&tenant_user_id=eq.${tu.id}`),
+          sbGetMany('employee_permissions', `tenant_id=eq.${tu.tenant_id}`),
+        ])
         setTenant(t)
+        const employee = employees?.[0] || null
+        setEmployeeRecord(employee)
+        setEmployeePermissions(employee ? (permissions || []).find(row => row.employee_id === employee.id) || null : null)
       } else {
         setTenantUser(null)
         setTenant(null)
+        setEmployeeRecord(null)
+        setEmployeePermissions(null)
       }
     } catch (e) {
       console.error('Failed to load user context:', e)
@@ -46,17 +57,24 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    setUser(null); setTenant(null); setTenantUser(null); setIsPlatformAdmin(false)
+    setUser(null); setTenant(null); setTenantUser(null); setEmployeeRecord(null); setEmployeePermissions(null); setIsPlatformAdmin(false)
   }
 
   const refreshTenant = async () => {
     if (!tenantUser?.tenant_id) return
-    const t = await sbGet('tenants', `id=eq.${tenantUser.tenant_id}`)
+    const [t, employees, permissions] = await Promise.all([
+      sbGet('tenants', `id=eq.${tenantUser.tenant_id}`),
+      sbGetMany('employees', `tenant_id=eq.${tenantUser.tenant_id}&tenant_user_id=eq.${tenantUser.id}`),
+      sbGetMany('employee_permissions', `tenant_id=eq.${tenantUser.tenant_id}`),
+    ])
     setTenant(t)
+    const employee = employees?.[0] || null
+    setEmployeeRecord(employee)
+    setEmployeePermissions(employee ? (permissions || []).find(row => row.employee_id === employee.id) || null : null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, tenant, tenantUser, isPlatformAdmin, loading, signOut, refreshTenant }}>
+    <AuthContext.Provider value={{ user, tenant, tenantUser, employeeRecord, employeePermissions, isPlatformAdmin, loading, signOut, refreshTenant }}>
       {children}
     </AuthContext.Provider>
   )

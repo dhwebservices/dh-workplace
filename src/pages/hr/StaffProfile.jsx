@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { canManageStaffAccess } from '../../utils/permissions'
+import { canManageStaffAccess, visibleStaffProfileTabs } from '../../utils/permissions'
 import { getEmployeeByIdentifier, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
 
 const TABS = [
@@ -26,7 +26,7 @@ function InfoRow({ label, value, mono = false }) {
 export default function StaffProfile() {
   const { userId } = useParams()
   const navigate = useNavigate()
-  const { tenant, tenantUser, user } = useAuth()
+  const { tenant, tenantUser, employeePermissions, user } = useAuth()
   const [employee, setEmployee] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('profile')
@@ -62,6 +62,8 @@ export default function StaffProfile() {
 
   const directReports = employee?.direct_reports || []
   const notifications = employee?.notifications || []
+  const allowedTabs = visibleStaffProfileTabs(employeePermissions, canManage)
+  const safeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0]
 
   const saveProfile = async () => {
     if (!employee?.id) return
@@ -134,8 +136,8 @@ export default function StaffProfile() {
 
       <div className="table-toolbar">
         <div className="filter-pills">
-          {TABS.map(([key, label]) => (
-            <button key={key} className={`btn btn-sm ${tab === key ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab(key)}>
+          {TABS.filter(([key]) => allowedTabs.includes(key)).map(([key, label]) => (
+            <button key={key} className={`btn btn-sm ${safeTab === key ? 'btn-primary' : 'btn-outline'}`} onClick={() => setTab(key)}>
               {label}
             </button>
           ))}
@@ -161,7 +163,7 @@ export default function StaffProfile() {
         </div>
       </div>
 
-      {tab === 'profile' && (
+      {safeTab === 'profile' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -201,7 +203,7 @@ export default function StaffProfile() {
         </div>
       )}
 
-      {tab === 'hr' && (
+      {safeTab === 'hr' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -222,7 +224,7 @@ export default function StaffProfile() {
         </div>
       )}
 
-      {tab === 'permissions' && (
+      {safeTab === 'permissions' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -256,7 +258,7 @@ export default function StaffProfile() {
         </div>
       )}
 
-      {tab === 'manager' && (
+      {safeTab === 'manager' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -280,7 +282,7 @@ export default function StaffProfile() {
         </div>
       )}
 
-      {tab === 'onboarding' && (
+      {safeTab === 'onboarding' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -296,7 +298,7 @@ export default function StaffProfile() {
         </div>
       )}
 
-      {tab === 'lifecycle' && (
+      {safeTab === 'lifecycle' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>
@@ -312,7 +314,7 @@ export default function StaffProfile() {
         </div>
       )}
 
-      {tab === 'notifications' && (
+      {safeTab === 'notifications' && (
         <div className="card card-pad">
           <div className="section-head">
             <div>

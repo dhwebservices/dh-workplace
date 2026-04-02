@@ -3,7 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS, can } from '../../utils/entitlements'
 import { sbGetMany, sbUpdate, supabase } from '../../utils/supabase'
-import { canManageBilling, canManageTeam, canManageWorkspaceSettings, canViewAudit, canViewReports } from '../../utils/permissions'
+import { canAccessNavItem, canManageBilling, canManageTeam, canManageWorkspaceSettings, canViewAudit, canViewReports, isOnboardingOnlyMode } from '../../utils/permissions'
 
 const NAV = [
   { label: 'Overview', items: [
@@ -44,7 +44,7 @@ const SUPER_NAV = [
 ]
 
 export default function AppShell({ superAdmin = false }) {
-  const { tenant, tenantUser, signOut } = useAuth()
+  const { tenant, tenantUser, employeePermissions, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [notifications, setNotifications] = useState([])
@@ -52,11 +52,13 @@ export default function AppShell({ superAdmin = false }) {
 
   const isTrial = tenant?.status === 'trialing'
   const isPendingActivation = tenant?.status === 'pending_activation'
+  const onboardingOnly = isOnboardingOnlyMode(employeePermissions)
   const isAdminUser = ['owner', 'admin', 'superadmin'].includes(tenantUser?.role)
   const plan = PLANS[tenant?.plan || 'starter']
   const notificationsEnabled = !superAdmin && can(tenant, 'notifications')
   const canSeePermissionItem = (item) => {
     if (superAdmin) return true
+    if (!canAccessNavItem(item, { permissionRecord: employeePermissions, fallbackRole: tenantUser?.role })) return false
     const role = tenantUser?.role
     if (item.permission === 'team' && !canManageTeam(role)) return false
     if (item.permission === 'billing' && !canManageBilling(role)) return false
@@ -213,6 +215,7 @@ export default function AppShell({ superAdmin = false }) {
               {tenantUser?.full_name || tenantUser?.email}
             </div>
             <div style={{ fontSize: 11, color: 'var(--faint)', textTransform: 'capitalize' }}>{tenantUser?.role}</div>
+            {onboardingOnly && <div style={{ fontSize: 10, color: 'var(--blue)', marginTop: 2, fontWeight: 700, letterSpacing: '0.06em' }}>ONBOARDING ONLY</div>}
           </div>
           <button onClick={signOut} className="signout-btn" title="Sign out">Sign out</button>
         </div>
