@@ -66,6 +66,7 @@ const ROLE_PRESET_ACCESS = {
 const ROUTE_PERMISSION_KEYS = [
   { prefix: '/team', key: 'team' },
   { prefix: '/billing', key: 'billing' },
+  { prefix: '/banners', key: 'settings' },
   { prefix: '/settings', key: 'settings' },
   { prefix: '/audit', key: 'audit' },
   { prefix: '/reports', key: 'reports' },

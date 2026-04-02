@@ -32,6 +32,7 @@ const Outreach = lazy(() => import('./pages/crm/Outreach'))
 const Settings = lazy(() => import('./pages/admin/Settings'))
 const Team = lazy(() => import('./pages/admin/Team'))
 const Billing = lazy(() => import('./pages/admin/Billing'))
+const Banners = lazy(() => import('./pages/admin/Banners'))
 const Reports = lazy(() => import('./pages/admin/Reports'))
 const Safeguards = lazy(() => import('./pages/admin/Safeguards'))
 const Automations = lazy(() => import('./pages/admin/Automations'))
@@ -138,6 +139,7 @@ export default function App() {
           <Route path="settings"           element={<Settings />} />
           <Route path="team"               element={<Team />} />
           <Route path="billing"            element={<Billing />} />
+          <Route path="banners"            element={<Banners />} />
           <Route path="reports"            element={<Reports />} />
           <Route path="safeguards"         element={<Safeguards />} />
           <Route path="automations"        element={<Automations />} />

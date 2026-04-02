@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { PLANS, can } from '../../utils/entitlements'
 import { supabase } from '../../utils/supabase'
+import { appliesBanner, listBanners } from '../../utils/banners'
 import { getNotificationsForUser, markNotificationRead, markNotificationsRead, sortNotifications } from '../../utils/notifications'
 import { canAccessNavItem, canManageBilling, canManageTeam, canManageWorkspaceSettings, canViewAudit, canViewReports, isOnboardingOnlyMode } from '../../utils/permissions'
 
@@ -28,6 +29,7 @@ const NAV = [
   { label: 'Settings', items: [
     { to: '/team', label: 'Team', permission: 'team' },
     { to: '/billing', label: 'Billing', permission: 'billing' },
+    { to: '/banners', label: 'Banners', permission: 'settings' },
     { to: '/reports', label: 'Reports', feature: 'reports' },
     { to: '/safeguards', label: 'Safeguards', permission: 'settings' },
     { to: '/automations', label: 'Automations', permission: 'settings' },
@@ -47,11 +49,12 @@ const SUPER_NAV = [
 ]
 
 export default function AppShell({ superAdmin = false }) {
-  const { tenant, tenantUser, employeePermissions, signOut } = useAuth()
+  const { tenant, tenantUser, employeeRecord, employeePermissions, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
+  const [banners, setBanners] = useState([])
 
   const isTrial = tenant?.status === 'trialing'
   const isPendingActivation = tenant?.status === 'pending_activation'
@@ -119,7 +122,26 @@ export default function AppShell({ superAdmin = false }) {
     }
   }, [notificationsEnabled, tenantUser?.id])
 
+  useEffect(() => {
+    if (superAdmin || !tenant?.id) return
+    let active = true
+    const loadBanners = async () => {
+      const rows = await listBanners(tenant.id)
+      if (active) setBanners(rows || [])
+    }
+    loadBanners()
+    return () => { active = false }
+  }, [superAdmin, tenant?.id])
+
   const unreadCount = useMemo(() => notifications.filter(item => !item.read).length, [notifications])
+  const visibleBanners = useMemo(() => {
+    if (superAdmin) return []
+    return (banners || []).filter((banner) => appliesBanner(banner, {
+      pathname: location.pathname,
+      role: employeePermissions?.role_preset || tenantUser?.role,
+      employeeId: employeeRecord?.id,
+    }))
+  }, [banners, superAdmin, location.pathname, employeePermissions?.role_preset, tenantUser?.role, employeeRecord?.id])
   const hasLiveSubscription = Boolean(tenant?.stripe_subscription_id || tenant?.gc_subscription_id)
   const hasLegacyMandate = Boolean(tenant?.gc_mandate_id)
   const workspaceStatus = superAdmin
@@ -285,6 +307,21 @@ export default function AppShell({ superAdmin = false }) {
           </div>
         </div>
         <div className="page-body">
+          {!superAdmin && visibleBanners.length > 0 && (
+            <div className="announcement-stack">
+              {visibleBanners.map((banner) => (
+                <div key={banner.id} className={`announcement-banner announcement-banner-${banner.tone || 'info'}`}>
+                  <div className="announcement-banner-copy">
+                    <div className="announcement-banner-title">{banner.title}</div>
+                    {banner.message && <div className="announcement-banner-text">{banner.message}</div>}
+                  </div>
+                  {banner.target_path && banner.target_path !== 'all' && location.pathname !== banner.target_path && (
+                    <button className="btn btn-outline btn-sm" onClick={() => navigate(banner.target_path)}>Open</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           <Outlet />
         </div>
       </main>

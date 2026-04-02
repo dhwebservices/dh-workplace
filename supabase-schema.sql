@@ -288,6 +288,30 @@ create policy "notifications_own" on notifications
     or exists (select 1 from platform_admins where user_id = auth.uid())
   );
 
+-- ── Banners / Announcements ──────────────────────────────────
+create table banners (
+  id                uuid primary key default gen_random_uuid(),
+  tenant_id         uuid references tenants(id) on delete cascade not null,
+  title             text not null,
+  message           text,
+  tone              text default 'info' check (tone in ('info','success','warning','urgent')),
+  target_path       text,
+  target_role       text,
+  target_employee_id uuid references employees(id) on delete cascade,
+  enabled           boolean default true,
+  starts_at         timestamptz,
+  ends_at           timestamptz,
+  created_by        uuid references tenant_users(id),
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now()
+);
+alter table banners enable row level security;
+create policy "banners_isolation" on banners
+  for all using (
+    tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid())
+  );
+
 -- ── Audit Log ─────────────────────────────────────────────────
 create table audit_log (
   id              uuid primary key default gen_random_uuid(),
@@ -432,6 +456,8 @@ create index if not exists idx_leave_tenant_id on leave_requests(tenant_id);
 create index if not exists idx_notifications_user_id on notifications(tenant_user_id);
 create index if not exists idx_notifications_tenant_created_at on notifications(tenant_id, created_at desc);
 create index if not exists idx_notifications_read_state on notifications(tenant_user_id, read);
+create index if not exists idx_banners_tenant_id on banners(tenant_id);
+create index if not exists idx_banners_target_employee on banners(target_employee_id);
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
 create index if not exists idx_tenants_demo_slug on tenants(is_demo, slug);
 create index if not exists idx_automation_rules_tenant_id on automation_rules(tenant_id);
@@ -453,3 +479,26 @@ alter table notifications add column if not exists is_pinned boolean default fal
 alter table notifications add column if not exists sent_via_email boolean default false;
 alter table notifications add column if not exists created_by uuid references tenant_users(id);
 alter table notifications add column if not exists read_at timestamptz;
+create table if not exists banners (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants(id) on delete cascade not null,
+  title text not null,
+  message text,
+  tone text default 'info' check (tone in ('info','success','warning','urgent')),
+  target_path text,
+  target_role text,
+  target_employee_id uuid references employees(id) on delete cascade,
+  enabled boolean default true,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  created_by uuid references tenant_users(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table banners enable row level security;
+drop policy if exists banners_isolation on banners;
+create policy "banners_isolation" on banners
+  for all using (
+    tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid())
+  );
