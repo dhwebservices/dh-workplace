@@ -9,7 +9,7 @@ const PRIORITIES = { low:'badge-grey', medium:'badge-blue', high:'badge-amber', 
 const STATUSES = ['todo','in_progress','done','cancelled']
 
 export default function Tasks() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [tasks, setTasks] = useState([])
   const [staff, setStaff] = useState([])
   const [clients, setClients] = useState([])
@@ -19,7 +19,7 @@ export default function Tasks() {
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p=>({...p,[k]:v}))
-  const canManage = canManageCRM(tenantUser?.role)
+  const canManage = canManageCRM({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 

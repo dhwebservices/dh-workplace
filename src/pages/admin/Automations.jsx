@@ -57,8 +57,8 @@ function nextRunFromCadence(cadence) {
 }
 
 export default function Automations() {
-  const { tenant, tenantUser } = useAuth()
-  const canManage = canManageWorkspaceSettings(tenantUser?.role)
+  const { tenant, tenantUser, employeePermissions } = useAuth()
+  const canManage = canManageWorkspaceSettings({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState('')
   const [runningKey, setRunningKey] = useState('')

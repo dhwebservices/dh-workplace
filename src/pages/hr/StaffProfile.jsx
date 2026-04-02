@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { canManageStaffAccess, visibleStaffProfileTabs } from '../../utils/permissions'
+import { PAGE_PERMISSION_GROUPS, canManageStaffAccess, getPermissionOverrideDefaults, visibleStaffProfileTabs } from '../../utils/permissions'
 import { getEmployeeByIdentifier, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
 import { sendCustomNotification } from '../../utils/notifications'
 import PortalPreferencesEditor from '../../components/portal/PortalPreferencesEditor'
@@ -36,7 +36,7 @@ export default function StaffProfile() {
   const [tab, setTab] = useState('profile')
   const [saving, setSaving] = useState(false)
   const [profileForm, setProfileForm] = useState({ display_name: '', job_title: '', department: '', primary_email: '' })
-  const [permissionForm, setPermissionForm] = useState({ role_preset: 'staff', onboarding_only: false })
+  const [permissionForm, setPermissionForm] = useState({ role_preset: 'staff', onboarding_only: false, page_overrides: {} })
   const [portalForm, setPortalForm] = useState(null)
   const [notificationForm, setNotificationForm] = useState({
     title: '',
@@ -46,7 +46,7 @@ export default function StaffProfile() {
     isPinned: false,
     sendEmail: false,
   })
-  const canManage = canManageStaffAccess(tenantUser?.role)
+  const canManage = canManageStaffAccess({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   const load = async () => {
     if (!tenant?.id || !userId) return
@@ -62,6 +62,7 @@ export default function StaffProfile() {
     setPermissionForm({
       role_preset: data?.permissions?.role_preset || data?.tenant_user?.role || 'staff',
       onboarding_only: !!(data?.permissions?.onboarding_only || data?.onboarding_mode),
+      page_overrides: getPermissionOverrideDefaults(data?.permissions, data?.tenant_user?.role || 'staff'),
     })
     setPortalForm(sanitizePortalPreferences(data?.portal_preferences || {}, {
       permissionRecord: data?.permissions,
@@ -107,7 +108,7 @@ export default function StaffProfile() {
         employeeId: employee.id,
         rolePreset: permissionForm.role_preset,
         onboardingOnly: permissionForm.onboarding_only,
-        pageOverrides: employee.permissions?.page_overrides || {},
+        pageOverrides: permissionForm.page_overrides,
       })
       await saveEmployeeProfile(employee.id, { onboarding_mode: permissionForm.onboarding_only })
       await load()
@@ -327,7 +328,38 @@ export default function StaffProfile() {
               </label>
             </div>
           </div>
-          <div className="compact-note">Per-page overrides and hidden tabs will hang off this record next, without making admins untick every route manually.</div>
+          <div className="compact-note">Role presets set the baseline. Per-page overrides below let you fine-tune the user’s portal without exposing disabled pages through nav, routes, landing pages, or quick actions.</div>
+          {!permissionForm.onboarding_only && (
+            <div className="stack-md" style={{ marginTop: 18 }}>
+              {PAGE_PERMISSION_GROUPS.map((group) => (
+                <div key={group.id} className="detail-card">
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>{group.label}</div>
+                  <div className="portal-chip-grid">
+                    {group.items.map((item) => {
+                      const active = !!permissionForm.page_overrides[item.key]
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          className={`portal-chip ${active ? 'active' : ''}`}
+                          onClick={() => setPermissionForm((prev) => ({
+                            ...prev,
+                            page_overrides: {
+                              ...prev.page_overrides,
+                              [item.key]: !prev.page_overrides[item.key],
+                            },
+                          }))}
+                          disabled={!canManage}
+                        >
+                          {item.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {canManage && (
             <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
               <button className="btn btn-primary btn-sm" onClick={savePermissions} disabled={saving}>Save permissions</button>

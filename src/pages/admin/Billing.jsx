@@ -32,8 +32,8 @@ const FEATURE_LABELS = {
 }
 
 export default function Billing() {
-  const { tenant, tenantUser, refreshTenant } = useAuth()
-  const canManage = canManageBilling(tenantUser?.role)
+  const { tenant, tenantUser, employeePermissions, refreshTenant } = useAuth()
+  const canManage = canManageBilling({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const plan = PLANS[tenant?.plan || 'starter']
   const currentFeatures = new Set(plan?.features || [])
   const [loadingBilling, setLoadingBilling] = useState(false)

@@ -23,8 +23,8 @@ const SAMPLE_PAYLOAD = `{
 }`
 
 export default function Integrations() {
-  const { tenant, tenantUser } = useAuth()
-  const canManage = canManageWorkspaceSettings(tenantUser?.role)
+  const { tenant, tenantUser, employeePermissions } = useAuth()
+  const canManage = canManageWorkspaceSettings({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const enabled = can(tenant, 'api_access')
   const workerUrl = import.meta.env.VITE_WORKER_URL || ''
   const [endpoints, setEndpoints] = useState([])

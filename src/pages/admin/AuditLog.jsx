@@ -4,11 +4,11 @@ import { sbGetMany } from '../../utils/supabase'
 import { canViewAudit } from '../../utils/permissions'
 
 export default function AuditLog() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [staff, setStaff] = useState([])
-  const canView = canViewAudit(tenantUser?.role)
+  const canView = canViewAudit({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 

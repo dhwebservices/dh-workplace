@@ -7,7 +7,7 @@ const EMPTY = { business_name:'', contact_name:'', email:'', phone:'', website:'
 const STATUS_COLOURS = { not_contacted:'badge-grey', contacted:'badge-blue', replied:'badge-amber', converted:'badge-green', not_interested:'badge-red' }
 
 export default function Outreach() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [leads, setLeads] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -17,7 +17,7 @@ export default function Outreach() {
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p=>({...p,[k]:v}))
-  const canManage = canManageCRM(tenantUser?.role)
+  const canManage = canManageCRM({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 

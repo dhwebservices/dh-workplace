@@ -13,7 +13,7 @@ function daysUntil(dateValue) {
 }
 
 export default function Documents() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [docs, setDocs] = useState([])
   const [acknowledgements, setAcknowledgements] = useState([])
   const [employees, setEmployees] = useState([])
@@ -24,7 +24,7 @@ export default function Documents() {
   const [form, setForm] = useState({ name: '', category: 'general', visible_to: 'all', employee_id: '', expires_at: '', requires_acknowledgement: false })
   const [file, setFile] = useState(null)
   const fileRef = useRef()
-  const canManage = canManageDocuments(tenantUser?.role)
+  const canManage = canManageDocuments({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 

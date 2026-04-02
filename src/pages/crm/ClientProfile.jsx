@@ -21,7 +21,7 @@ function parseNotes(notes) {
 export default function ClientProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [client, setClient] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [tasks, setTasks] = useState([])
@@ -33,8 +33,8 @@ export default function ClientProfile() {
   const [invForm, setInvForm] = useState({ invoice_number:'', description:'', amount:'', due_date:'' })
   const [saving, setSaving] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
-  const canManageClient = canManageCRM(tenantUser?.role)
-  const canManageClientInvoices = canManageInvoices(tenantUser?.role)
+  const canManageClient = canManageCRM({ role: tenantUser?.role, permissionRecord: employeePermissions })
+  const canManageClientInvoices = canManageInvoices({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [id])
 

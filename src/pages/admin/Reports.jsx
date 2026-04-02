@@ -110,7 +110,7 @@ function TrendBars({ title, subtitle, data, tone = 'var(--blue)', formatter = va
 }
 
 export default function Reports() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
   const [range, setRange] = useState('all')
@@ -123,7 +123,7 @@ export default function Reports() {
     tasks: [],
     outreach: [],
   })
-  const canView = canViewReports(tenantUser?.role)
+  const canView = canViewReports({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 

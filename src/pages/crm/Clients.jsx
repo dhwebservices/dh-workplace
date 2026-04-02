@@ -9,7 +9,7 @@ const EMPTY = { name:'', email:'', phone:'', website:'', status:'lead', plan:'',
 const STATUS_COLOURS = { lead:'blue', active:'green', inactive:'grey', lost:'red' }
 
 export default function Clients() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const navigate = useNavigate()
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,7 +20,7 @@ export default function Clients() {
   const [form, setForm] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p => ({...p,[k]:v}))
-  const canManage = canManageCRM(tenantUser?.role)
+  const canManage = canManageCRM({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 

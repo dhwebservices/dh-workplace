@@ -67,12 +67,12 @@ export default function AppShell({ superAdmin = false }) {
   const canSeePermissionItem = (item) => {
     if (superAdmin) return true
     if (!canAccessNavItem(item, { permissionRecord: employeePermissions, fallbackRole: tenantUser?.role })) return false
-    const role = tenantUser?.role
-    if (item.permission === 'team' && !canManageTeam(role)) return false
-    if (item.permission === 'billing' && !canManageBilling(role)) return false
-    if (item.permission === 'settings' && !canManageWorkspaceSettings(role)) return false
-    if (item.permission === 'audit' && !canViewAudit(role)) return false
-    if (item.to === '/reports' && !canViewReports(role)) return false
+    const accessArgs = { role: tenantUser?.role, permissionRecord: employeePermissions }
+    if (item.permission === 'team' && !canManageTeam(accessArgs)) return false
+    if (item.permission === 'billing' && !canManageBilling(accessArgs)) return false
+    if (item.permission === 'settings' && !canManageWorkspaceSettings(accessArgs)) return false
+    if (item.permission === 'audit' && !canViewAudit(accessArgs)) return false
+    if (item.to === '/reports' && !canViewReports(accessArgs)) return false
     return !item.feature || can(tenant, item.feature)
   }
 

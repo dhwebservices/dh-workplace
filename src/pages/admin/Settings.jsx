@@ -6,11 +6,11 @@ import { can } from '../../utils/entitlements'
 import { sendWebhookEvent } from '../../utils/webhooks'
 
 export default function Settings() {
-  const { tenant, tenantUser, refreshTenant } = useAuth()
+  const { tenant, tenantUser, employeePermissions, refreshTenant } = useAuth()
   const [form, setForm] = useState({ name: tenant?.name||'', primary_colour: tenant?.primary_colour||'#0071E3', logo_url: tenant?.logo_url || '' })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const canManage = canManageWorkspaceSettings(tenantUser?.role)
+  const canManage = canManageWorkspaceSettings({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const canWhiteLabel = can(tenant, 'custom_branding')
 
   const save = async () => {

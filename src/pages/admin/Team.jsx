@@ -8,13 +8,13 @@ import { assignableRoles, canManageMemberRecord, canManageTeam } from '../../uti
 import { sendWebhookEvent } from '../../utils/webhooks'
 
 export default function Team() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ email:'', role:'staff', full_name:'' })
   const [saving, setSaving] = useState(false)
-  const canManage = canManageTeam(tenantUser?.role)
+  const canManage = canManageTeam({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const roleOptions = assignableRoles(tenantUser?.role)
 
   useEffect(() => { load() }, [tenant?.id])

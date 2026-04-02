@@ -50,8 +50,8 @@ function toneCopy(tone) {
 }
 
 export default function Banners() {
-  const { tenant, tenantUser } = useAuth()
-  const canManage = canManageWorkspaceSettings(tenantUser?.role)
+  const { tenant, tenantUser, employeePermissions } = useAuth()
+  const canManage = canManageWorkspaceSettings({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const [banners, setBanners] = useState([])
   const [employees, setEmployees] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)

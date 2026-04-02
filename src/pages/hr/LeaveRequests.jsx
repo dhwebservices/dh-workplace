@@ -13,7 +13,7 @@ function calcDays(s, e) {
 }
 
 export default function LeaveRequests() {
-  const { tenant, tenantUser } = useAuth()
+  const { tenant, tenantUser, employeePermissions } = useAuth()
   const [requests, setRequests] = useState([])
   const [staff, setStaff] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,7 +22,7 @@ export default function LeaveRequests() {
   const [form, setForm] = useState({ type:'annual', start_date:'', end_date:'', notes:'' })
   const [saving, setSaving] = useState(false)
   const sf = (k,v) => setForm(p=>({...p,[k]:v}))
-  const canReview = canApproveLeave(tenantUser?.role)
+  const canReview = canApproveLeave({ role: tenantUser?.role, permissionRecord: employeePermissions })
 
   useEffect(() => { load() }, [tenant?.id])
 
