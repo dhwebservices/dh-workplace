@@ -4,7 +4,109 @@ import { useAuth } from '../../contexts/AuthContext'
 import { canManageWorkspaceSettings } from '../../utils/permissions'
 import { getEmployeeSafeguards } from '../../utils/employees'
 
-function StaffIssueCard({ title, subtitle, tone = 'grey', children }) {
+function totalIssues(issues) {
+  return (
+    issues.duplicateIdentities.length +
+    issues.missingManagers.length +
+    issues.incompleteHrProfiles.length +
+    issues.sharedMailboxAsPerson.length +
+    issues.missingPermissions.length +
+    issues.tenantUsersMissingEmployee.length +
+    issues.staleOnboarding.length
+  )
+}
+
+function healthBand(total) {
+  if (total === 0) return { label: 'Healthy', tone: 'green' }
+  if (total <= 5) return { label: 'Watchlist', tone: 'amber' }
+  return { label: 'Needs attention', tone: 'red' }
+}
+
+function scoreFor(issues) {
+  const weighted =
+    issues.duplicateIdentities.length * 18 +
+    issues.sharedMailboxAsPerson.length * 14 +
+    issues.missingPermissions.length * 10 +
+    issues.tenantUsersMissingEmployee.length * 10 +
+    issues.missingManagers.length * 7 +
+    issues.staleOnboarding.length * 6 +
+    issues.incompleteHrProfiles.length * 4
+  return Math.max(0, 100 - weighted)
+}
+
+function priorityQueue(issues) {
+  const rows = []
+
+  issues.duplicateIdentities.forEach((group) => {
+    rows.push({
+      id: `duplicate-${group[0]?.id || Math.random()}`,
+      title: `Duplicate identity: ${group[0]?.primary_email || 'No email'}`,
+      note: `${group.length} employee records are sharing the same normalized email.`,
+      to: group[0]?.id ? `/staff/${group[0].id}` : '/staff',
+      tone: 'red',
+      cta: 'Open profile',
+    })
+  })
+
+  issues.sharedMailboxAsPerson.forEach((employee) => {
+    rows.push({
+      id: `mailbox-${employee.id}`,
+      title: `${employee.display_name} is still marked as a person`,
+      note: 'Shared mailboxes should be excluded from staff records and org structure.',
+      to: `/staff/${employee.id}`,
+      tone: 'red',
+      cta: 'Fix profile',
+    })
+  })
+
+  issues.missingPermissions.forEach((employee) => {
+    rows.push({
+      id: `permissions-${employee.id}`,
+      title: `${employee.display_name} has no permissions row`,
+      note: 'Page-level access and onboarding-only mode will drift until this record is repaired.',
+      to: `/staff/${employee.id}`,
+      tone: 'amber',
+      cta: 'Repair access',
+    })
+  })
+
+  issues.staleOnboarding.forEach((employee) => {
+    rows.push({
+      id: `onboarding-${employee.id}`,
+      title: `${employee.display_name} is stuck in onboarding`,
+      note: `${employee.ageDays} days in onboarding-only mode. Review the onboarding queue and unlock them when ready.`,
+      to: `/staff/${employee.id}`,
+      tone: 'amber',
+      cta: 'Review starter',
+    })
+  })
+
+  issues.missingManagers.forEach((employee) => {
+    rows.push({
+      id: `manager-${employee.id}`,
+      title: `${employee.display_name} has no manager`,
+      note: 'Reporting lines and org chart visibility will stay incomplete until a manager is set.',
+      to: `/staff/${employee.id}`,
+      tone: 'blue',
+      cta: 'Assign manager',
+    })
+  })
+
+  issues.tenantUsersMissingEmployee.forEach((user) => {
+    rows.push({
+      id: `canonical-${user.id}`,
+      title: `${user.full_name || user.email} is missing a canonical employee record`,
+      note: 'Legacy tenant user still needs to be absorbed into the employee layer.',
+      to: `/staff/${user.id}`,
+      tone: 'blue',
+      cta: 'Open staff',
+    })
+  })
+
+  return rows
+}
+
+function SectionCard({ title, subtitle, tone, count, children }) {
   return (
     <div className="card card-pad">
       <div className="section-head">
@@ -12,26 +114,26 @@ function StaffIssueCard({ title, subtitle, tone = 'grey', children }) {
           <h3 className="panel-title">{title}</h3>
           <div className="panel-sub">{subtitle}</div>
         </div>
-        <span className={`badge badge-${tone}`}>{children.length}</span>
+        <span className={`badge badge-${tone}`}>{count}</span>
       </div>
       <div style={{ display: 'grid', gap: 10 }}>
-        {children.length ? children : <div className="compact-note">No issues found.</div>}
+        {children}
       </div>
     </div>
   )
 }
 
-function EmployeeRow({ employee, note, linkId }) {
+function IssueRow({ title, sub, to, cta = 'Open', tone = 'grey' }) {
   return (
     <div className="detail-card" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>{employee.display_name || employee.full_name || employee.email}</div>
-        <div style={{ fontSize: 12, color: 'var(--faint)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
-          {employee.primary_email || employee.email || 'No email'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>{title}</div>
+          <span className={`badge badge-${tone}`}>Issue</span>
         </div>
-        {note && <div style={{ fontSize: 12, color: 'var(--sub)', marginTop: 6 }}>{note}</div>}
+        <div style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.55 }}>{sub}</div>
       </div>
-      {linkId && <Link to={`/staff/${linkId}`} className="btn btn-outline btn-sm">Open profile</Link>}
+      {to ? <Link to={to} className="btn btn-outline btn-sm">{cta}</Link> : null}
     </div>
   )
 }
@@ -41,6 +143,7 @@ export default function Safeguards() {
   const canManage = canManageWorkspaceSettings(tenantUser?.role)
   const [loading, setLoading] = useState(true)
   const [issues, setIssues] = useState({
+    employees: [],
     duplicateIdentities: [],
     missingManagers: [],
     incompleteHrProfiles: [],
@@ -64,12 +167,17 @@ export default function Safeguards() {
     return () => { active = false }
   }, [tenant?.id])
 
+  const total = useMemo(() => totalIssues(issues), [issues])
+  const band = useMemo(() => healthBand(total), [total])
+  const score = useMemo(() => scoreFor(issues), [issues])
+  const queue = useMemo(() => priorityQueue(issues), [issues])
+
   const summary = useMemo(() => ([
-    { label: 'Duplicate identities', value: issues.duplicateIdentities.length, tone: 'var(--red)' },
-    { label: 'Missing managers', value: issues.missingManagers.length, tone: 'var(--amber)' },
-    { label: 'Missing permissions', value: issues.missingPermissions.length, tone: 'var(--blue)' },
-    { label: 'Stale onboarding', value: issues.staleOnboarding.length, tone: 'var(--gold)' },
-  ]), [issues])
+    { label: 'Integrity score', value: `${score}%`, tone: score >= 90 ? 'var(--green)' : score >= 70 ? 'var(--amber)' : 'var(--red)' },
+    { label: 'Priority issues', value: queue.length, tone: 'var(--red)' },
+    { label: 'People records', value: issues.employees.length, tone: 'var(--blue)' },
+    { label: 'HR gaps', value: issues.incompleteHrProfiles.length, tone: 'var(--gold)' },
+  ]), [score, queue.length, issues.employees.length, issues.incompleteHrProfiles.length])
 
   if (!canManage) return <div className="card card-pad"><p style={{ color: 'var(--faint)' }}>Owner access required.</p></div>
 
@@ -78,14 +186,15 @@ export default function Safeguards() {
       <div className="page-hd">
         <div>
           <h1 className="page-title">Safeguards</h1>
-          <p className="page-sub">Data-quality and operational integrity checks for the people and admin layer</p>
+          <p className="page-sub">Identity, permissions, onboarding, and HR data quality across the people layer.</p>
         </div>
+        <span className={`badge badge-${band.tone}`} style={{ fontSize: 12 }}>{band.label}</span>
       </div>
 
-      <div className="compact-note">Use this page to catch identity drift, missing permissions, onboarding issues, and manager gaps before they become support problems.</div>
+      <div className="compact-note">Use this page as the admin quality console for staff data. The goal is to fix identity drift before it leaks into onboarding, permissions, HR records, or the org chart.</div>
 
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-        {summary.map(card => (
+        {summary.map((card) => (
           <div key={card.label} className="stat-card">
             <div className="stat-val" style={{ color: card.tone }}>{card.value}</div>
             <div className="stat-lbl">{card.label}</div>
@@ -95,61 +204,141 @@ export default function Safeguards() {
 
       {loading ? (
         <div className="card card-pad">
-          {[1, 2, 3].map(i => <div key={i} className="skel" style={{ height: 60, marginBottom: 10, borderRadius: 10 }} />)}
+          {[1, 2, 3].map((i) => <div key={i} className="skel" style={{ height: 72, marginBottom: 10, borderRadius: 10 }} />)}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-          <StaffIssueCard title="Duplicate identities" subtitle="People records sharing the same normalized work email" tone="red">
-            {issues.duplicateIdentities.map((group, index) => (
-              <div key={`duplicate-${index}`} className="detail-card">
-                <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 10, fontFamily: 'var(--font-mono)' }}>
-                  {group[0]?.primary_email || 'No shared email'}
-                </div>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {group.map(employee => (
-                    <EmployeeRow key={employee.id} employee={employee} linkId={employee.id} />
-                  ))}
+        <>
+          <div className="asymmetric-grid">
+            <div className="card card-pad">
+              <div className="section-head">
+                <div>
+                  <h3 className="panel-title">Priority queue</h3>
+                  <div className="panel-sub">The highest-value fixes to make next.</div>
                 </div>
               </div>
-            ))}
-          </StaffIssueCard>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {queue.length ? queue.slice(0, 8).map((item) => (
+                  <IssueRow key={item.id} title={item.title} sub={item.note} to={item.to} tone={item.tone} cta={item.cta} />
+                )) : (
+                  <div className="compact-note">No priority issues right now.</div>
+                )}
+              </div>
+            </div>
 
-          <StaffIssueCard title="Missing managers" subtitle="Active people who should report into someone but do not" tone="amber">
-            {issues.missingManagers.map(employee => (
-              <EmployeeRow key={employee.id} employee={employee} note="Assign a manager relationship so org chart and reporting stay accurate." linkId={employee.id} />
-            ))}
-          </StaffIssueCard>
+            <div className="card card-pad">
+              <div className="section-head">
+                <div>
+                  <h3 className="panel-title">Admin focus</h3>
+                  <div className="panel-sub">The fastest routes back into the operational surfaces behind these issues.</div>
+                </div>
+              </div>
+              <div className="stack-sm">
+                <Link to="/staff" className="list-card" style={{ textDecoration: 'none' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Open staff directory</div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>Review canonical employee records and shared-mailbox exclusions.</div>
+                </Link>
+                <Link to="/org-chart" className="list-card" style={{ textDecoration: 'none' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Review org chart</div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>Spot reporting-line gaps and confirm manager coverage visually.</div>
+                </Link>
+                <Link to="/onboarding-hr" className="list-card" style={{ textDecoration: 'none' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Review onboarding queue</div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>Clear stale starters and move completed people out of onboarding-only mode.</div>
+                </Link>
+              </div>
+            </div>
+          </div>
 
-          <StaffIssueCard title="Incomplete HR profiles" subtitle="People records missing core HR fields needed for admin confidence" tone="amber">
-            {issues.incompleteHrProfiles.map(employee => (
-              <EmployeeRow key={employee.id} employee={employee} note="Contract, start date, phone, or emergency details are incomplete." linkId={employee.id} />
-            ))}
-          </StaffIssueCard>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+            <SectionCard title="Identity and access" subtitle="Canonical employee and permission integrity." tone="red" count={issues.duplicateIdentities.length + issues.sharedMailboxAsPerson.length + issues.missingPermissions.length + issues.tenantUsersMissingEmployee.length}>
+              {issues.duplicateIdentities.map((group, index) => (
+                <IssueRow
+                  key={`duplicate-${index}`}
+                  title={group[0]?.primary_email || 'Duplicate identity'}
+                  sub={`${group.length} employee records are using the same normalized work email.`}
+                  to={group[0]?.id ? `/staff/${group[0].id}` : '/staff'}
+                  tone="red"
+                  cta="Resolve"
+                />
+              ))}
+              {issues.sharedMailboxAsPerson.map((employee) => (
+                <IssueRow
+                  key={`mailbox-${employee.id}`}
+                  title={`${employee.display_name} is flagged as a person`}
+                  sub="This record looks like a shared mailbox and should be removed from people flows."
+                  to={`/staff/${employee.id}`}
+                  tone="red"
+                  cta="Fix"
+                />
+              ))}
+              {issues.missingPermissions.map((employee) => (
+                <IssueRow
+                  key={`permission-${employee.id}`}
+                  title={`${employee.display_name} has no permissions row`}
+                  sub="Onboarding-only mode and page-level controls depend on this linked record."
+                  to={`/staff/${employee.id}`}
+                  tone="amber"
+                  cta="Repair"
+                />
+              ))}
+              {issues.tenantUsersMissingEmployee.map((user) => (
+                <IssueRow
+                  key={`canonical-${user.id}`}
+                  title={`${user.full_name || user.email} is missing a canonical employee`}
+                  sub="This legacy tenant user still needs to sync into the employee model."
+                  to={`/staff/${user.id}`}
+                  tone="blue"
+                  cta="Review"
+                />
+              ))}
+              {issues.duplicateIdentities.length + issues.sharedMailboxAsPerson.length + issues.missingPermissions.length + issues.tenantUsersMissingEmployee.length === 0 && (
+                <div className="compact-note">No identity or access issues found.</div>
+              )}
+            </SectionCard>
 
-          <StaffIssueCard title="Missing permissions rows" subtitle="Canonical employees that do not yet have a separate permission record" tone="blue">
-            {issues.missingPermissions.map(employee => (
-              <EmployeeRow key={employee.id} employee={employee} note="Create or repair the employee permission row so onboarding-only and page controls work properly." linkId={employee.id} />
-            ))}
-          </StaffIssueCard>
+            <SectionCard title="People structure" subtitle="Managers, reporting lines, and onboarding drift." tone="amber" count={issues.missingManagers.length + issues.staleOnboarding.length}>
+              {issues.missingManagers.map((employee) => (
+                <IssueRow
+                  key={`manager-${employee.id}`}
+                  title={`${employee.display_name} has no manager assigned`}
+                  sub="Their reporting line is incomplete, which weakens approvals, org structure, and admin oversight."
+                  to={`/staff/${employee.id}`}
+                  tone="amber"
+                  cta="Assign"
+                />
+              ))}
+              {issues.staleOnboarding.map((employee) => (
+                <IssueRow
+                  key={`onboarding-${employee.id}`}
+                  title={`${employee.display_name} is still in onboarding-only mode`}
+                  sub={`${employee.ageDays} days since invite/creation. Clear the onboarding queue or move them to normal access.`}
+                  to={`/staff/${employee.id}`}
+                  tone="gold"
+                  cta="Check"
+                />
+              ))}
+              {issues.missingManagers.length + issues.staleOnboarding.length === 0 && (
+                <div className="compact-note">No structure or onboarding issues found.</div>
+              )}
+            </SectionCard>
 
-          <StaffIssueCard title="Tenant users missing employee rows" subtitle="Legacy tenant users that have not been linked into the canonical employee layer yet" tone="blue">
-            {issues.tenantUsersMissingEmployee.map(user => (
-              <EmployeeRow key={user.id} employee={user} note="This user exists in tenant_users but has no canonical employee record yet." linkId={user.id} />
-            ))}
-          </StaffIssueCard>
-
-          <StaffIssueCard title="Shared mailboxes flagged as people" subtitle="Records that look like mailboxes but are still marked as human staff" tone="red">
-            {issues.sharedMailboxAsPerson.map(employee => (
-              <EmployeeRow key={employee.id} employee={employee} note="Mark this as a non-person/shared mailbox so it stays out of staff views and org structure." linkId={employee.id} />
-            ))}
-          </StaffIssueCard>
-
-          <StaffIssueCard title="Stale onboarding records" subtitle="People still stuck in onboarding-only mode after a week" tone="gold">
-            {issues.staleOnboarding.map(employee => (
-              <EmployeeRow key={employee.id} employee={employee} note={`Onboarding-only for ${employee.ageDays} day${employee.ageDays === 1 ? '' : 's'}.`} linkId={employee.id} />
-            ))}
-          </StaffIssueCard>
-        </div>
+            <SectionCard title="HR completeness" subtitle="Core HR fields needed for confident operations." tone="gold" count={issues.incompleteHrProfiles.length}>
+              {issues.incompleteHrProfiles.map((employee) => (
+                <IssueRow
+                  key={`hr-${employee.id}`}
+                  title={`${employee.display_name} has an incomplete HR profile`}
+                  sub="Contract details, start date, phone, or emergency contact fields are missing."
+                  to={`/staff/${employee.id}`}
+                  tone="gold"
+                  cta="Complete"
+                />
+              ))}
+              {issues.incompleteHrProfiles.length === 0 && (
+                <div className="compact-note">No HR profile gaps found.</div>
+              )}
+            </SectionCard>
+          </div>
+        </>
       )}
     </div>
   )
