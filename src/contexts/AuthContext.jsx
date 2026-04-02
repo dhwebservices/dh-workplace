@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase, sbGet, sbGetMany } from '../utils/supabase'
 import { applyPortalAppearance, applyStoredPortalAppearance, getPortalPreferences } from '../utils/portalPreferences'
+import { getTenantForHostname } from '../utils/tenantDomains'
 
 const AuthContext = createContext(null)
 
@@ -12,6 +13,7 @@ export function AuthProvider({ children }) {
   const [employeePermissions, setEmployeePermissions] = useState(null)
   const [portalPreferences, setPortalPreferences] = useState(null)
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [hostTenant, setHostTenant] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -30,6 +32,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     applyPortalAppearance(portalPreferences, tenant?.primary_colour || null)
   }, [portalPreferences, tenant?.primary_colour])
+
+  useEffect(() => {
+    let active = true
+    const loadHostTenant = async () => {
+      if (typeof window === 'undefined') return
+      const match = await getTenantForHostname(window.location.hostname)
+      if (active) setHostTenant(match || null)
+    }
+    loadHostTenant()
+    return () => { active = false }
+  }, [])
 
   const loadUserContext = async (authUser) => {
     setUser(authUser)
@@ -84,7 +97,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, isPlatformAdmin, loading, signOut, refreshTenant, setPortalPreferences }}>
+    <AuthContext.Provider value={{ user, tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, isPlatformAdmin, hostTenant, loading, signOut, refreshTenant, setPortalPreferences }}>
       {children}
     </AuthContext.Provider>
   )

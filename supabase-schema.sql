@@ -19,6 +19,10 @@ create table tenants (
   id                    uuid primary key default gen_random_uuid(),
   name                  text not null,
   slug                  text unique not null,
+  custom_subdomain      text unique,
+  custom_domain         text unique,
+  domain_status         text default 'default' check (domain_status in ('default','subdomain_active','custom_pending','custom_active','error')),
+  domain_verified_at    timestamptz,
   plan                  text default 'starter' check (plan in ('starter','growth','business')),
   seat_limit            int default 5,
   logo_url              text,
@@ -566,3 +570,55 @@ create policy "portal_preferences_isolation" on portal_preferences
     tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid())
   );
+
+create table if not exists staff_schedule_entries (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants(id) on delete cascade not null,
+  employee_id uuid references employees(id) on delete cascade not null,
+  entry_date date not null,
+  start_time time,
+  end_time time,
+  is_available boolean default true,
+  is_bookable boolean default true,
+  location text,
+  notes text,
+  created_by uuid references tenant_users(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (employee_id, entry_date)
+);
+alter table staff_schedule_entries enable row level security;
+drop policy if exists staff_schedule_entries_isolation on staff_schedule_entries;
+create policy "staff_schedule_entries_isolation" on staff_schedule_entries
+  for all using (
+    tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid())
+  );
+
+create table if not exists appointments (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants(id) on delete cascade not null,
+  employee_id uuid references employees(id) on delete cascade not null,
+  client_id uuid references clients(id) on delete set null,
+  title text not null,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  status text default 'scheduled' check (status in ('scheduled','confirmed','completed','cancelled')),
+  location text,
+  notes text,
+  created_by uuid references tenant_users(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table appointments enable row level security;
+drop policy if exists appointments_isolation on appointments;
+create policy "appointments_isolation" on appointments
+  for all using (
+    tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid())
+  );
+
+create index if not exists idx_staff_schedule_entries_tenant_date on staff_schedule_entries(tenant_id, entry_date);
+create index if not exists idx_staff_schedule_entries_employee on staff_schedule_entries(employee_id);
+create index if not exists idx_appointments_tenant_start on appointments(tenant_id, starts_at);
+create index if not exists idx_appointments_employee on appointments(employee_id);

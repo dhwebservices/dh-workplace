@@ -1,23 +1,85 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { sbUpdate } from '../../utils/supabase'
 import { canManageWorkspaceSettings } from '../../utils/permissions'
 import { can } from '../../utils/entitlements'
 import { sendWebhookEvent } from '../../utils/webhooks'
+import { deriveSubdomainSuggestion, getTenantSubdomainUrl, isReservedSubdomain, isSubdomainAvailable, isValidCustomDomain, isValidSubdomain, normalizeDomain, normalizeSubdomain } from '../../utils/tenantDomains'
 
 export default function Settings() {
   const { tenant, tenantUser, employeePermissions, refreshTenant } = useAuth()
-  const [form, setForm] = useState({ name: tenant?.name||'', primary_colour: tenant?.primary_colour||'#0071E3', logo_url: tenant?.logo_url || '' })
+  const [form, setForm] = useState({
+    name: tenant?.name || '',
+    primary_colour: tenant?.primary_colour || '#0071E3',
+    logo_url: tenant?.logo_url || '',
+    custom_subdomain: tenant?.custom_subdomain || '',
+    custom_domain: tenant?.custom_domain || '',
+  })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [checkingSubdomain, setCheckingSubdomain] = useState(false)
+  const [subdomainFeedback, setSubdomainFeedback] = useState('')
   const canManage = canManageWorkspaceSettings({ role: tenantUser?.role, permissionRecord: employeePermissions })
   const canWhiteLabel = can(tenant, 'custom_branding')
 
+  useEffect(() => {
+    setForm({
+      name: tenant?.name || '',
+      primary_colour: tenant?.primary_colour || '#0071E3',
+      logo_url: tenant?.logo_url || '',
+      custom_subdomain: tenant?.custom_subdomain || '',
+      custom_domain: tenant?.custom_domain || '',
+    })
+  }, [tenant?.id, tenant?.name, tenant?.primary_colour, tenant?.logo_url, tenant?.custom_subdomain, tenant?.custom_domain])
+
+  const normalizedSubdomain = useMemo(() => normalizeSubdomain(form.custom_subdomain), [form.custom_subdomain])
+  const normalizedCustomDomain = useMemo(() => normalizeDomain(form.custom_domain), [form.custom_domain])
+  const suggestedSubdomain = useMemo(() => deriveSubdomainSuggestion(tenant), [tenant])
+  const subdomainPreview = useMemo(() => getTenantSubdomainUrl(normalizedSubdomain || suggestedSubdomain), [normalizedSubdomain, suggestedSubdomain])
+
+  const validateSubdomain = async (value = normalizedSubdomain) => {
+    const normalized = normalizeSubdomain(value)
+    if (!normalized) {
+      setSubdomainFeedback('Set a tenant URL or keep using the main app domain.')
+      return true
+    }
+    if (!isValidSubdomain(normalized)) {
+      setSubdomainFeedback(isReservedSubdomain(normalized)
+        ? 'That URL is reserved. Choose a different subdomain.'
+        : 'Use at least 3 characters with letters, numbers, or hyphens only.')
+      return false
+    }
+    setCheckingSubdomain(true)
+    const available = await isSubdomainAvailable(normalized, tenant?.id)
+    setCheckingSubdomain(false)
+    setSubdomainFeedback(available ? 'This tenant URL is available.' : 'That tenant URL is already in use.')
+    return available
+  }
+
   const save = async () => {
     if (!canManage) return
+    const hasValidSubdomain = await validateSubdomain()
+    if (!hasValidSubdomain) return
+    if (normalizedCustomDomain && !isValidCustomDomain(normalizedCustomDomain)) {
+      alert('Enter a valid custom domain, for example portal.yourbusiness.co.uk')
+      return
+    }
     setSaving(true)
     try {
-      await sbUpdate('tenants', `id=eq.${tenant.id}`, { name:form.name, primary_colour:form.primary_colour, logo_url: form.logo_url || null, updated_at:new Date().toISOString() })
+      const domainStatus = normalizedCustomDomain
+        ? 'custom_pending'
+        : normalizedSubdomain
+          ? 'subdomain_active'
+          : 'default'
+      await sbUpdate('tenants', `id=eq.${tenant.id}`, {
+        name: form.name,
+        primary_colour: form.primary_colour,
+        logo_url: form.logo_url || null,
+        custom_subdomain: normalizedSubdomain || null,
+        custom_domain: normalizedCustomDomain || null,
+        domain_status: domainStatus,
+        updated_at: new Date().toISOString(),
+      })
       sendWebhookEvent({
         tenantId: tenant.id,
         event: 'tenant.updated',
@@ -25,6 +87,9 @@ export default function Settings() {
           name: form.name,
           primary_colour: form.primary_colour,
           logo_url: form.logo_url || null,
+          custom_subdomain: normalizedSubdomain || null,
+          custom_domain: normalizedCustomDomain || null,
+          domain_status: domainStatus,
         },
       })
       await refreshTenant()
@@ -44,7 +109,7 @@ export default function Settings() {
         </div>
         {saved&&<span style={{fontSize:13,color:'var(--green)'}}>Saved</span>}
       </div>
-      <div className="compact-note">Manage your workspace identity, colour, plan visibility, and commercial settings from one page.</div>
+      <div className="compact-note">Manage your workspace identity, colour, tenant URL, and commercial settings from one page.</div>
       <div style={{maxWidth:560,display:'flex',flexDirection:'column',gap:20}}>
         <div className="card card-pad">
           <div className="section-head">
@@ -61,6 +126,65 @@ export default function Settings() {
                 <input className="inp" value={form.primary_colour} disabled={!canManage} onChange={e=>setForm(p=>({...p,primary_colour:e.target.value}))} style={{fontFamily:'var(--font-mono)',maxWidth:120}}/>
               </div>
               <div style={{fontSize:12,color:'var(--faint)',marginTop:6}}>Used for workspace accents and preview styling.</div>
+            </div>
+          </div>
+        </div>
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Workspace domain</h3>
+              <div className="panel-sub">Give this workspace its own DH Workplace URL now, and optionally add a customer-owned domain later.</div>
+            </div>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <label className="lbl">Tenant URL on DH Workplace</label>
+              <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:10,alignItems:'center'}}>
+                <input
+                  className="inp"
+                  value={form.custom_subdomain}
+                  disabled={!canManage}
+                  placeholder={suggestedSubdomain || 'yourbusiness'}
+                  onChange={e=>setForm(p=>({...p,custom_subdomain:e.target.value}))}
+                  onBlur={() => { validateSubdomain(form.custom_subdomain) }}
+                />
+                <span style={{fontSize:12,color:'var(--faint)',whiteSpace:'nowrap'}}>.dhworkplace.co.uk</span>
+              </div>
+              <div style={{fontSize:12,color:'var(--faint)',marginTop:6}}>
+                Recommended for most customers. Example: <span style={{fontFamily:'var(--font-mono)'}}>{subdomainPreview || 'https://yourbusiness.dhworkplace.co.uk'}</span>
+              </div>
+              <div style={{fontSize:12,color:checkingSubdomain ? 'var(--blue)' : subdomainFeedback.includes('available') ? 'var(--green)' : 'var(--faint)',marginTop:6}}>
+                {checkingSubdomain ? 'Checking availability…' : (subdomainFeedback || 'Use letters, numbers, and hyphens only.')}
+              </div>
+            </div>
+            <div>
+              <label className="lbl">Customer-owned domain</label>
+              <input
+                className="inp"
+                value={form.custom_domain}
+                disabled={!canManage}
+                placeholder="portal.yourbusiness.co.uk"
+                onChange={e=>setForm(p=>({...p,custom_domain:e.target.value}))}
+              />
+              <div style={{fontSize:12,color:'var(--faint)',marginTop:6}}>
+                Optional. Save the domain now and we can complete DNS and Cloudflare hostname activation in the next phase.
+              </div>
+            </div>
+            <div style={{border:'1px solid var(--border)',borderRadius:12,padding:14,background:'var(--surface-strong)'}}>
+              <div style={{fontSize:12,color:'var(--faint)',marginBottom:10,textTransform:'uppercase',letterSpacing:'0.08em'}}>Live routing state</div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <div className="detail-row">
+                  <span className="detail-row-label">Current app URL</span>
+                  <span className="detail-row-value">{tenant?.custom_domain || tenant?.custom_subdomain ? (tenant?.custom_domain || getTenantSubdomainUrl(tenant?.custom_subdomain)) : 'https://app.dhworkplace.co.uk'}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-row-label">Domain status</span>
+                  <span className="badge badge-blue" style={{textTransform:'capitalize'}}>{(tenant?.domain_status || 'default').replace('_',' ')}</span>
+                </div>
+                <div style={{fontSize:12,color:'var(--faint)'}}>
+                  Subdomains on <span style={{fontFamily:'var(--font-mono)'}}>dhworkplace.co.uk</span> can be activated immediately. Customer-owned domains are stored now and can be verified in the Cloudflare custom-hostname phase.
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -99,7 +223,6 @@ export default function Settings() {
               </div>
             </div>
           </div>
-          {canManage&&<button className="btn btn-primary" style={{marginTop:20}} onClick={save} disabled={saving}>{saving?'Saving...':'Save Changes'}</button>}
         </div>
         <div className="card card-pad">
           <div className="section-head">
@@ -123,6 +246,7 @@ export default function Settings() {
           </div>
         </div>
       </div>
+      {canManage&&<button className="btn btn-primary" style={{marginTop:20,alignSelf:'flex-start'}} onClick={save} disabled={saving || checkingSubdomain}>{saving?'Saving...':'Save Changes'}</button>}
     </div>
   )
 }
