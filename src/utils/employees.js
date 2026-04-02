@@ -262,6 +262,91 @@ export async function getEmployeeByIdentifier(tenantId, identifier) {
   }
 }
 
+export async function getEmployeeSafeguards(tenantId) {
+  const [employees, tenantUsers, hrProfiles, permissions] = await Promise.all([
+    listEmployees(tenantId),
+    sbGetMany('tenant_users', `tenant_id=eq.${tenantId}&order=full_name.asc`),
+    sbGetMany('hr_profiles', `tenant_id=eq.${tenantId}`),
+    sbGetMany('employee_permissions', `tenant_id=eq.${tenantId}`),
+  ])
+
+  const normalizedEmailMap = new Map()
+  const duplicateIdentities = []
+  const missingManagers = []
+  const incompleteHrProfiles = []
+  const sharedMailboxAsPerson = []
+  const missingPermissions = []
+  const tenantUsersMissingEmployee = []
+  const staleOnboarding = []
+
+  const employeeByTenantUser = new Map((employees || []).map(employee => [employee.tenant_user_id, employee]))
+  const hrByTenantUser = new Map((hrProfiles || []).filter(Boolean).map(profile => [profile.tenant_user_id, profile]))
+  const permissionsByEmployee = new Map((permissions || []).map(permission => [permission.employee_id, permission]))
+
+  for (const employee of employees || []) {
+    const email = normalizeEmail(employee.primary_email)
+    if (email) {
+      const seen = normalizedEmailMap.get(email) || []
+      seen.push(employee)
+      normalizedEmailMap.set(email, seen)
+    }
+
+    if (employee.is_person && employee.is_shared_mailbox) {
+      sharedMailboxAsPerson.push(employee)
+    }
+
+    if (employee.is_person && !permissionsByEmployee.get(employee.id)) {
+      missingPermissions.push(employee)
+    }
+
+    const hrProfile = employee.hr_profile || hrByTenantUser.get(employee.tenant_user_id)
+    const needsManager = employee.status === 'active' && ['staff', 'manager'].includes(employee.permissions?.role_preset || employee.tenant_user?.role || 'staff')
+    if (needsManager && !employee.manager_employee_id) {
+      missingManagers.push(employee)
+    }
+
+    const missingHrFields = [
+      hrProfile?.contract_type,
+      hrProfile?.start_date,
+      hrProfile?.phone,
+      hrProfile?.emergency_name,
+    ].filter(Boolean).length
+    if (employee.is_person && employee.status !== 'suspended' && missingHrFields < 3) {
+      incompleteHrProfiles.push(employee)
+    }
+
+    if (employee.onboarding_mode) {
+      const referenceDate = employee.tenant_user?.created_at || employee.created_at
+      const ageDays = referenceDate ? Math.floor((Date.now() - new Date(referenceDate).getTime()) / 86400000) : 0
+      if (ageDays >= 7) staleOnboarding.push({ ...employee, ageDays })
+    }
+  }
+
+  for (const tenantUser of tenantUsers || []) {
+    const sharedMailbox = isLikelySharedMailbox(tenantUser.email, tenantUser.full_name)
+    if (!employeeByTenantUser.get(tenantUser.id) && !sharedMailbox) {
+      tenantUsersMissingEmployee.push(tenantUser)
+    }
+  }
+
+  for (const [, records] of normalizedEmailMap.entries()) {
+    if (records.length > 1) {
+      duplicateIdentities.push(records)
+    }
+  }
+
+  return {
+    employees,
+    duplicateIdentities,
+    missingManagers,
+    incompleteHrProfiles,
+    sharedMailboxAsPerson,
+    missingPermissions,
+    tenantUsersMissingEmployee,
+    staleOnboarding,
+  }
+}
+
 export async function saveEmployeePermissions({ permissionId, tenantId, employeeId, rolePreset, onboardingOnly, pageOverrides = {} }) {
   const payload = {
     tenant_id: tenantId,
