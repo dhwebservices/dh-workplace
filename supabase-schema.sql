@@ -193,12 +193,29 @@ create table documents (
   file_url      text,
   file_path     text,
   visible_to    text default 'all' check (visible_to in ('all','managers','owner')),
+  employee_id   uuid references employees(id) on delete set null,
+  expires_at    timestamptz,
+  requires_acknowledgement boolean default false,
   tenant_user_id uuid references tenant_users(id),
   uploaded_by   uuid references tenant_users(id),
   created_at    timestamptz default now()
 );
 alter table documents enable row level security;
 create policy "documents_isolation" on documents
+  for all using (tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid()));
+
+create table document_acknowledgements (
+  id            uuid primary key default gen_random_uuid(),
+  tenant_id     uuid references tenants(id) on delete cascade not null,
+  document_id   uuid references documents(id) on delete cascade not null,
+  tenant_user_id uuid references tenant_users(id) on delete cascade not null,
+  acknowledged_at timestamptz default now(),
+  created_at    timestamptz default now(),
+  unique (document_id, tenant_user_id)
+);
+alter table document_acknowledgements enable row level security;
+create policy "document_acknowledgements_isolation" on document_acknowledgements
   for all using (tenant_id = get_tenant_id()
     or exists (select 1 from platform_admins where user_id = auth.uid()));
 
@@ -456,6 +473,9 @@ create index if not exists idx_leave_tenant_id on leave_requests(tenant_id);
 create index if not exists idx_notifications_user_id on notifications(tenant_user_id);
 create index if not exists idx_notifications_tenant_created_at on notifications(tenant_id, created_at desc);
 create index if not exists idx_notifications_read_state on notifications(tenant_user_id, read);
+create index if not exists idx_documents_employee_id on documents(employee_id);
+create index if not exists idx_documents_expires_at on documents(expires_at);
+create index if not exists idx_document_acknowledgements_document_id on document_acknowledgements(document_id);
 create index if not exists idx_banners_tenant_id on banners(tenant_id);
 create index if not exists idx_banners_target_employee on banners(target_employee_id);
 create index if not exists idx_audit_tenant_id on audit_log(tenant_id);
@@ -479,6 +499,25 @@ alter table notifications add column if not exists is_pinned boolean default fal
 alter table notifications add column if not exists sent_via_email boolean default false;
 alter table notifications add column if not exists created_by uuid references tenant_users(id);
 alter table notifications add column if not exists read_at timestamptz;
+alter table documents add column if not exists employee_id uuid references employees(id) on delete set null;
+alter table documents add column if not exists expires_at timestamptz;
+alter table documents add column if not exists requires_acknowledgement boolean default false;
+create table if not exists document_acknowledgements (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid references tenants(id) on delete cascade not null,
+  document_id uuid references documents(id) on delete cascade not null,
+  tenant_user_id uuid references tenant_users(id) on delete cascade not null,
+  acknowledged_at timestamptz default now(),
+  created_at timestamptz default now(),
+  unique (document_id, tenant_user_id)
+);
+alter table document_acknowledgements enable row level security;
+drop policy if exists document_acknowledgements_isolation on document_acknowledgements;
+create policy "document_acknowledgements_isolation" on document_acknowledgements
+  for all using (
+    tenant_id = get_tenant_id()
+    or exists (select 1 from platform_admins where user_id = auth.uid())
+  );
 create table if not exists banners (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid references tenants(id) on delete cascade not null,
