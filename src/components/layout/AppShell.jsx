@@ -14,6 +14,7 @@ const NAV = [
   ]},
   { label: 'HR', items: [
     { to: '/staff', label: 'Staff Directory', feature: 'hr_directory' },
+    { to: '/org-chart', label: 'Org Chart', feature: 'hr_directory' },
     { to: '/leave', label: 'Leave', feature: 'hr_leave' },
     { to: '/documents', label: 'Documents', feature: 'hr_documents' },
     { to: '/policies', label: 'Policies', feature: 'hr_documents' },

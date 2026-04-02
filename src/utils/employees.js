@@ -384,3 +384,30 @@ export async function updateEmployeeLifecycle(employee, nextStatus) {
     updated_at: new Date().toISOString(),
   })
 }
+
+export function buildOrgChart(employees = []) {
+  const people = (employees || []).filter((employee) => employee.is_person && !employee.is_shared_mailbox)
+  const childrenByManager = new Map()
+
+  for (const employee of people) {
+    const key = employee.manager_employee_id || 'root'
+    if (!childrenByManager.has(key)) childrenByManager.set(key, [])
+    childrenByManager.get(key).push(employee)
+  }
+
+  const roots = [
+    ...(childrenByManager.get('root') || []),
+    ...people.filter((employee) => employee.manager_employee_id && !people.find((candidate) => candidate.id === employee.manager_employee_id)),
+  ]
+    .filter((employee, index, list) => list.findIndex((item) => item.id === employee.id) === index)
+    .sort((a, b) => String(a.display_name || '').localeCompare(String(b.display_name || '')))
+
+  function branch(employee) {
+    const children = [...(childrenByManager.get(employee.id) || [])]
+      .sort((a, b) => String(a.display_name || '').localeCompare(String(b.display_name || '')))
+      .map(branch)
+    return { ...employee, children }
+  }
+
+  return roots.map(branch)
+}

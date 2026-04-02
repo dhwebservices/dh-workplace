@@ -18,6 +18,7 @@ const AppShell = lazy(() => import('./components/layout/AppShell'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const PaymentWall = lazy(() => import('./pages/PaymentWall'))
 const StaffDirectory = lazy(() => import('./pages/hr/StaffDirectory'))
+const OrgChart = lazy(() => import('./pages/hr/OrgChart'))
 const StaffProfile = lazy(() => import('./pages/hr/StaffProfile'))
 const LeaveRequests = lazy(() => import('./pages/hr/LeaveRequests'))
 const Documents = lazy(() => import('./pages/hr/Documents'))
@@ -121,6 +122,7 @@ export default function App() {
 
           {/* HR */}
           <Route path="staff"              element={<StaffDirectory />} />
+          <Route path="org-chart"          element={<OrgChart />} />
           <Route path="staff/:userId"      element={<StaffProfile />} />
           <Route path="leave"              element={<LeaveRequests />} />
           <Route path="documents"          element={<Documents />} />
