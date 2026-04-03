@@ -254,12 +254,15 @@ export async function getEmployeeByIdentifier(tenantId, identifier) {
   const notifications = match.tenant_user_id
     ? await sbGetMany('notifications', `tenant_id=eq.${tenantId}&tenant_user_id=eq.${match.tenant_user_id}&order=created_at.desc&limit=20`)
     : []
+  const documents = await sbGetMany('documents', `tenant_id=eq.${tenantId}&employee_id=eq.${match.id}&order=created_at.desc`)
 
   const directReports = employees.filter(employee => employee.manager_employee_id === match.id)
 
   return {
     ...match,
     notifications: notifications || [],
+    documents: documents || [],
+    payslips: (documents || []).filter(document => document.category === 'payslip'),
     direct_reports: directReports,
     manager: employees.find(employee => employee.id === match.manager_employee_id) || null,
   }
@@ -375,6 +378,37 @@ export async function saveEmployeeProfile(employeeId, payload) {
     ...payload,
     updated_at: new Date().toISOString(),
   })
+}
+
+export async function saveEmployeeHrProfile({ employee, tenantId, values }) {
+  const payload = {
+    tenant_id: tenantId,
+    employee_id: employee.id,
+    tenant_user_id: employee.tenant_user_id || null,
+    contract_type: values.contract_type || null,
+    start_date: values.start_date || null,
+    manager_id: values.manager_id || null,
+    phone: values.phone || null,
+    personal_email: values.personal_email || null,
+    address: values.address || null,
+    emergency_name: values.emergency_name || null,
+    emergency_phone: values.emergency_phone || null,
+    bank_name: values.bank_name || null,
+    account_name: values.account_name || null,
+    sort_code: values.sort_code || null,
+    account_number: values.account_number || null,
+    hr_notes: values.hr_notes || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (employee.hr_profile?.id) {
+    await sbUpdate('hr_profiles', `id=eq.${employee.hr_profile.id}`, payload)
+  } else {
+    await sbInsert('hr_profiles', {
+      ...payload,
+      created_at: new Date().toISOString(),
+    })
+  }
 }
 
 export async function updateEmployeeLifecycle(employee, nextStatus) {

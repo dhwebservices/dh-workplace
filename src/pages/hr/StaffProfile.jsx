@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { PAGE_PERMISSION_GROUPS, canManageStaffAccess, getPermissionOverrideDefaults, visibleStaffProfileTabs } from '../../utils/permissions'
-import { getEmployeeByIdentifier, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
+import { getEmployeeByIdentifier, saveEmployeeHrProfile, saveEmployeePermissions, saveEmployeeProfile, updateEmployeeLifecycle } from '../../utils/employees'
 import { sendCustomNotification } from '../../utils/notifications'
 import PortalPreferencesEditor from '../../components/portal/PortalPreferencesEditor'
 import { applyPortalAppearance, savePortalPreferences, sanitizePortalPreferences } from '../../utils/portalPreferences'
@@ -10,12 +10,16 @@ import { applyPortalAppearance, savePortalPreferences, sanitizePortalPreferences
 const TABS = [
   ['profile', 'Profile'],
   ['hr', 'HR details'],
+  ['bank', 'Bank details'],
   ['permissions', 'Permissions'],
+  ['documents', 'Documents'],
+  ['payslips', 'Payslips'],
   ['manager', 'Manager summary'],
   ['portal', 'Portal'],
   ['onboarding', 'Onboarding'],
   ['lifecycle', 'Lifecycle'],
   ['notifications', 'Notifications'],
+  ['history', 'Notification history'],
 ]
 
 function InfoRow({ label, value, mono = false }) {
@@ -36,6 +40,21 @@ export default function StaffProfile() {
   const [tab, setTab] = useState('profile')
   const [saving, setSaving] = useState(false)
   const [profileForm, setProfileForm] = useState({ display_name: '', job_title: '', department: '', primary_email: '' })
+  const [hrForm, setHrForm] = useState({
+    contract_type: '',
+    start_date: '',
+    manager_id: '',
+    phone: '',
+    personal_email: '',
+    address: '',
+    emergency_name: '',
+    emergency_phone: '',
+    bank_name: '',
+    account_name: '',
+    sort_code: '',
+    account_number: '',
+    hr_notes: '',
+  })
   const [permissionForm, setPermissionForm] = useState({ role_preset: 'staff', onboarding_only: false, page_overrides: {} })
   const [portalForm, setPortalForm] = useState(null)
   const [notificationForm, setNotificationForm] = useState({
@@ -59,6 +78,21 @@ export default function StaffProfile() {
       department: data?.department || '',
       primary_email: data?.primary_email || '',
     })
+    setHrForm({
+      contract_type: data?.hr_profile?.contract_type || '',
+      start_date: data?.hr_profile?.start_date || '',
+      manager_id: data?.hr_profile?.manager_id || data?.manager?.tenant_user_id || '',
+      phone: data?.hr_profile?.phone || '',
+      personal_email: data?.hr_profile?.personal_email || '',
+      address: data?.hr_profile?.address || '',
+      emergency_name: data?.hr_profile?.emergency_name || '',
+      emergency_phone: data?.hr_profile?.emergency_phone || '',
+      bank_name: data?.hr_profile?.bank_name || '',
+      account_name: data?.hr_profile?.account_name || '',
+      sort_code: data?.hr_profile?.sort_code || '',
+      account_number: data?.hr_profile?.account_number || '',
+      hr_notes: data?.hr_profile?.hr_notes || '',
+    })
     setPermissionForm({
       role_preset: data?.permissions?.role_preset || data?.tenant_user?.role || 'staff',
       onboarding_only: !!(data?.permissions?.onboarding_only || data?.onboarding_mode),
@@ -81,6 +115,8 @@ export default function StaffProfile() {
 
   const directReports = employee?.direct_reports || []
   const notifications = employee?.notifications || []
+  const employeeDocuments = employee?.documents || []
+  const employeePayslips = employee?.payslips || []
   const allowedTabs = visibleStaffProfileTabs(employeePermissions, canManage)
   const safeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0]
   const staffSelfPaths = [employee?.id, employee?.tenant_user_id, employee?.tenant_user?.user_id].filter(Boolean).map((identifier) => `/staff/${identifier}`)
@@ -92,6 +128,23 @@ export default function StaffProfile() {
       await saveEmployeeProfile(employee.id, profileForm)
       await load()
       alert('Profile updated.')
+    } catch (error) {
+      alert(error.message)
+    }
+    setSaving(false)
+  }
+
+  const saveHr = async () => {
+    if (!employee?.id) return
+    setSaving(true)
+    try {
+      await saveEmployeeHrProfile({
+        employee,
+        tenantId: tenant.id,
+        values: hrForm,
+      })
+      await load()
+      alert('HR details updated.')
     } catch (error) {
       alert(error.message)
     }
@@ -191,6 +244,14 @@ export default function StaffProfile() {
     setSaving(false)
   }
 
+  const managers = useMemo(() => {
+    const map = new Map()
+    ;[employee?.manager, ...(directReports || [])].filter(Boolean).forEach((person) => {
+      if (person?.tenant_user_id) map.set(person.tenant_user_id, person)
+    })
+    return Array.from(map.values())
+  }, [employee?.manager, directReports])
+
   if (loading) return <div className="spin-wrap"><div className="spin" /></div>
   if (!employee) return <div className="card card-pad"><p style={{ color: 'var(--faint)' }}>Employee not found.</p></div>
   if (!canManage && !viewingOwnProfile) return <div className="card card-pad"><p style={{ color: 'var(--faint)' }}>You can only view your own profile.</p></div>
@@ -287,19 +348,83 @@ export default function StaffProfile() {
           <div className="section-head">
             <div>
               <h3 className="panel-title">HR details</h3>
-              <div className="panel-sub">Current HR profile data linked to this canonical employee record.</div>
+              <div className="panel-sub">Operational HR data linked to this canonical employee record.</div>
             </div>
           </div>
-          <div style={{ display: 'grid', gap: 2 }}>
-            <InfoRow label="Contract type" value={employee.hr_profile?.contract_type} />
-            <InfoRow label="Start date" value={employee.hr_profile?.start_date} />
-            <InfoRow label="Phone" value={employee.hr_profile?.phone} />
-            <InfoRow label="Personal email" value={employee.hr_profile?.personal_email} />
-            <InfoRow label="Address" value={employee.hr_profile?.address} />
-            <InfoRow label="Emergency contact" value={employee.hr_profile?.emergency_name} />
-            <InfoRow label="Emergency phone" value={employee.hr_profile?.emergency_phone} />
-            <InfoRow label="Bank details" value={employee.hr_profile?.bank_name ? 'Captured' : 'Not captured'} />
+          <div className="fg" style={{ marginBottom: 18 }}>
+            <div>
+              <label className="lbl">Contract type</label>
+              <input className="inp" value={hrForm.contract_type} onChange={e => setHrForm(prev => ({ ...prev, contract_type: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Start date</label>
+              <input className="inp" type="date" value={hrForm.start_date} onChange={e => setHrForm(prev => ({ ...prev, start_date: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Phone</label>
+              <input className="inp" value={hrForm.phone} onChange={e => setHrForm(prev => ({ ...prev, phone: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Personal email</label>
+              <input className="inp" value={hrForm.personal_email} onChange={e => setHrForm(prev => ({ ...prev, personal_email: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div className="fc" style={{ gridColumn: '1 / -1' }}>
+              <label className="lbl">Address</label>
+              <textarea className="inp" rows="3" value={hrForm.address} onChange={e => setHrForm(prev => ({ ...prev, address: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Emergency contact</label>
+              <input className="inp" value={hrForm.emergency_name} onChange={e => setHrForm(prev => ({ ...prev, emergency_name: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Emergency phone</label>
+              <input className="inp" value={hrForm.emergency_phone} onChange={e => setHrForm(prev => ({ ...prev, emergency_phone: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div className="fc" style={{ gridColumn: '1 / -1' }}>
+              <label className="lbl">HR notes</label>
+              <textarea className="inp" rows="4" value={hrForm.hr_notes} onChange={e => setHrForm(prev => ({ ...prev, hr_notes: e.target.value }))} disabled={!canManage} />
+            </div>
           </div>
+          {canManage && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm" onClick={saveHr} disabled={saving}>Save HR details</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {safeTab === 'bank' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Bank details</h3>
+              <div className="panel-sub">Payroll-adjacent bank information captured against the employee’s HR profile.</div>
+            </div>
+          </div>
+          <div className="fg" style={{ marginBottom: 18 }}>
+            <div>
+              <label className="lbl">Bank name</label>
+              <input className="inp" value={hrForm.bank_name} onChange={e => setHrForm(prev => ({ ...prev, bank_name: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Account name</label>
+              <input className="inp" value={hrForm.account_name} onChange={e => setHrForm(prev => ({ ...prev, account_name: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Sort code</label>
+              <input className="inp" value={hrForm.sort_code} onChange={e => setHrForm(prev => ({ ...prev, sort_code: e.target.value }))} disabled={!canManage} />
+            </div>
+            <div>
+              <label className="lbl">Account number</label>
+              <input className="inp" value={hrForm.account_number} onChange={e => setHrForm(prev => ({ ...prev, account_number: e.target.value }))} disabled={!canManage} />
+            </div>
+          </div>
+          <div className="compact-note">Keep sensitive data here rather than scattering it across onboarding notes or ad hoc documents.</div>
+          {canManage && (
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary btn-sm" onClick={saveHr} disabled={saving}>Save bank details</button>
+            </div>
+          )}
         </div>
       )}
 
@@ -392,6 +517,65 @@ export default function StaffProfile() {
         </div>
       )}
 
+      {safeTab === 'documents' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Documents</h3>
+              <div className="panel-sub">Employee-linked files kept directly on this profile for faster admin review.</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {employeeDocuments.length ? employeeDocuments.map((doc) => (
+              <div key={doc.id} className="detail-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{doc.name}</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                      <span className="badge badge-grey" style={{ textTransform: 'capitalize' }}>{doc.category}</span>
+                      {doc.requires_acknowledgement && <span className="badge badge-blue">Ack required</span>}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--faint)' }}>{new Date(doc.created_at).toLocaleDateString('en-GB')}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a href={doc.file_url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">View</a>
+                  <a href={doc.file_url} download={doc.name} className="btn btn-outline btn-sm">Download</a>
+                </div>
+              </div>
+            )) : <div className="compact-note">No employee-linked documents yet.</div>}
+          </div>
+        </div>
+      )}
+
+      {safeTab === 'payslips' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Payslips</h3>
+              <div className="panel-sub">A focused payroll document view so admins do not need to filter the full document centre.</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {employeePayslips.length ? employeePayslips.map((doc) => (
+              <div key={doc.id} className="detail-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>{doc.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 4 }}>{new Date(doc.created_at).toLocaleDateString('en-GB')}</div>
+                  </div>
+                  <span className="badge badge-green">Payslip</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a href={doc.file_url} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm">View</a>
+                  <a href={doc.file_url} download={doc.name} className="btn btn-outline btn-sm">Download</a>
+                </div>
+              </div>
+            )) : <div className="compact-note">No payslips linked to this employee yet.</div>}
+          </div>
+        </div>
+      )}
+
       {safeTab === 'portal' && portalForm && (
         <div className="card card-pad">
           <PortalPreferencesEditor
@@ -455,7 +639,7 @@ export default function StaffProfile() {
           <div className="section-head">
             <div>
               <h3 className="panel-title">Notifications</h3>
-              <div className="panel-sub">Send targeted updates to this employee and keep a clear history of what reached their portal and inbox.</div>
+              <div className="panel-sub">Send targeted portal and email updates directly from the employee control centre.</div>
             </div>
           </div>
           {canManage && (
@@ -498,6 +682,17 @@ export default function StaffProfile() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {safeTab === 'history' && (
+        <div className="card card-pad">
+          <div className="section-head">
+            <div>
+              <h3 className="panel-title">Notification history</h3>
+              <div className="panel-sub">A clean audit trail of what this employee has already received in their portal and inbox.</div>
+            </div>
+          </div>
           <div style={{ display: 'grid', gap: 12 }}>
             {notifications.length ? notifications.map(note => (
               <div key={note.id} className="detail-card">

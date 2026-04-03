@@ -16,6 +16,7 @@ export const PAGE_PERMISSION_GROUPS = [
     label: 'HR and people',
     items: [
       { key: 'hr_directory', label: 'Staff directory and org chart', paths: ['/staff', '/org-chart'] },
+      { key: 'hr_schedule', label: 'Schedule and appointments', paths: ['/schedule', '/appointments'] },
       { key: 'hr_leave', label: 'Leave', paths: ['/leave'] },
       { key: 'hr_documents', label: 'Documents and policies', paths: ['/documents', '/policies'] },
       { key: 'hr_timesheets', label: 'Timesheets', paths: ['/timesheets'] },
@@ -60,6 +61,7 @@ const ROLE_PRESET_ACCESS = {
     portal: true,
     notifications: true,
     hr_directory: true,
+    hr_schedule: true,
     hr_leave: true,
     hr_documents: true,
     hr_timesheets: true,
@@ -88,6 +90,7 @@ const ROLE_PRESET_ACCESS = {
     portal: true,
     notifications: true,
     hr_directory: true,
+    hr_schedule: true,
     hr_leave: true,
     hr_documents: true,
     hr_timesheets: true,
@@ -116,6 +119,7 @@ const ROLE_PRESET_ACCESS = {
     portal: true,
     notifications: true,
     hr_directory: true,
+    hr_schedule: true,
     hr_leave: true,
     hr_documents: true,
     hr_timesheets: true,
@@ -144,6 +148,7 @@ const ROLE_PRESET_ACCESS = {
     portal: true,
     notifications: true,
     hr_directory: true,
+    hr_schedule: true,
     hr_leave: true,
     hr_documents: true,
     hr_timesheets: true,
@@ -172,6 +177,7 @@ const ROLE_PRESET_ACCESS = {
     portal: false,
     notifications: false,
     hr_directory: false,
+    hr_schedule: false,
     hr_leave: false,
     hr_documents: false,
     hr_timesheets: false,
@@ -253,9 +259,9 @@ export function canAccessNavItem(item, { permissionRecord, fallbackRole = 'staff
 }
 
 export function visibleStaffProfileTabs(permissionRecord, canManage) {
-  if (isOnboardingOnlyMode(permissionRecord)) return ['profile', 'onboarding', 'notifications']
-  if (canManage) return ['profile', 'hr', 'permissions', 'manager', 'portal', 'onboarding', 'lifecycle', 'notifications']
-  return ['profile', 'portal', 'notifications']
+  if (isOnboardingOnlyMode(permissionRecord)) return ['profile', 'onboarding', 'notifications', 'history']
+  if (canManage) return ['profile', 'hr', 'bank', 'permissions', 'documents', 'payslips', 'manager', 'portal', 'onboarding', 'lifecycle', 'notifications', 'history']
+  return ['profile', 'portal', 'documents', 'payslips', 'notifications', 'history']
 }
 
 export function hasRoleAtLeast(role, minimumRole) {
