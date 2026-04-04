@@ -15,6 +15,8 @@ export const ACCENT_SCHEMES = [
 export const LANDING_PAGE_OPTIONS = [
   { id: 'dashboard', label: 'Dashboard', path: '/' },
   { id: 'notifications', label: 'Notifications', path: '/notifications' },
+  { id: 'schedule', label: 'Schedule', path: '/schedule' },
+  { id: 'appointments', label: 'Appointments', path: '/appointments' },
   { id: 'tasks', label: 'My tasks', path: '/tasks' },
   { id: 'clients', label: 'Clients', path: '/clients' },
   { id: 'leave', label: 'Leave', path: '/leave' },
@@ -25,6 +27,8 @@ export const LANDING_PAGE_OPTIONS = [
 export const QUICK_ACTION_OPTIONS = [
   { id: 'tasks', label: 'My Tasks', path: '/tasks' },
   { id: 'notifications', label: 'Notifications', path: '/notifications' },
+  { id: 'schedule', label: 'Schedule', path: '/schedule' },
+  { id: 'appointments', label: 'Appointments', path: '/appointments' },
   { id: 'timesheets', label: 'Timesheets', path: '/timesheets' },
   { id: 'leave', label: 'Leave', path: '/leave' },
   { id: 'clients', label: 'Clients', path: '/clients' },
@@ -34,6 +38,7 @@ export const QUICK_ACTION_OPTIONS = [
 ]
 
 export const DASHBOARD_SECTIONS = [
+  { id: 'today', label: 'Today at a glance' },
   { id: 'metrics', label: 'Key metrics' },
   { id: 'quick_actions', label: 'Pinned quick actions' },
   { id: 'workspace', label: 'Workspace summary' },

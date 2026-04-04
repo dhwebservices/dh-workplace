@@ -18,7 +18,16 @@ function formatDate(value) {
 export default function Dashboard() {
   const { tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, setPortalPreferences, refreshTenant } = useAuth()
   const [stats, setStats] = useState({ staff: 0, clients: 0, tasks: 0, leaves: 0, unread: 0 })
-  const [signals, setSignals] = useState({ onboarding: 0, overdueInvoices: 0, policies: 0, unapprovedTimesheets: 0 })
+  const [signals, setSignals] = useState({
+    onboarding: 0,
+    overdueInvoices: 0,
+    policies: 0,
+    unapprovedTimesheets: 0,
+    urgentAlerts: 0,
+    highPriorityTasks: 0,
+    todayAppointments: 0,
+    staffingGaps: 0,
+  })
   const [loading, setLoading] = useState(true)
   const [personaliseOpen, setPersonaliseOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -31,17 +40,32 @@ export default function Dashboard() {
   useEffect(() => {
     if (!tenant?.id || !tenantUser?.id) return
     const tid = `tenant_id=eq.${tenant.id}`
+    const today = new Date()
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+    const weekStart = new Date(startOfToday)
+    const day = weekStart.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    weekStart.setDate(weekStart.getDate() + diff)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekEnd.getDate() + 6)
+    weekEnd.setHours(23, 59, 59, 999)
     Promise.all([
       sbGetMany('tenant_users', tid),
+      sbGetMany('employees', `${tid}`),
+      sbGetMany('hr_profiles', `${tid}`),
       sbGetMany('clients', tid),
       sbGetMany('tasks', `${tid}&status=neq.done`),
       sbGetMany('leave_requests', `${tid}&status=eq.pending`),
       sbGetMany('notifications', `${tid}&tenant_user_id=eq.${tenantUser.id}&read=is.false`),
+      sbGetMany('notifications', `${tid}&read=is.false&is_urgent=is.true`),
       sbGetMany('invoices', `${tid}&status=in.(unpaid,overdue)`),
       sbGetMany('document_acknowledgements', `${tid}`),
       sbGetMany('documents', `${tid}&requires_acknowledgement=is.true`),
       sbGetMany('timesheets', `${tid}&status=eq.pending`),
-    ]).then(([staff, clients, tasks, leaves, unread, invoices, acknowledgements, requiredDocuments, pendingTimesheets]) => {
+      sbGetMany('staff_schedule_entries', `${tid}&entry_date=gte.${weekStart.toISOString().split('T')[0]}&entry_date=lte.${weekEnd.toISOString().split('T')[0]}`),
+      sbGetMany('appointments', `${tid}&starts_at=gte.${encodeURIComponent(startOfToday.toISOString())}&starts_at=lte.${encodeURIComponent(endOfToday.toISOString())}`),
+    ]).then(([staff, employees, hrProfiles, clients, tasks, leaves, unread, urgentUnread, invoices, acknowledgements, requiredDocuments, pendingTimesheets, scheduleEntries, appointments]) => {
       setStats({
         staff: staff.length,
         clients: clients.length,
@@ -51,11 +75,24 @@ export default function Dashboard() {
       })
       const invited = (staff || []).filter((member) => member.status === 'invited').length
       const expectedAcks = (requiredDocuments || []).length * Math.max((staff || []).filter((member) => member.status === 'active').length, 1)
+      const activeEmployees = (employees || []).filter((employee) => employee.is_person && !employee.is_shared_mailbox && employee.status === 'active')
+      const hrByEmployee = new Map((hrProfiles || []).filter((profile) => profile.employee_id).map((profile) => [profile.employee_id, profile]))
+      const incompletePeople = activeEmployees.filter((employee) => {
+        const profile = hrByEmployee.get(employee.id)
+        if (!profile) return true
+        return [profile.contract_type, profile.start_date, profile.phone].some((value) => !value)
+      }).length
+      const highPriorityTasks = (tasks || []).filter((task) => ['high', 'urgent'].includes(task.priority)).length
+      const staffedToday = new Set((scheduleEntries || []).filter((entry) => entry.is_available).map((entry) => entry.employee_id)).size
       setSignals({
         onboarding: invited,
         overdueInvoices: (invoices || []).length,
         policies: Math.max(expectedAcks - (acknowledgements || []).length, 0),
         unapprovedTimesheets: (pendingTimesheets || []).length,
+        urgentAlerts: (urgentUnread || []).length,
+        highPriorityTasks,
+        todayAppointments: (appointments || []).length,
+        staffingGaps: Math.max(activeEmployees.length - staffedToday, 0) + incompletePeople,
       })
       setLoading(false)
     })
@@ -85,6 +122,42 @@ export default function Dashboard() {
     .filter(Boolean)
 
   const sectionContent = {
+    today: (
+      <div className="card card-pad">
+        <div className="section-head">
+          <div>
+            <h3 className="panel-title">Today at a glance</h3>
+            <div className="panel-sub">The operational signals most likely to need attention before the day gets away from you.</div>
+          </div>
+        </div>
+        <div className="detail-grid">
+          <Link to="/notifications" className="detail-card" style={{ textDecoration: 'none' }}>
+            <div className="detail-card-value">{stats.unread}</div>
+            <div className="detail-card-label">Unread alerts</div>
+          </Link>
+          <Link to="/notifications" className="detail-card" style={{ textDecoration: 'none' }}>
+            <div className="detail-card-value">{signals.urgentAlerts}</div>
+            <div className="detail-card-label">Urgent notifications</div>
+          </Link>
+          <Link to="/leave" className="detail-card" style={{ textDecoration: 'none' }}>
+            <div className="detail-card-value">{stats.leaves}</div>
+            <div className="detail-card-label">Pending approvals</div>
+          </Link>
+          <Link to="/appointments" className="detail-card" style={{ textDecoration: 'none' }}>
+            <div className="detail-card-value">{signals.todayAppointments}</div>
+            <div className="detail-card-label">Appointments today</div>
+          </Link>
+          <Link to="/schedule" className="detail-card" style={{ textDecoration: 'none' }}>
+            <div className="detail-card-value">{signals.staffingGaps}</div>
+            <div className="detail-card-label">Staffing and HR gaps</div>
+          </Link>
+          <Link to="/tasks" className="detail-card" style={{ textDecoration: 'none' }}>
+            <div className="detail-card-value">{signals.highPriorityTasks}</div>
+            <div className="detail-card-label">High-priority tasks</div>
+          </Link>
+        </div>
+      </div>
+    ),
     metrics: (
       <div className="stats-grid">
         {[
@@ -170,6 +243,10 @@ export default function Dashboard() {
             <div className="detail-card-label">Unread alerts</div>
           </div>
           <div className="detail-card">
+            <div className="detail-card-value">{signals.urgentAlerts}</div>
+            <div className="detail-card-label">Urgent notifications</div>
+          </div>
+          <div className="detail-card">
             <div className="detail-card-value">{stats.tasks}</div>
             <div className="detail-card-label">Open tasks</div>
           </div>
@@ -194,8 +271,16 @@ export default function Dashboard() {
             <div className="detail-card-label">Timesheets awaiting review</div>
           </div>
           <div className="detail-card">
-            <div className="detail-card-value">{tenant?.status === 'pending_activation' ? 'Billing' : 'Stable'}</div>
-            <div className="detail-card-label">Current focus</div>
+            <div className="detail-card-value">{signals.todayAppointments}</div>
+            <div className="detail-card-label">Appointments today</div>
+          </div>
+          <div className="detail-card">
+            <div className="detail-card-value">{signals.highPriorityTasks}</div>
+            <div className="detail-card-label">Priority workload</div>
+          </div>
+          <div className="detail-card">
+            <div className="detail-card-value">{signals.staffingGaps}</div>
+            <div className="detail-card-label">Staffing / HR gaps</div>
           </div>
         </div>
       </div>
