@@ -405,7 +405,7 @@ export default function StaffProfile() {
           <p className="page-sub">{employee.job_title || employee.tenant_user?.role || 'Employee'} · {employee.department || 'No department set'}</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <span className={`badge badge-${employee.status === 'active' ? 'green' : employee.status === 'suspended' ? 'grey' : 'amber'}`} style={{ textTransform: 'capitalize' }}>{employee.status}</span>
+          <span className={`badge badge-${employeeStatus === 'active' ? 'green' : employeeStatus === 'suspended' ? 'grey' : 'amber'}`} style={{ textTransform: 'capitalize' }}>{employeeStatus}</span>
           {employee.is_shared_mailbox && <span className="badge badge-red">Shared mailbox</span>}
           {permissionForm.onboarding_only && <span className="badge badge-blue">Onboarding only</span>}
         </div>
@@ -423,7 +423,7 @@ export default function StaffProfile() {
                     <span className={`badge badge-${lifecycleTone}`}>{lifecycleLabel}</span>
                   </div>
                   <div className="staff-profile-subline">
-                    <span>{employee.primary_email || employee.tenant_user?.email || 'No work email'}</span>
+                    <span>{employeeEmail || 'No work email'}</span>
                     <span>•</span>
                     <span>{profileForm.job_title || 'No role set'}</span>
                     <span>•</span>
@@ -432,7 +432,7 @@ export default function StaffProfile() {
                 </div>
               </div>
               <div className="staff-profile-hero-actions">
-                {employee.manager?.display_name && <span className="status-pill">Reports to {employee.manager.display_name}</span>}
+                {manager?.display_name && <span className="status-pill">Reports to {manager.display_name}</span>}
                 {employee.tenant_user_id ? <span className="status-pill">Linked portal identity</span> : <span className="status-pill">No live portal account</span>}
               </div>
             </div>
@@ -506,7 +506,7 @@ export default function StaffProfile() {
                           <InfoRow label="Work email" value={employee.primary_email || employee.tenant_user?.email} mono />
                           <InfoRow label="Contract" value={hrForm.contract_type || 'Not set'} />
                           <InfoRow label="Start date" value={formatDate(hrForm.start_date)} />
-                          <InfoRow label="Manager" value={employee.manager?.display_name || 'Not assigned'} />
+                          <InfoRow label="Manager" value={manager?.display_name || 'Not assigned'} />
                           <InfoRow label="Emergency contact" value={hrForm.emergency_name || 'Not captured'} />
                         </div>
                       </div>
@@ -775,15 +775,15 @@ export default function StaffProfile() {
                       <div className="detail-card">
                         <div className="staff-section-title">Reporting line</div>
                         <div style={{ display: 'grid', gap: 2 }}>
-                          <InfoRow label="Manager" value={employee.manager?.display_name || 'Not assigned'} />
-                          <InfoRow label="Manager email" value={employee.manager?.primary_email || '—'} mono />
+                          <InfoRow label="Manager" value={manager?.display_name || 'Not assigned'} />
+                          <InfoRow label="Manager email" value={manager?.primary_email || '—'} mono />
                           <InfoRow label="Direct reports" value={String(directReports.length)} />
                         </div>
                       </div>
                       <div className="detail-card">
                         <div className="staff-section-title">Team state</div>
                         <div className="staff-chip-list">
-                          <span className={`staff-chip ${employee.manager?.display_name ? 'success' : 'warning'}`}>{employee.manager?.display_name ? 'Manager linked' : 'Manager missing'}</span>
+                          <span className={`staff-chip ${manager?.display_name ? 'success' : 'warning'}`}>{manager?.display_name ? 'Manager linked' : 'Manager missing'}</span>
                           <span className={`staff-chip ${directReports.length ? 'info' : 'muted'}`}>{directReports.length ? `${directReports.length} direct reports` : 'No direct reports'}</span>
                           <span className={`staff-chip ${profileForm.department ? 'success' : 'warning'}`}>{profileForm.department || 'No department set'}</span>
                         </div>
