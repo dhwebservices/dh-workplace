@@ -151,6 +151,11 @@ export default function StaffProfile() {
   const allowedTabs = visibleStaffProfileTabs(employeePermissions, canManage)
   const safeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0]
   const staffSelfPaths = [employee?.id, employee?.tenant_user_id, employee?.tenant_user?.user_id].filter(Boolean).map((identifier) => `/staff/${identifier}`)
+  const manager = employee?.manager || null
+  const tenantUserRecord = employee?.tenant_user || null
+  const employeeStatus = employee?.status || 'inactive'
+  const employeeEmail = employee?.primary_email || tenantUserRecord?.email || ''
+  const employeeStartDate = hrForm.start_date || employee?.hr_profile?.start_date || employee?.created_at || null
   const unreadNotifications = notifications.filter((item) => !item.read)
   const missingProfileItems = useMemo(() => {
     const checks = [
@@ -169,47 +174,47 @@ export default function StaffProfile() {
       !hrForm.account_name && 'Account name',
       !hrForm.sort_code && 'Sort code',
       !hrForm.account_number && 'Account number',
-      !employee.manager?.display_name && 'Manager assignment',
+      !manager?.display_name && 'Manager assignment',
     ].filter(Boolean)
     return checks
-  }, [employee.manager?.display_name, hrForm.account_name, hrForm.account_number, hrForm.address, hrForm.bank_name, hrForm.contract_type, hrForm.emergency_name, hrForm.emergency_phone, hrForm.personal_email, hrForm.phone, hrForm.sort_code, hrForm.start_date, profileForm.department, profileForm.display_name, profileForm.job_title, profileForm.primary_email])
+  }, [manager?.display_name, hrForm.account_name, hrForm.account_number, hrForm.address, hrForm.bank_name, hrForm.contract_type, hrForm.emergency_name, hrForm.emergency_phone, hrForm.personal_email, hrForm.phone, hrForm.sort_code, hrForm.start_date, profileForm.department, profileForm.display_name, profileForm.job_title, profileForm.primary_email])
   const completionScore = useMemo(() => {
     const totalChecks = 16
     return ratio(totalChecks - missingProfileItems.length, totalChecks)
   }, [missingProfileItems.length])
-  const lifecycleLabel = employee.status === 'active'
+  const lifecycleLabel = employeeStatus === 'active'
     ? 'Live'
-    : employee.status === 'invited'
+    : employeeStatus === 'invited'
       ? 'Pre-live'
-      : employee.status === 'suspended'
+      : employeeStatus === 'suspended'
         ? 'Suspended'
         : 'Inactive'
-  const lifecycleTone = employee.status === 'active' ? 'green' : employee.status === 'suspended' ? 'red' : 'amber'
-  const onboardingStateLabel = permissionForm.onboarding_only || employee.onboarding_mode
+  const lifecycleTone = employeeStatus === 'active' ? 'green' : employeeStatus === 'suspended' ? 'red' : 'amber'
+  const onboardingStateLabel = permissionForm.onboarding_only || employee?.onboarding_mode
     ? 'Restricted to onboarding'
-    : employee.status === 'invited'
+    : employeeStatus === 'invited'
       ? 'Invite sent'
       : 'Full portal access'
-  const tenureDays = daysSince(hrForm.start_date || employee.hr_profile?.start_date || employee.created_at)
+  const tenureDays = daysSince(employeeStartDate)
   const tenureLabel = tenureDays === null ? 'Not started' : tenureDays < 1 ? 'Today' : `${tenureDays} days`
   const onboardingChecklist = useMemo(() => ([
     { label: 'Identity basics complete', done: !!profileForm.display_name && !!profileForm.primary_email && !!profileForm.job_title },
     { label: 'Employment details captured', done: !!hrForm.contract_type && !!hrForm.start_date && !!profileForm.department },
     { label: 'Emergency contact recorded', done: !!hrForm.emergency_name && !!hrForm.emergency_phone },
     { label: 'Bank details ready for payroll', done: !!hrForm.bank_name && !!hrForm.account_name && !!hrForm.sort_code && !!hrForm.account_number },
-    { label: 'Manager and reporting line linked', done: !!employee.manager?.display_name || directReports.length > 0 },
+    { label: 'Manager and reporting line linked', done: !!manager?.display_name || directReports.length > 0 },
     { label: 'Documents uploaded', done: employeeDocuments.length > 0 },
-    { label: 'Portal access configured', done: !!employee.tenant_user_id && !permissionForm.onboarding_only },
-  ]), [directReports.length, employee.manager?.display_name, employee.tenant_user_id, employeeDocuments.length, hrForm.account_name, hrForm.account_number, hrForm.bank_name, hrForm.contract_type, hrForm.emergency_name, hrForm.emergency_phone, hrForm.sort_code, hrForm.start_date, permissionForm.onboarding_only, profileForm.department, profileForm.display_name, profileForm.job_title, profileForm.primary_email])
+    { label: 'Portal access configured', done: !!employee?.tenant_user_id && !permissionForm.onboarding_only },
+  ]), [directReports.length, employee?.tenant_user_id, employeeDocuments.length, hrForm.account_name, hrForm.account_number, hrForm.bank_name, hrForm.contract_type, hrForm.emergency_name, hrForm.emergency_phone, hrForm.sort_code, hrForm.start_date, manager?.display_name, permissionForm.onboarding_only, profileForm.department, profileForm.display_name, profileForm.job_title, profileForm.primary_email])
   const completedChecklistCount = onboardingChecklist.filter((item) => item.done).length
   const recentActivity = useMemo(() => {
     const activity = []
     activity.push({
       key: 'employee-created',
-      title: employee.status === 'invited' ? 'Employee invited into workplace' : 'Employee profile established',
-      meta: employee.tenant_user?.created_at || employee.created_at,
-      kind: employee.status === 'invited' ? 'warning' : 'info',
-      detail: employee.primary_email || employee.tenant_user?.email || 'No primary email',
+      title: employeeStatus === 'invited' ? 'Employee invited into workplace' : 'Employee profile established',
+      meta: tenantUserRecord?.created_at || employee?.created_at,
+      kind: employeeStatus === 'invited' ? 'warning' : 'info',
+      detail: employeeEmail || 'No primary email',
     })
     if (hrForm.start_date) {
       activity.push({
@@ -251,14 +256,14 @@ export default function StaffProfile() {
       .filter((item) => item.meta)
       .sort((a, b) => new Date(b.meta).getTime() - new Date(a.meta).getTime())
       .slice(0, 6)
-  }, [employee.created_at, employee.primary_email, employee.status, employee.tenant_user?.created_at, employee.tenant_user?.email, employeeDocuments, employeePayslips, hrForm.start_date, notifications, profileForm.department, profileForm.job_title])
+  }, [employee?.created_at, employeeDocuments, employeeEmail, employeePayslips, employeeStatus, hrForm.start_date, notifications, profileForm.department, profileForm.job_title, tenantUserRecord?.created_at])
   const summaryCards = [
     { label: 'Profile completeness', value: `${completionScore}%`, helper: missingProfileItems.length ? `${missingProfileItems.length} missing items` : 'Record is complete', tone: completionScore >= 85 ? 'green' : completionScore >= 60 ? 'amber' : 'red' },
-    { label: 'Lifecycle', value: lifecycleLabel, helper: employee.status === 'active' ? 'Ready for daily use' : employee.status === 'invited' ? 'Still pre-live' : employee.status === 'suspended' ? 'Access paused' : 'Needs review', tone: lifecycleTone },
+    { label: 'Lifecycle', value: lifecycleLabel, helper: employeeStatus === 'active' ? 'Ready for daily use' : employeeStatus === 'invited' ? 'Still pre-live' : employeeStatus === 'suspended' ? 'Access paused' : 'Needs review', tone: lifecycleTone },
     { label: 'Tenure', value: tenureLabel, helper: hrForm.start_date ? `Started ${formatDate(hrForm.start_date)}` : 'Start date missing', tone: hrForm.start_date ? 'blue' : 'amber' },
     { label: 'Documents', value: String(employeeDocuments.length), helper: `${employeePayslips.length} payslips on file`, tone: employeeDocuments.length ? 'blue' : 'amber' },
     { label: 'Unread notifications', value: String(unreadNotifications.length), helper: notifications.length ? `${notifications.length} total messages` : 'No activity yet', tone: unreadNotifications.length ? 'amber' : 'green' },
-    { label: 'Reports and manager', value: directReports.length ? `${directReports.length} reports` : (employee.manager?.display_name ? 'Manager linked' : 'Unassigned'), helper: employee.manager?.display_name || 'No manager assigned', tone: employee.manager?.display_name ? 'green' : 'amber' },
+    { label: 'Reports and manager', value: directReports.length ? `${directReports.length} reports` : (manager?.display_name ? 'Manager linked' : 'Unassigned'), helper: manager?.display_name || 'No manager assigned', tone: manager?.display_name ? 'green' : 'amber' },
   ]
 
   const saveProfile = async () => {
