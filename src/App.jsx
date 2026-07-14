@@ -5,6 +5,7 @@ import { isAccessBlocked } from './utils/entitlements'
 import { shouldShowOnboarding } from './utils/onboarding'
 import { canAccessPath } from './utils/permissions'
 import { resolveDefaultLandingPath } from './utils/portalPreferences'
+import ProtectedRoute from './components/ProtectedRoute'
 
 const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
@@ -152,23 +153,23 @@ export default function App() {
           <Route path="timesheets"         element={<Timesheets />} />
           <Route path="onboarding-hr"      element={<Onboarding />} />
 
-          {/* CRM */}
-          <Route path="clients"            element={<Clients />} />
-          <Route path="clients/:id"        element={<ClientProfile />} />
-          <Route path="tasks"              element={<Tasks />} />
-          <Route path="pipeline"           element={<Pipeline />} />
-          <Route path="outreach"           element={<Outreach />} />
+          {/* CRM - Protected: Manager+ only */}
+          <Route path="clients"            element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+          <Route path="clients/:id"        element={<ProtectedRoute><ClientProfile /></ProtectedRoute>} />
+          <Route path="tasks"              element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+          <Route path="pipeline"           element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
+          <Route path="outreach"           element={<ProtectedRoute><Outreach /></ProtectedRoute>} />
 
-          {/* Admin */}
-          <Route path="settings"           element={<Settings />} />
-          <Route path="team"               element={<Team />} />
-          <Route path="billing"            element={<Billing />} />
-          <Route path="banners"            element={<Banners />} />
-          <Route path="reports"            element={<Reports />} />
-          <Route path="safeguards"         element={<Safeguards />} />
-          <Route path="automations"        element={<Automations />} />
-          <Route path="audit"              element={<AuditLog />} />
-          <Route path="integrations"       element={<Integrations />} />
+          {/* Admin - Protected: Role-based */}
+          <Route path="settings"           element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="team"               element={<ProtectedRoute><Team /></ProtectedRoute>} />
+          <Route path="billing"            element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+          <Route path="banners"            element={<ProtectedRoute><Banners /></ProtectedRoute>} />
+          <Route path="reports"            element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="safeguards"         element={<ProtectedRoute><Safeguards /></ProtectedRoute>} />
+          <Route path="automations"        element={<ProtectedRoute><Automations /></ProtectedRoute>} />
+          <Route path="audit"              element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
+          <Route path="integrations"       element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { sbGetMany } from '../utils/supabase'
 import PortalPreferencesEditor from '../components/portal/PortalPreferencesEditor'
@@ -16,6 +16,7 @@ function formatDate(value) {
 }
 
 export default function Dashboard() {
+  const location = useLocation()
   const { tenant, tenantUser, employeeRecord, employeePermissions, portalPreferences, setPortalPreferences, refreshTenant } = useAuth()
   const [stats, setStats] = useState({ staff: 0, clients: 0, tasks: 0, leaves: 0, unread: 0 })
   const [signals, setSignals] = useState({
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [personaliseOpen, setPersonaliseOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [draftPreferences, setDraftPreferences] = useState(portalPreferences)
+  const [permissionError, setPermissionError] = useState(location.state?.error || null)
 
   useEffect(() => {
     setDraftPreferences(portalPreferences)
@@ -327,6 +329,34 @@ export default function Dashboard() {
           <button className="btn btn-outline btn-sm" onClick={() => setPersonaliseOpen(true)}>Personalise dashboard</button>
         </div>
       </div>
+
+      {permissionError && (
+        <div style={{
+          padding: '14px 18px',
+          background: 'var(--red-soft)',
+          border: '1px solid var(--red-border)',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 20 }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--red)', marginBottom: 4 }}>Access Denied</div>
+              <div style={{ fontSize: 13, color: 'var(--sub)' }}>{permissionError}</div>
+            </div>
+          </div>
+          <button
+            className="btn btn-sm btn-outline"
+            onClick={() => setPermissionError(null)}
+            style={{ borderColor: 'var(--red-border)', color: 'var(--red)' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {orderedSections.map((section) => (
         <div key={section.id}>
