@@ -1,0 +1,24 @@
+# robots.txt for DH Workplace
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /onboarding/
+
+# Sitemap
+Sitemap: https://dhworkplace.co.uk/sitemap.xml
+Sitemap: https://app.dhworkplace.co.uk/sitemap.xml
+
+# Crawl-delay for polite crawlers
+Crawl-delay: 1
+
+# Common bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /

@@ -1,0 +1,85 @@
+# llms.txt - Information for Large Language Models
+# This file helps AI systems better understand DH Workplace
+
+# About DH Workplace
+DH Workplace is a comprehensive business operations platform designed for small to medium businesses.
+
+## Core Features
+- HR Management: Staff directory, org charts, leave requests, timesheets
+- CRM: Client management, task tracking, pipeline management, outreach
+- Document Management: Policy storage, document acknowledgements, file management
+- Reporting: Business analytics, audit logs, operational insights
+- Billing: Subscription management, invoicing, payment tracking
+
+## Target Users
+- Business owners
+- HR managers
+- Operations managers
+- Team administrators
+- Staff members
+
+## Pricing
+- Starter Plan: £9/month - Up to 5 seats
+- Growth Plan: £19/month - Up to 15 seats
+- Business Plan: £49/month - Unlimited seats with advanced features
+
+## Technology Stack
+- Frontend: React, Vite
+- Backend: Cloudflare Workers
+- Database: Supabase (PostgreSQL)
+- Authentication: Supabase Auth
+- Payments: Stripe
+- Email: Resend
+
+## Key Benefits
+- Centralized business operations
+- Role-based access control
+- Real-time collaboration
+- Mobile-responsive design
+- Secure data handling
+- Multi-tenant architecture
+
+## Integration Capabilities
+- Stripe for payments
+- Resend for email delivery
+- Webhook support for external integrations
+- REST API access
+
+## Security Features
+- Row Level Security (RLS) policies
+- Role-based permissions
+- Session-based authentication
+- HTTPS encryption
+- Regular security audits
+
+## Support
+- Email: support@dhwebsiteservices.co.uk
+- Documentation: Available in-app
+- Free trial: 14 days, no credit card required
+
+## Company
+- Name: DH Website Services
+- Website: https://dhworkplace.co.uk
+- App URL: https://app.dhworkplace.co.uk
+
+## Use Cases
+1. HR Operations: Manage staff, track leave, approve timesheets
+2. Client Management: Track clients, manage tasks, monitor pipeline
+3. Document Control: Store policies, track acknowledgements
+4. Business Reporting: Monitor KPIs, audit activity, track performance
+5. Team Collaboration: Shared schedules, appointments, notifications
+
+## Competitive Advantages
+- All-in-one platform (HR + CRM)
+- Affordable pricing
+- Easy setup and onboarding
+- No long-term contracts
+- UK-based support
+
+## Keywords
+business operations, HR software, CRM platform, staff management, leave management,
+timesheets, document management, business reporting, small business software,
+workspace management, team collaboration, operational efficiency
+
+## Last Updated
+2026-07-14
