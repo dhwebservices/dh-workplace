@@ -64,6 +64,27 @@ export default function Settings() {
       alert('Enter a valid custom domain, for example portal.yourbusiness.co.uk')
       return
     }
+
+    // Validate logo URL (security)
+    if (form.logo_url && form.logo_url.trim()) {
+      try {
+        const url = new URL(form.logo_url)
+        if (url.protocol !== 'https:') {
+          alert('Logo URL must use HTTPS for security')
+          return
+        }
+        // Check for common file extensions
+        const ext = url.pathname.split('.').pop().toLowerCase()
+        if (!['png', 'jpg', 'jpeg', 'svg', 'webp'].includes(ext)) {
+          alert('Logo URL must point to a valid image file (PNG, JPG, SVG, or WebP)')
+          return
+        }
+      } catch (e) {
+        alert('Please enter a valid HTTPS URL for the logo')
+        return
+      }
+    }
+
     setSaving(true)
     try {
       const domainStatus = normalizedCustomDomain

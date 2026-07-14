@@ -51,6 +51,29 @@ export default function Documents() {
 
   const upload = async () => {
     if (!file || !form.name.trim()) { alert('File and name required'); return }
+
+    // Validate file type (security)
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/png',
+      'image/jpeg',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv'
+    ]
+    if (!allowedTypes.includes(file.type)) {
+      alert('Invalid file type. Only PDF, Word, Excel, CSV, and images (PNG/JPG) are allowed.')
+      return
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB')
+      return
+    }
+
     setUploading(true)
     try {
       const path = `${tenant.id}/${Date.now()}-${file.name}`
