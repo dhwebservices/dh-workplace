@@ -76,12 +76,16 @@ export default function OnboardingWizard() {
     setSaving(true)
     setBillingError('')
     try {
+      // Check for test coupon in localStorage (e.g., localStorage.setItem('test_coupon', 'TEST98'))
+      const testCoupon = window.localStorage.getItem('test_coupon')
+
       await startBillingSetup({
         tenant,
         tenantUser: { ...tenantUser, email: tenantUser?.email || user?.email, full_name: tenantUser?.full_name || profile.full_name },
         desiredPlan: tenant?.plan || 'starter',
         refreshTenant,
         redirectPath: '/onboarding',
+        couponCode: testCoupon,
       })
     } catch (e) {
       setBillingError(e.message || 'Unable to start billing setup')

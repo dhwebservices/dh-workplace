@@ -534,6 +534,11 @@ async function handleStripe(type, data, env) {
       params.append('subscription_data[metadata][plan_key]', data.plan_key)
       params.append('subscription_data[metadata][source]', 'dh_workplace')
 
+      // Support coupon codes for testing/promotions
+      if (data.coupon_code) {
+        params.append('discounts[0][coupon]', data.coupon_code)
+      }
+
       const session = await stripeRequest('/checkout/sessions', env, { params })
       return { id: session.id, url: session.url, customer_id: customerId }
     }

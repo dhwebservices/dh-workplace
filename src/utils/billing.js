@@ -47,6 +47,7 @@ export async function startBillingSetup({
   desiredPlan,
   refreshTenant,
   redirectPath = '/billing',
+  couponCode = null,
 }) {
   if (!WORKER_URL) throw new Error('Billing worker URL is not configured')
   if (!tenant?.id || !tenantUser) throw new Error('Billing setup requires a valid workspace owner')
@@ -56,22 +57,29 @@ export async function startBillingSetup({
   const successPath = `${redirectPath}${separator}billing=return`
   const cancelPath = `${redirectPath}${separator}billing=cancelled`
 
+  const requestData = {
+    tenant_id: tenant.id,
+    tenant_name: tenant.name,
+    owner_email: tenant.owner_email || tenantUser.email,
+    customer_email: tenant.owner_email || tenantUser.email,
+    customer_name: tenantUser.full_name || tenant.name,
+    plan_key: desiredPlan,
+    customer_id: tenant.stripe_customer_id || '',
+    success_path: successPath,
+    cancel_path: cancelPath,
+  }
+
+  // Add coupon code if provided
+  if (couponCode) {
+    requestData.coupon_code = couponCode
+  }
+
   const res = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       type: 'stripe_create_checkout_session',
-      data: {
-        tenant_id: tenant.id,
-        tenant_name: tenant.name,
-        owner_email: tenant.owner_email || tenantUser.email,
-        customer_email: tenant.owner_email || tenantUser.email,
-        customer_name: tenantUser.full_name || tenant.name,
-        plan_key: desiredPlan,
-        customer_id: tenant.stripe_customer_id || '',
-        success_path: successPath,
-        cancel_path: cancelPath,
-      },
+      data: requestData,
     }),
   })
   const json = await res.json()
