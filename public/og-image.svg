@@ -1,0 +1,33 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0071E3"/>
+
+  <!-- Gradient Overlay -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0071E3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#005BB5;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grad)"/>
+
+  <!-- Logo Circle -->
+  <circle cx="600" cy="200" r="80" fill="#FFFFFF" opacity="0.15"/>
+  <circle cx="600" cy="200" r="60" fill="#FFFFFF"/>
+
+  <!-- DH Text in Circle -->
+  <text x="600" y="220" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="#0071E3" text-anchor="middle">DH</text>
+
+  <!-- Main Headline -->
+  <text x="600" y="340" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Business Operations Platform</text>
+
+  <!-- Subtext -->
+  <text x="600" y="410" font-family="Arial, sans-serif" font-size="36" fill="#FFFFFF" opacity="0.9" text-anchor="middle">HR • CRM • Reporting • Timesheets</text>
+
+  <!-- CTA -->
+  <rect x="475" y="460" width="250" height="60" rx="30" fill="#FFFFFF"/>
+  <text x="600" y="500" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#0071E3" text-anchor="middle">Start Free Trial</text>
+
+  <!-- Website -->
+  <text x="600" y="570" font-family="Arial, sans-serif" font-size="24" fill="#FFFFFF" opacity="0.8" text-anchor="middle">dhworkplace.co.uk</text>
+</svg>
