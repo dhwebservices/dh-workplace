@@ -54,16 +54,23 @@ export function AuthProvider({ children }) {
       setIsPlatformAdmin(!!platformAdmin)
       if (tu) {
         setTenantUser(tu)
-        const [t, employees, permissions] = await Promise.all([
+        const [t, employees] = await Promise.all([
           sbGet('tenants', `id=eq.${tu.tenant_id}`),
           sbGetMany('employees', `tenant_id=eq.${tu.tenant_id}&tenant_user_id=eq.${tu.id}`),
-          sbGetMany('employee_permissions', `tenant_id=eq.${tu.tenant_id}`),
         ])
         setTenant(t)
         const employee = employees?.[0] || null
         setEmployeeRecord(employee)
-        setEmployeePermissions(employee ? (permissions || []).find(row => row.employee_id === employee.id) || null : null)
-        setPortalPreferences(employee ? await getPortalPreferences(tu.tenant_id, employee.id) : null)
+
+        // Only load current employee's permissions (not all employees)
+        if (employee) {
+          const permissions = await sbGet('employee_permissions', `employee_id=eq.${employee.id}`)
+          setEmployeePermissions(permissions)
+          setPortalPreferences(await getPortalPreferences(tu.tenant_id, employee.id))
+        } else {
+          setEmployeePermissions(null)
+          setPortalPreferences(null)
+        }
       } else {
         setTenantUser(null)
         setTenant(null)
@@ -73,6 +80,14 @@ export function AuthProvider({ children }) {
       }
     } catch (e) {
       console.error('Failed to load user context:', e)
+      // Reset all state on error to prevent inconsistent state
+      setUser(null)
+      setTenant(null)
+      setTenantUser(null)
+      setEmployeeRecord(null)
+      setEmployeePermissions(null)
+      setPortalPreferences(null)
+      setIsPlatformAdmin(false)
     }
     setLoading(false)
   }
@@ -84,16 +99,23 @@ export function AuthProvider({ children }) {
 
   const refreshTenant = async () => {
     if (!tenantUser?.tenant_id) return
-    const [t, employees, permissions] = await Promise.all([
+    const [t, employees] = await Promise.all([
       sbGet('tenants', `id=eq.${tenantUser.tenant_id}`),
       sbGetMany('employees', `tenant_id=eq.${tenantUser.tenant_id}&tenant_user_id=eq.${tenantUser.id}`),
-      sbGetMany('employee_permissions', `tenant_id=eq.${tenantUser.tenant_id}`),
     ])
     setTenant(t)
     const employee = employees?.[0] || null
     setEmployeeRecord(employee)
-    setEmployeePermissions(employee ? (permissions || []).find(row => row.employee_id === employee.id) || null : null)
-    setPortalPreferences(employee ? await getPortalPreferences(tenantUser.tenant_id, employee.id) : null)
+
+    // Only load current employee's permissions
+    if (employee) {
+      const permissions = await sbGet('employee_permissions', `employee_id=eq.${employee.id}`)
+      setEmployeePermissions(permissions)
+      setPortalPreferences(await getPortalPreferences(tenantUser.tenant_id, employee.id))
+    } else {
+      setEmployeePermissions(null)
+      setPortalPreferences(null)
+    }
   }
 
   return (

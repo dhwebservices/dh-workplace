@@ -27,21 +27,35 @@ export async function sbGet(table, query = '') {
   const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}&limit=1`, {
     headers: { ...headers, Accept: 'application/json' }
   })
-  if (!res.ok) return null
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    console.error(`sbGet failed: ${table}`, errorText)
+    return null
+  }
+
   const data = await res.json()
   return Array.isArray(data) ? (data[0] || null) : data
 }
 
-export async function sbGetMany(table, query = '') {
+export async function sbGetMany(table, query = '', limit = 1000) {
   const { data: { session } } = await supabase.auth.getSession()
   const headers = session
     ? { ...sbHeaders, 'Authorization': `Bearer ${session.access_token}` }
     : sbHeaders
 
-  const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}`, {
+  // Add limit if not already in query
+  const limitParam = query.includes('limit=') ? '' : `&limit=${limit}`
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}${limitParam}`, {
     headers: { ...headers, Accept: 'application/json' }
   })
-  if (!res.ok) return []
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    console.error(`sbGetMany failed: ${table}`, errorText)
+    return []
+  }
+
   return await res.json()
 }
 
@@ -56,7 +70,18 @@ export async function sbInsert(table, payload) {
     headers: { ...headers, Prefer: 'return=minimal' },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) { const e = await res.text(); throw new Error(e) }
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    let errorMsg = errorText
+    try {
+      const errorJson = JSON.parse(errorText)
+      errorMsg = errorJson.message || errorJson.hint || errorJson.error || errorText
+    } catch {}
+    console.error(`sbInsert failed: ${table}`, errorMsg)
+    throw new Error(errorMsg)
+  }
+
   return true
 }
 
@@ -71,7 +96,18 @@ export async function sbUpdate(table, query, payload) {
     headers: { ...headers, Prefer: 'return=minimal' },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) { const e = await res.text(); throw new Error(e) }
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    let errorMsg = errorText
+    try {
+      const errorJson = JSON.parse(errorText)
+      errorMsg = errorJson.message || errorJson.hint || errorJson.error || errorText
+    } catch {}
+    console.error(`sbUpdate failed: ${table}`, errorMsg)
+    throw new Error(errorMsg)
+  }
+
   return true
 }
 
@@ -85,6 +121,17 @@ export async function sbDelete(table, query) {
     method: 'DELETE',
     headers: { ...headers, Prefer: 'return=minimal' },
   })
-  if (!res.ok) { const e = await res.text(); throw new Error(e) }
+
+  if (!res.ok) {
+    const errorText = await res.text()
+    let errorMsg = errorText
+    try {
+      const errorJson = JSON.parse(errorText)
+      errorMsg = errorJson.message || errorJson.hint || errorJson.error || errorText
+    } catch {}
+    console.error(`sbDelete failed: ${table}`, errorMsg)
+    throw new Error(errorMsg)
+  }
+
   return true
 }
