@@ -1,0 +1,1 @@
+function n(t,a="Something went wrong"){const e=(t||"").toLowerCase();return e.includes("email rate limit exceeded")||e.includes("rate limit exceeded")?"Too many email attempts were made in a short time. Please wait a few minutes and try again.":e.includes("too many requests")?"Too many requests were made too quickly. Please wait a moment and try again.":t||a}export{n as f};

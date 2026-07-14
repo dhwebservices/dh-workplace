@@ -19,8 +19,13 @@ export const sbHeaders = {
 }
 
 export async function sbGet(table, query = '') {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = session
+    ? { ...sbHeaders, 'Authorization': `Bearer ${session.access_token}` }
+    : sbHeaders
+
   const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}&limit=1`, {
-    headers: { ...sbHeaders, Accept: 'application/json' }
+    headers: { ...headers, Accept: 'application/json' }
   })
   if (!res.ok) return null
   const data = await res.json()
@@ -28,17 +33,27 @@ export async function sbGet(table, query = '') {
 }
 
 export async function sbGetMany(table, query = '') {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = session
+    ? { ...sbHeaders, 'Authorization': `Bearer ${session.access_token}` }
+    : sbHeaders
+
   const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}`, {
-    headers: { ...sbHeaders, Accept: 'application/json' }
+    headers: { ...headers, Accept: 'application/json' }
   })
   if (!res.ok) return []
   return await res.json()
 }
 
 export async function sbInsert(table, payload) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = session
+    ? { ...sbHeaders, 'Authorization': `Bearer ${session.access_token}` }
+    : sbHeaders
+
   const res = await fetch(`${SB_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: { ...sbHeaders, Prefer: 'return=minimal' },
+    headers: { ...headers, Prefer: 'return=minimal' },
     body: JSON.stringify(payload),
   })
   if (!res.ok) { const e = await res.text(); throw new Error(e) }
@@ -46,9 +61,14 @@ export async function sbInsert(table, payload) {
 }
 
 export async function sbUpdate(table, query, payload) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = session
+    ? { ...sbHeaders, 'Authorization': `Bearer ${session.access_token}` }
+    : sbHeaders
+
   const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}`, {
     method: 'PATCH',
-    headers: { ...sbHeaders, Prefer: 'return=minimal' },
+    headers: { ...headers, Prefer: 'return=minimal' },
     body: JSON.stringify(payload),
   })
   if (!res.ok) { const e = await res.text(); throw new Error(e) }
@@ -56,9 +76,14 @@ export async function sbUpdate(table, query, payload) {
 }
 
 export async function sbDelete(table, query) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = session
+    ? { ...sbHeaders, 'Authorization': `Bearer ${session.access_token}` }
+    : sbHeaders
+
   const res = await fetch(`${SB_URL}/rest/v1/${table}?${query}`, {
     method: 'DELETE',
-    headers: { ...sbHeaders, Prefer: 'return=minimal' },
+    headers: { ...headers, Prefer: 'return=minimal' },
   })
   if (!res.ok) { const e = await res.text(); throw new Error(e) }
   return true
