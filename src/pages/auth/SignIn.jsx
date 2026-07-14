@@ -109,9 +109,6 @@ export default function SignIn() {
               <Link to="/forgot" style={{ textAlign:'center', fontSize:13, color:'var(--faint)', textDecoration:'none' }}>Forgot password?</Link>
             </div>
           </form>
-          <div style={{ textAlign:'center', marginTop:16, fontSize:12, color:'var(--faint)' }}>
-            Google sign-in works for existing workspace or platform-admin accounts once it is enabled in Supabase.
-          </div>
         </div>
         <div style={{ textAlign:'center', marginTop:20, fontSize:13, color:'var(--faint)' }}>
           Don't have an account? <Link to="/signup" style={{ color:'var(--blue)', textDecoration:'none' }}>Create workspace</Link>

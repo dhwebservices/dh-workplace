@@ -10,6 +10,7 @@ const SignUp = lazy(() => import('./pages/auth/SignUp'))
 const SignIn = lazy(() => import('./pages/auth/SignIn'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
+const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'))
 const NotificationsPage = lazy(() => import('./pages/Notifications'))
 const SearchPage = lazy(() => import('./pages/Search'))
 const PortalPreferencesPage = lazy(() => import('./pages/PortalPreferences'))
@@ -115,6 +116,7 @@ export default function App() {
         <Route path="/signin"  element={<SignIn />} />
         <Route path="/forgot"  element={<ForgotPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/notifications" element={<RequireAuth><RequireOnboarded><AppShell /></RequireOnboarded></RequireAuth>}>
           <Route index element={<NotificationsPage />} />
         </Route>
