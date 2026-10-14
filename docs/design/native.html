@@ -1,0 +1,156 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2f2f7; --card:#fff; --label:#000; --sec:rgba(60,60,67,.6); --ter:rgba(60,60,67,.3);
+  --sep:rgba(60,60,67,.14); --fill:rgba(120,120,128,.12);
+  --brand:#1b86d1; --brand-ink:#0d5f99; --graphite:#2b2d30;
+  --green:#28a745; --orange:#f08c00;
+}
+body{width:1200px;height:788px;overflow:hidden;background:#dcdde1;display:flex;justify-content:center;align-items:center;gap:40px;
+  font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;color:var(--label)}
+.phone{width:330px;height:714px;border-radius:52px;background:#1a1a1a;padding:9px;box-shadow:0 30px 60px -28px rgba(0,0,0,.45),inset 0 0 0 1.5px #3a3a3a}
+.scr{width:100%;height:100%;border-radius:44px;background:var(--bg);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.sb{height:46px;display:flex;justify-content:space-between;align-items:center;padding:4px 28px 0 30px;font-size:14px;font-weight:600;letter-spacing:-.01em;position:relative;z-index:2}
+.island{position:absolute;left:50%;top:10px;width:96px;height:28px;border-radius:20px;background:#000;transform:translateX(-50%)}
+.sb svg{height:11px}
+.big{padding:6px 18px 0}
+.big .date{font-size:13px;font-weight:600;color:var(--sec);text-transform:none}
+.big h1{font-size:31px;font-weight:700;letter-spacing:-.025em;line-height:1.15}
+.ava-me{position:absolute;right:18px;top:58px;width:34px;height:34px;border-radius:50%;background:#e8d5c4;display:grid;place-items:center;font-size:13px;font-weight:600;color:#6b4a2f}
+
+.card{background:var(--card);border-radius:20px;margin:12px 14px 0;overflow:hidden}
+.shift-head{padding:14px 16px 0;display:flex;justify-content:space-between;align-items:flex-start}
+.role{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.venue{font-size:13px;color:var(--sec);margin-top:1px}
+.badge{font-size:12px;font-weight:600;color:var(--brand-ink);background:#e3f0fa;padding:4px 9px;border-radius:999px}
+.time{padding:6px 16px 0;font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.1}
+.time span{font-size:17px;font-weight:600;color:var(--sec);letter-spacing:-.01em;margin-left:2px}
+.team{display:flex;align-items:center;gap:8px;padding:10px 16px 0;font-size:13px;color:var(--sec)}
+.stack{display:flex}
+.stack i{width:24px;height:24px;border-radius:50%;border:2px solid #fff;margin-left:-6px;display:grid;place-items:center;font-size:9.5px;font-weight:700;font-style:normal}
+.stack i:first-child{margin-left:0}
+.map{margin:12px 16px 0;height:78px;border-radius:12px;overflow:hidden;position:relative;background:#eef0e9}
+.map .here{position:absolute;left:10px;bottom:8px;background:rgba(255,255,255,.94);border-radius:8px;padding:4px 8px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:5px}
+.map .here b{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.cta{margin:12px 16px 16px;height:50px;border-radius:14px;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.cta-sub{text-align:center;font-size:12px;color:var(--sec);margin:-8px 0 14px}
+
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;padding:18px 20px 7px}
+.sec-h h2{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.sec-h a{font-size:15px;color:var(--brand)}
+.list{background:var(--card);border-radius:14px;margin:0 14px;overflow:hidden}
+.item{display:flex;align-items:center;gap:12px;padding:9px 14px;position:relative}
+.item + .item::before{content:'';position:absolute;left:62px;right:0;top:0;height:.5px;background:var(--sep)}
+.cal{width:36px;height:38px;border-radius:9px;background:var(--fill);display:grid;justify-items:center;align-content:center;line-height:1}
+.cal small{font-size:9.5px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.02em}
+.cal b{font-size:17px;font-weight:600;margin-top:2px}
+.item .t1{font-size:15px;font-weight:500;letter-spacing:-.01em}
+.item .t2{font-size:13px;color:var(--sec);margin-top:1px}
+.chev{margin-left:auto;color:var(--ter);font-size:20px;font-weight:300}
+
+.tabbar{margin-top:auto;height:80px;background:rgba(249,249,249,.94);border-top:.5px solid var(--sep);display:flex;justify-content:space-around;padding-top:8px}
+.tab{display:grid;justify-items:center;gap:3px;font-size:10px;font-weight:500;color:#999;width:64px}
+.tab svg{width:25px;height:25px}
+.tab.on{color:var(--brand)}
+
+/* on-shift */
+.live{background:var(--graphite);color:#fff;border-radius:22px;margin:12px 14px 0;padding:18px 16px 16px}
+.live .top{display:flex;justify-content:space-between;font-size:13px;color:rgba(255,255,255,.65)}
+.live .top b{color:#7fd28f;font-weight:600;display:flex;align-items:center;gap:6px}
+.live .top b::before{content:'';width:7px;height:7px;border-radius:50%;background:#7fd28f}
+.ringwrap{display:flex;align-items:center;gap:16px;margin-top:14px}
+.ringwrap .n{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.ringwrap .l{font-size:13px;color:rgba(255,255,255,.65);margin-top:4px}
+.btns{display:flex;gap:10px;margin-top:16px}
+.btns div{flex:1;height:44px;border-radius:12px;display:grid;place-items:center;font-size:15px;font-weight:600}
+.b1{background:rgba(255,255,255,.12)} .b2{background:#fff;color:var(--graphite)}
+
+/* time off */
+.bal{background:var(--card);border-radius:20px;margin:12px 14px 0;padding:16px}
+.bal .k{font-size:13px;color:var(--sec)}
+.bal .v{font-size:34px;font-weight:700;letter-spacing:-.03em;margin-top:2px}
+.bal .v span{font-size:17px;color:var(--sec);font-weight:600}
+.meter{height:8px;border-radius:4px;background:var(--fill);margin-top:10px;overflow:hidden;display:flex}
+.meter i{display:block;height:100%}
+.legend{display:flex;gap:14px;margin-top:8px;font-size:12px;color:var(--sec)}
+.legend b{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.seg{display:flex;background:var(--fill);border-radius:9px;padding:2px;margin:16px 14px 0}
+.seg div{flex:1;text-align:center;font-size:13px;font-weight:500;padding:6px 0;border-radius:7px}
+.seg .on{background:#fff;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.st{margin-left:auto;font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px}
+.ok{color:#1d7a35;background:#e3f5e7} .wait{color:#a35d00;background:#fdf0dc}
+.req{margin:14px 14px 0;height:50px;border-radius:14px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:17px;font-weight:600}
+</style></head><body>
+
+<!-- 1: Today -->
+<div class="phone"><div class="scr">
+<div class="sb"><span>4:52</span><div class="island"></div><svg viewBox="0 0 64 11"><g fill="#000"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="6" rx="1"/><rect x="10" y="2.5" width="3" height="8.5" rx="1"/><rect x="15" y="0" width="3" height="11" rx="1"/><rect x="38" y=".5" width="22" height="10" rx="3" fill="none" stroke="#000" stroke-opacity=".4"/><rect x="40" y="2.5" width="15" height="6" rx="1.5"/><rect x="61" y="3.5" width="1.6" height="4" rx=".8" opacity=".4"/></g><path d="M28 3.5a7 7 0 0 1 8 0l-1 1.2a5.4 5.4 0 0 0-6 0zm1.7 2.2a4 4 0 0 1 4.6 0L32 8.5z" fill="#000"/></svg></div>
+<div class="big"><div class="date">Tuesday 21 October</div><h1>Today</h1></div><div class="ava-me">FP</div>
+<div class="card">
+ <div class="shift-head"><div><div class="role">Bar shift</div><div class="venue">The Bridge Inn</div></div><span class="badge">Starts in 8 min</span></div>
+ <div class="time">5:00 – 11:00<span>PM</span></div>
+ <div class="team"><div class="stack"><i style="background:#d6e6f5;color:#2a5f8f">RM</i><i style="background:#e6dcf3;color:#5b3d8a">SL</i></div>With Rhys and Sian</div>
+ <div class="map"><svg viewBox="0 0 280 78" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"><rect width="280" height="78" fill="#eef0e9"/><path d="M-10 60 C 60 40, 110 70, 170 45 S 260 20, 300 30" stroke="#b9d7ee" stroke-width="10" fill="none"/><path d="M0 22 L280 34 M60 -5 L95 90 M190 -5 L170 90 M0 74 L280 64" stroke="#fff" stroke-width="5"/><path d="M130 -5 L140 90" stroke="#fff" stroke-width="3"/><rect x="104" y="6" width="22" height="12" rx="2" fill="#dde3d3"/><rect x="200" y="40" width="30" height="14" rx="2" fill="#dde3d3"/><circle cx="150" cy="30" r="14" fill="#1b86d1" opacity=".16"/><circle cx="150" cy="30" r="6.5" fill="#1b86d1" stroke="#fff" stroke-width="2.5"/></svg><div class="here"><b></b>You're at work</div></div>
+ <div class="cta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Clock In</div>
+ <div class="cta-sub">Pay starts at 5:00 PM</div>
+</div>
+<div class="sec-h"><h2>This Week</h2><a>See All</a></div>
+<div class="list">
+ <div class="item"><div class="cal"><small>Thu</small><b>23</b></div><div><div class="t1">Floor</div><div class="t2">12:00 – 6:00 PM · 6 hrs</div></div><span class="chev">›</span></div>
+ <div class="item"><div class="cal"><small>Sat</small><b>25</b></div><div><div class="t1">Bar</div><div class="t2">6:00 PM – 12:00 AM · 6 hrs</div></div><span class="chev">›</span></div>
+</div>
+<div class="tabbar">
+ <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.8 11a1 1 0 0 0 1.3 1.5l.9-.8V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.3l.9.8a1 1 0 0 0 1.3-1.5z"/></svg>Today</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Rota</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>Time Off</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg>Pay</div>
+</div></div></div>
+
+<!-- 2: On shift -->
+<div class="phone"><div class="scr">
+<div class="sb"><span>8:46</span><div class="island"></div><span style="width:64px"></span></div>
+<div class="big"><div class="date">Tuesday 21 October</div><h1>Today</h1></div><div class="ava-me">FP</div>
+<div class="live">
+ <div class="top"><b>On shift</b><span>Clocked in 4:58 PM</span></div>
+ <div class="ringwrap">
+  <svg width="84" height="84" viewBox="0 0 84 84"><circle cx="42" cy="42" r="35" stroke="rgba(255,255,255,.14)" stroke-width="9" fill="none"/><circle cx="42" cy="42" r="35" stroke="#5db7f0" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="139 220" transform="rotate(-90 42 42)"/></svg>
+  <div><div class="n">2h 14m</div><div class="l">left of your shift<br>Finishes 11:00 PM</div></div>
+ </div>
+ <div class="btns"><div class="b1">Start Break</div><div class="b2">Clock Out</div></div>
+</div>
+<div class="sec-h"><h2>Tonight</h2></div>
+<div class="list">
+ <div class="item"><div class="stack"><i style="background:#d6e6f5;color:#2a5f8f;width:34px;height:34px;font-size:12px">RM</i></div><div><div class="t1">Rhys Morgan</div><div class="t2">Bar · until 11:00 PM</div></div></div>
+ <div class="item"><div class="stack"><i style="background:#e6dcf3;color:#5b3d8a;width:34px;height:34px;font-size:12px">SL</i></div><div><div class="t1">Sian Lewis</div><div class="t2">Supervisor · closing</div></div></div>
+ <div class="item"><div class="stack"><i style="background:#f3e3d3;color:#8a5a24;width:34px;height:34px;font-size:12px">OH</i></div><div><div class="t1">Owain Hughes</div><div class="t2">Kitchen · until 10:00 PM</div></div></div>
+</div>
+<div class="sec-h"><h2>Breaks</h2></div>
+<div class="list"><div class="item"><div><div class="t1">20 min paid break</div><div class="t2">Take it any time before 10:00 PM</div></div></div></div>
+<div class="tabbar">
+ <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.8 11a1 1 0 0 0 1.3 1.5l.9-.8V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-8.3l.9.8a1 1 0 0 0 1.3-1.5z"/></svg>Today</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Rota</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>Time Off</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg>Pay</div>
+</div></div></div>
+
+<!-- 3: Time off -->
+<div class="phone"><div class="scr">
+<div class="sb"><span>9:41</span><div class="island"></div><span style="width:64px"></span></div>
+<div class="big"><div class="date">2026 holiday year</div><h1>Time Off</h1></div>
+<div class="bal"><div class="k">Holiday left</div><div class="v">14.5 <span>of 28 days</span></div>
+ <div class="meter"><i style="width:41%;background:var(--brand)"></i><i style="width:7%;background:#9fcdee"></i></div>
+ <div class="legend"><span><b style="background:var(--brand)"></b>Taken 11.5</span><span><b style="background:#9fcdee"></b>Booked 2</span></div></div>
+<div class="seg"><div class="on">Upcoming</div><div>Past</div></div>
+<div class="list" style="margin-top:12px">
+ <div class="item"><div class="cal"><small>Nov</small><b>3</b></div><div><div class="t1">3 – 4 November</div><div class="t2">2 days · Holiday</div></div><span class="st ok">Approved</span></div>
+ <div class="item"><div class="cal"><small>Dec</small><b>24</b></div><div><div class="t1">Christmas Eve</div><div class="t2">1 day · Holiday</div></div><span class="st wait">Pending</span></div>
+</div>
+<div class="req">Request Time Off</div>
+<div class="tabbar">
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11.5 12 4.5l8 7V20h-5v-6H9v6H4z"/></svg>Today</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Rota</div>
+ <div class="tab on"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8" stroke="currentColor" stroke-width="1.9"/></svg>Time Off</div>
+ <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg>Pay</div>
+</div></div></div>
+
+</body></html>

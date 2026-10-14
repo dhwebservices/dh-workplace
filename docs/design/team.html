@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--side:#f5f5f7;--label:#1d1d1f;--sec:#6e6e73;--ter:#aeaeb2;--sep:#e5e5ea;--fill:#f2f2f7;--brand:#1b86d1;--brand-ink:#0d5f99;--graphite:#2b2d30}
+html{zoom:.8333}body{width:1440px;height:946px;overflow:hidden;flex-direction:column;font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;color:var(--label);display:flex;background:var(--bg)}
+.side{width:208px;background:var(--side);border-right:1px solid var(--sep);display:flex;flex-direction:column;padding:16px 10px}
+.ws{display:flex;align-items:center;gap:9px;padding:4px 8px 16px}
+.ws .lg{width:30px;height:30px;border-radius:8px;background:var(--graphite);display:grid;place-items:center}
+.ws b{display:block;font-size:13.5px;font-weight:600} .ws small{font-size:11.5px;color:var(--sec)}
+.ni{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;font-size:13.5px;font-weight:500;color:#3a3a3c;margin-bottom:1px}
+.ni svg{width:18px;height:18px;color:var(--sec)}
+.ni.on{background:#e3e3e8;color:var(--label)} .ni.on svg{color:var(--brand)}
+.ni em{margin-left:auto;font-style:normal;font-size:11px;font-weight:600;background:var(--brand);color:#fff;border-radius:9px;padding:1px 7px}
+.me{margin-top:auto;display:flex;align-items:center;gap:9px;padding:8px;border-top:1px solid var(--sep);font-size:13px;font-weight:500}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;font-style:normal;flex:none}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.tb{display:flex;align-items:center;gap:12px;padding:18px 22px 12px}
+.tb h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.wk{display:flex;align-items:center;gap:6px;margin-left:8px}
+.wk span.r{font-size:15px;font-weight:600}
+.ib{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--sec);font-size:17px}
+.btn{height:30px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;border:1px solid var(--sep);background:#fff;color:var(--label)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.seg{display:flex;background:var(--fill);border-radius:8px;padding:2px} .seg div{padding:4px 12px;font-size:12.5px;font-weight:500;border-radius:6px} .seg .on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.draft{margin:0 22px 12px;background:#fff8e6;border:1px solid #f6e3b5;color:#7a5600;border-radius:10px;padding:8px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.body{display:flex;gap:16px;padding:0 22px;min-height:0}
+.grid{flex:1;display:grid;grid-template-columns:178px repeat(7,minmax(0,1fr));border:1px solid var(--sep);border-radius:12px;overflow:hidden;align-self:flex-start}
+.grid>div{border-bottom:1px solid var(--sep);border-right:1px solid #f0f0f3}
+.h0{font-size:12px;color:var(--sec);padding:10px 12px;display:flex;align-items:flex-end}
+.hd{padding:8px 8px 7px;display:flex;align-items:baseline;gap:5px} .hd span{font-size:12px;color:var(--sec);font-weight:500} .hd b{font-size:17px;font-weight:600}
+.hd.today b{background:var(--brand);color:#fff;border-radius:50%;width:26px;height:26px;display:inline-grid;place-items:center;font-size:14px} .hd.today span{color:var(--brand)}
+.who{display:flex;align-items:center;gap:9px;padding:8px 10px} .nm{font-size:13px;font-weight:600} .rl{font-size:11.5px;color:var(--sec)}
+.c{padding:4px}
+.chip{border-radius:8px;padding:6px 8px;height:100%;min-height:40px}
+.chip b{display:block;font-size:13px;font-weight:600;letter-spacing:-.01em} .chip span{font-size:11px;font-weight:500;opacity:.85}
+.bar{background:#e7f1fa;color:#155f96} .kit{background:#fbefe2;color:#93500f} .flr{background:#e4f4e8;color:#1d6b33} .sup{background:#efeaf9;color:#5a3a9e}
+.ask{border:1.5px dashed #e3a33a;background:#fffaf0;color:#8a5a00} .ask b{font-size:11.5px}
+.cvh{font-size:12px;font-weight:600;color:var(--sec);padding:9px 12px;background:#fafafc} .cv{font-size:11.5px;color:var(--sec);padding:9px 8px;background:#fafafc}
+.warn{color:#b45309;font-weight:600}
+.insp{width:268px;flex:none;display:flex;flex-direction:column;gap:14px}
+.panel{border:1px solid var(--sep);border-radius:12px;padding:14px}
+.panel h3{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between} .panel h3 span{color:var(--sec);font-weight:500;font-size:12px}
+.rq{display:flex;gap:9px;padding:9px 0;border-top:1px solid #f0f0f3} .rq:first-of-type{border:0;padding-top:0}
+.rq p{font-size:12.5px;line-height:1.4} .rq p span{color:var(--sec)}
+.rq .a{display:flex;gap:6px;margin-top:7px} .rq .btn{height:26px;font-size:12px;padding:0 10px}
+.rq .av{width:28px;height:28px;font-size:10px}
+.big{font-size:28px;font-weight:700;letter-spacing:-.03em} .of{font-size:12.5px;color:var(--sec)}
+.meter{height:6px;border-radius:3px;background:var(--fill);margin-top:10px;overflow:hidden} .meter i{display:block;height:100%;width:88%;background:var(--brand);border-radius:3px}
+.top{height:54px;border-bottom:1px solid var(--sep);display:flex;align-items:center;padding:0 22px;gap:26px;flex:none}
+.top .ws{padding:0;gap:9px} .top .lg{width:28px;height:28px} .top .ws b{font-size:14px} .caret{color:var(--sec);font-size:13px;margin-left:-2px}
+.top nav{display:flex;gap:4px;height:100%} .top nav a{display:flex;align-items:center;padding:0 12px;font-size:13.5px;font-weight:500;color:#48484a;border-bottom:2px solid transparent;margin-bottom:-1px}
+.top nav a.on{color:var(--label);font-weight:600;border-color:var(--brand)}
+.top nav em{font-style:normal;font-size:10.5px;font-weight:600;background:var(--brand);color:#fff;border-radius:9px;padding:1px 6px;margin-left:6px}
+.tr{margin-left:auto;display:flex;align-items:center;gap:14px} .srch{background:var(--fill);border-radius:8px;padding:6px 12px;font-size:13px;color:var(--sec);width:200px} .bell{color:var(--sec);font-size:15px}
+.subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--sep);margin-bottom:12px} .subtabs a{font-size:13px;font-weight:500;color:var(--sec);padding:0 0 9px;border-bottom:2px solid transparent;margin-bottom:-1px} .subtabs a.on{color:var(--label);font-weight:600;border-color:var(--label)}
+.subtabs a em{font-style:normal;color:var(--sec);font-weight:500;margin-left:4px}
+</style><style>.ctx{width:220px;border-right:1px solid var(--sep);padding:18px 12px;display:flex;flex-direction:column;gap:1px;flex:none}
+.ctxh{font-size:12px;font-weight:600;color:var(--sec);padding:0 10px 8px;text-transform:none}
+.ctx a{display:flex;justify-content:space-between;padding:7px 10px;border-radius:8px;font-size:13.5px;font-weight:500;color:#3a3a3c}
+.ctx a span{color:var(--sec);font-size:12px} .ctx a.on{background:var(--fill);color:var(--label);font-weight:600}
+.ctxsep{height:1px;background:var(--sep);margin:10px 10px}
+.cont{flex:1;padding:0 6px}
+.srch2{background:var(--fill);border-radius:8px;padding:6px 12px;font-size:13px;color:var(--sec);width:220px}
+.filt{display:flex;gap:8px;padding:0 22px 14px} .f{font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:999px;background:var(--fill);color:#3a3a3c} .f.on{background:var(--label);color:#fff}
+table{width:calc(100% - 44px);margin:0 22px;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:12px;font-weight:500;color:var(--sec);padding:8px 10px;border-bottom:1px solid var(--sep)}
+td{padding:10px;border-bottom:1px solid #f0f0f3} .pp{display:flex;gap:10px;align-items:center} .pp b{display:block;font-weight:600} .pp span{font-size:12px;color:var(--sec)}
+.okk{font-size:12px;font-weight:600;color:#1d7a35;background:#e3f5e7;padding:3px 8px;border-radius:999px} .pend{font-size:12px;font-weight:600;color:#a35d00;background:#fdf0dc;padding:3px 8px;border-radius:999px}
+.mut{color:var(--ter);font-size:18px;text-align:right}</style></head><body>
+<div class="top"><div class="ws"><div class="lg"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M1 2h6.2c1.6 0 2.4 1.6 2.6 4.4H1z" fill="#8f9196"/><path d="M9 2h5.4v3.2c0 .7-.5 1.2-1.2 1.2H9.8C9.6 4.3 9.3 2.8 9 2z" fill="#d7d8da"/><path d="M1 9.6h8.8c-.2 2.8-1 4.4-2.6 4.4H2.2A1.2 1.2 0 0 1 1 12.8z" fill="#8f9196"/><path d="M9.8 9.6h4.6v3.2c0 .7-.5 1.2-1.2 1.2H9c.4-.8.7-2.3.8-4.4z" fill="#d7d8da"/></svg></div><div><b>The Bridge Inn</b></div><span class="caret">⌄</span></div>
+<nav><a>Today</a><a>Rota</a><a>Clock-ins</a><a>Time Off<em>2</em></a><a class="on">Team</a><a>Pay</a></nav>
+<div class="tr"><span class="srch">⌕ Search</span><span class="bell">🔔︎</span><i class="av" style="background:#e6dcf3;color:#5b3d8a;width:28px;height:28px;font-size:10.5px">SL</i></div></div><div class="main" style="flex-direction:row">
+<div class="ctx"><div class="ctxh">Team</div>
+<a class="on">People <span>7</span></a><a>Onboarding <span>1</span></a><a>Documents</a><a>Policies</a><a>Roles &amp; Pay Rates</a><a>Departments</a>
+<div class="ctxsep"></div><a>Invite Staff</a></div>
+<div class="cont"><div class="tb"><h1>People</h1><div class="sp"><span class="srch2">⌕ Search people</span><span class="btn">Export</span><span class="btn pri">Invite Staff</span></div></div>
+<div class="filt"><span class="f on">All 7</span><span class="f">Full time 2</span><span class="f">Part time 4</span><span class="f">Zero hours 1</span></div>
+<table><thead><tr><th>Name</th><th>Role</th><th>Contract</th><th>Started</th><th>Documents</th><th></th></tr></thead><tbody><tr><td><div class="pp"><i class="av" style="background:#e6dcf3;color:#5b3d8a">SL</i><div><b>Sian Lewis</b><span>sian@email.com</span></div></div></td><td>Supervisor</td><td>Full time</td><td>Mar 2021</td><td><span class=okk>All signed</span></td><td class="mut">›</td></tr><tr><td><div class="pp"><i class="av" style="background:#f3e3d3;color:#8a5a24">CJ</i><div><b>Cerys Jones</b><span>cerys@email.com</span></div></div></td><td>Chef</td><td>Full time</td><td>Jun 2022</td><td><span class=okk>All signed</span></td><td class="mut">›</td></tr><tr><td><div class="pp"><i class="av" style="background:#d6e6f5;color:#2a5f8f">RM</i><div><b>Rhys Morgan</b><span>rhys@email.com</span></div></div></td><td>Bar</td><td>Part time</td><td>Jan 2024</td><td><span class=okk>All signed</span></td><td class="mut">›</td></tr><tr><td><div class="pp"><i class="av" style="background:#e9ecd5;color:#5c6420">OH</i><div><b>Owain Hughes</b><span>owain@email.com</span></div></div></td><td>Kitchen</td><td>Part time</td><td>Aug 2024</td><td><span class=okk>All signed</span></td><td class="mut">›</td></tr><tr><td><div class="pp"><i class="av" style="background:#efe0d2;color:#6b4a2f">FP</i><div><b>Ffion Price</b><span>ffion@email.com</span></div></div></td><td>Bar</td><td>Part time</td><td>Feb 2025</td><td><span class=okk>All signed</span></td><td class="mut">›</td></tr><tr><td><div class="pp"><i class="av" style="background:#dde3f0;color:#3c4f7d">TE</i><div><b>Tom Evans</b><span>tom@email.com</span></div></div></td><td>Cellar & Bar</td><td>Part time</td><td>May 2025</td><td><span class=okk>All signed</span></td><td class="mut">›</td></tr><tr><td><div class="pp"><i class="av" style="background:#dcefe2;color:#2c6b40">MD</i><div><b>Megan Davies</b><span>megan@email.com</span></div></div></td><td>Floor</td><td>Zero hours</td><td>Sep 2026</td><td><span class=pend>2 to sign</span></td><td class="mut">›</td></tr></tbody></table></div></div></body></html>

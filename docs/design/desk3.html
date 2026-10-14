@@ -1,0 +1,85 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--side:#f5f5f7;--label:#1d1d1f;--sec:#6e6e73;--ter:#aeaeb2;--sep:#e5e5ea;--fill:#f2f2f7;--brand:#1b86d1;--brand-ink:#0d5f99;--graphite:#2b2d30}
+html{zoom:.8333}body{width:1440px;height:946px;overflow:hidden;flex-direction:column;font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;color:var(--label);display:flex;background:var(--bg)}
+.side{width:208px;background:var(--side);border-right:1px solid var(--sep);display:flex;flex-direction:column;padding:16px 10px}
+.ws{display:flex;align-items:center;gap:9px;padding:4px 8px 16px}
+.ws .lg{width:30px;height:30px;border-radius:8px;background:var(--graphite);display:grid;place-items:center}
+.ws b{display:block;font-size:13.5px;font-weight:600} .ws small{font-size:11.5px;color:var(--sec)}
+.ni{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;font-size:13.5px;font-weight:500;color:#3a3a3c;margin-bottom:1px}
+.ni svg{width:18px;height:18px;color:var(--sec)}
+.ni.on{background:#e3e3e8;color:var(--label)} .ni.on svg{color:var(--brand)}
+.ni em{margin-left:auto;font-style:normal;font-size:11px;font-weight:600;background:var(--brand);color:#fff;border-radius:9px;padding:1px 7px}
+.me{margin-top:auto;display:flex;align-items:center;gap:9px;padding:8px;border-top:1px solid var(--sep);font-size:13px;font-weight:500}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;font-style:normal;flex:none}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.tb{display:flex;align-items:center;gap:12px;padding:18px 22px 12px}
+.tb h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.wk{display:flex;align-items:center;gap:6px;margin-left:8px}
+.wk span.r{font-size:15px;font-weight:600}
+.ib{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--sec);font-size:17px}
+.btn{height:30px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;border:1px solid var(--sep);background:#fff;color:var(--label)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.seg{display:flex;background:var(--fill);border-radius:8px;padding:2px} .seg div{padding:4px 12px;font-size:12.5px;font-weight:500;border-radius:6px} .seg .on{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.draft{margin:0 22px 12px;background:#fff8e6;border:1px solid #f6e3b5;color:#7a5600;border-radius:10px;padding:8px 12px;font-size:12.5px;display:flex;align-items:center;gap:8px}
+.body{display:flex;gap:16px;padding:0 22px;min-height:0}
+.grid{flex:1;display:grid;grid-template-columns:178px repeat(7,minmax(0,1fr));border:1px solid var(--sep);border-radius:12px;overflow:hidden;align-self:flex-start}
+.grid>div{border-bottom:1px solid var(--sep);border-right:1px solid #f0f0f3}
+.h0{font-size:12px;color:var(--sec);padding:10px 12px;display:flex;align-items:flex-end}
+.hd{padding:8px 8px 7px;display:flex;align-items:baseline;gap:5px} .hd span{font-size:12px;color:var(--sec);font-weight:500} .hd b{font-size:17px;font-weight:600}
+.hd.today b{background:var(--brand);color:#fff;border-radius:50%;width:26px;height:26px;display:inline-grid;place-items:center;font-size:14px} .hd.today span{color:var(--brand)}
+.who{display:flex;align-items:center;gap:9px;padding:8px 10px} .nm{font-size:13px;font-weight:600} .rl{font-size:11.5px;color:var(--sec)}
+.c{padding:4px}
+.chip{border-radius:8px;padding:6px 8px;height:100%;min-height:40px}
+.chip b{display:block;font-size:13px;font-weight:600;letter-spacing:-.01em} .chip span{font-size:11px;font-weight:500;opacity:.85}
+.bar{background:#e7f1fa;color:#155f96} .kit{background:#fbefe2;color:#93500f} .flr{background:#e4f4e8;color:#1d6b33} .sup{background:#efeaf9;color:#5a3a9e}
+.ask{border:1.5px dashed #e3a33a;background:#fffaf0;color:#8a5a00} .ask b{font-size:11.5px}
+.cvh{font-size:12px;font-weight:600;color:var(--sec);padding:9px 12px;background:#fafafc} .cv{font-size:11.5px;color:var(--sec);padding:9px 8px;background:#fafafc}
+.warn{color:#b45309;font-weight:600}
+.insp{width:268px;flex:none;display:flex;flex-direction:column;gap:14px}
+.panel{border:1px solid var(--sep);border-radius:12px;padding:14px}
+.panel h3{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between} .panel h3 span{color:var(--sec);font-weight:500;font-size:12px}
+.rq{display:flex;gap:9px;padding:9px 0;border-top:1px solid #f0f0f3} .rq:first-of-type{border:0;padding-top:0}
+.rq p{font-size:12.5px;line-height:1.4} .rq p span{color:var(--sec)}
+.rq .a{display:flex;gap:6px;margin-top:7px} .rq .btn{height:26px;font-size:12px;padding:0 10px}
+.rq .av{width:28px;height:28px;font-size:10px}
+.big{font-size:28px;font-weight:700;letter-spacing:-.03em} .of{font-size:12.5px;color:var(--sec)}
+.meter{height:6px;border-radius:3px;background:var(--fill);margin-top:10px;overflow:hidden} .meter i{display:block;height:100%;width:88%;background:var(--brand);border-radius:3px}
+.top{height:54px;border-bottom:1px solid var(--sep);display:flex;align-items:center;padding:0 22px;gap:26px;flex:none}
+.top .ws{padding:0;gap:9px} .top .lg{width:28px;height:28px} .top .ws b{font-size:14px} .caret{color:var(--sec);font-size:13px;margin-left:-2px}
+.top nav{display:flex;gap:4px;height:100%} .top nav a{display:flex;align-items:center;padding:0 12px;font-size:13.5px;font-weight:500;color:#48484a;border-bottom:2px solid transparent;margin-bottom:-1px}
+.top nav a.on{color:var(--label);font-weight:600;border-color:var(--brand)}
+.top nav em{font-style:normal;font-size:10.5px;font-weight:600;background:var(--brand);color:#fff;border-radius:9px;padding:1px 6px;margin-left:6px}
+.tr{margin-left:auto;display:flex;align-items:center;gap:14px} .srch{background:var(--fill);border-radius:8px;padding:6px 12px;font-size:13px;color:var(--sec);width:200px} .bell{color:var(--sec);font-size:15px}
+.subtabs{display:flex;gap:22px;padding:0 22px;border-bottom:1px solid var(--sep);margin-bottom:12px} .subtabs a{font-size:13px;font-weight:500;color:var(--sec);padding:0 0 9px;border-bottom:2px solid transparent;margin-bottom:-1px} .subtabs a.on{color:var(--label);font-weight:600;border-color:var(--label)}
+.subtabs a em{font-style:normal;color:var(--sec);font-weight:500;margin-left:4px}
+.top{height:56px!important;background:#232528!important;border:0!important;gap:18px!important;padding:0 18px!important}
+.brandmark .lg2{width:30px;height:30px;border-radius:8px;background:#3a3d42;display:grid;place-items:center}
+.venue{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border-radius:9px;background:#2f3236;color:#fff}
+.venue b{display:block;font-size:13px;font-weight:600;line-height:1.2} .venue small{display:block;font-size:11px;color:#a1a4aa} .venue svg:last-child{color:#a1a4aa;margin-left:4px}
+.top nav{gap:2px!important;margin-left:6px} .top nav a{color:#c7c9cd!important;border:0!important;margin:0!important;height:32px;align-self:center;border-radius:8px;padding:0 12px!important}
+.top nav a.on{background:#3a3d42;color:#fff!important}
+.top nav em{background:#e8a33d!important;color:#232528!important}
+.tr{gap:6px!important} .srch{display:flex!important;align-items:center;gap:8px;background:#2f3236!important;color:#a1a4aa!important;width:230px!important;height:32px;padding:0 10px!important}
+.srch span{flex:1} kbd{font:500 11px -apple-system;background:#3a3d42;border-radius:5px;padding:2px 6px;color:#c7c9cd}
+.ic{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:#c7c9cd;position:relative}
+.ic.dotted::after{content:'';position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:#e8a33d;box-shadow:0 0 0 2px #232528}
+.acct{display:flex;align-items:center;gap:8px;margin-left:8px;color:#fff} .acct b{display:block;font-size:12.5px;font-weight:600;line-height:1.2} .acct small{font-size:11px;color:#a1a4aa}
+</style></head><body>
+<div class="top">
+<div class="brandmark"><div class="lg2"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M1 2h6.2c1.6 0 2.4 1.6 2.6 4.4H1z" fill="#8f9196"/><path d="M9 2h5.4v3.2c0 .7-.5 1.2-1.2 1.2H9.8C9.6 4.3 9.3 2.8 9 2z" fill="#d7d8da"/><path d="M1 9.6h8.8c-.2 2.8-1 4.4-2.6 4.4H2.2A1.2 1.2 0 0 1 1 12.8z" fill="#8f9196"/><path d="M9.8 9.6h4.6v3.2c0 .7-.5 1.2-1.2 1.2H9c.4-.8.7-2.3.8-4.4z" fill="#d7d8da"/></svg></div></div>
+<div class="venue"><svg width="26" height="26" viewBox="0 0 26 26"><rect width="26" height="26" rx="6" fill="#6b4f3a"/><rect x="4" y="9" width="18" height="13" rx="1.5" fill="#a8835f"/><path d="M3 10 13 4l10 6" fill="#3e2c20"/><rect x="7" y="12" width="4" height="4" fill="#f6d58e"/><rect x="15" y="12" width="4" height="4" fill="#f6d58e"/><rect x="11.2" y="16" width="3.6" height="6" fill="#3e2c20"/></svg><div><b>The Bridge Inn</b><small>Pontypridd</small></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m8 10 4 4 4-4"/></svg></div>
+<nav><a>Today</a><a class="on">Rota</a><a>Clock-ins</a><a>Time Off<em>2</em></a><a>Team</a><a>Pay</a></nav>
+<div class="tr"><span class="srch"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg><span>Search</span><kbd>⌘K</kbd></span><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6M12 17h.01"/></svg></span><span class="ic dotted"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 1 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></span>
+<div class="acct"><i class="av" style="background:#e6dcf3;color:#5b3d8a;width:28px;height:28px;font-size:10.5px">SL</i><div><b>Sian Lewis</b><small>Manager</small></div></div></div></div><div class="main">
+<div class="tb"><h1>Rota</h1><div class="wk"><span class="ib">‹</span><span class="r">20 – 26 October</span><span class="ib">›</span><span class="btn" style="height:26px">Today</span></div>
+<div class="sp"><div class="seg"><div class="on">Week</div><div>Day</div></div><span class="btn">Copy Last Week</span><span class="btn pri">Publish</span></div></div>
+<div class="subtabs"><a class="on">Schedule</a><a>Open Shifts<em>2</em></a><a>Availability</a><a>Templates</a></div><div class="draft"><b>Draft</b> · Your team can't see this week until you publish it.</div>
+<div class="body"><div class="grid"><div class="h0">7 people</div><div class="hd"><span>Mon</span><b>20</b></div><div class="hd today"><span>Tue</span><b>21</b></div><div class="hd"><span>Wed</span><b>22</b></div><div class="hd"><span>Thu</span><b>23</b></div><div class="hd"><span>Fri</span><b>24</b></div><div class="hd"><span>Sat</span><b>25</b></div><div class="hd"><span>Sun</span><b>26</b></div><div class="who"><i class="av" style="background:#e6dcf3;color:#5b3d8a">SL</i><div><div class="nm">Sian Lewis</div><div class="rl">Supervisor · 38 hrs</div></div></div><div class="c"><div class="chip sup"><b>10 – 6</b><span>Supervisor</span></div></div><div class="c"><div class="chip sup"><b>10 – 6</b><span>Supervisor</span></div></div><div class="c"></div><div class="c"><div class="chip sup"><b>3 – 11</b><span>Closing</span></div></div><div class="c"><div class="chip sup"><b>3 – 11:30</b><span>Closing</span></div></div><div class="c"></div><div class="c"><div class="chip sup"><b>11 – 5</b><span>Supervisor</span></div></div><div class="who"><i class="av" style="background:#efe0d2;color:#6b4a2f">FP</i><div><div class="nm">Ffion Price</div><div class="rl">Bar · 24 hrs</div></div></div><div class="c"></div><div class="c"><div class="chip bar"><b>5 – 11</b><span>Bar</span></div></div><div class="c"></div><div class="c"><div class="chip flr"><b>12 – 6</b><span>Floor</span></div></div><div class="c"></div><div class="c"><div class="chip bar"><b>6 – 12</b><span>Bar</span></div></div><div class="c"></div><div class="who"><i class="av" style="background:#d6e6f5;color:#2a5f8f">RM</i><div><div class="nm">Rhys Morgan</div><div class="rl">Bar · 30 hrs</div></div></div><div class="c"><div class="chip bar"><b>5 – 11</b><span>Bar</span></div></div><div class="c"></div><div class="c"><div class="chip bar"><b>5 – 11</b><span>Bar</span></div></div><div class="c"><div class="chip bar"><b>5 – 11</b><span>Bar</span></div></div><div class="c"><div class="chip bar"><b>6 – 12</b><span>Bar</span></div></div><div class="c"></div><div class="c"><div class="chip bar"><b>12 – 6</b><span>Bar</span></div></div><div class="who"><i class="av" style="background:#f3e3d3;color:#8a5a24">CJ</i><div><div class="nm">Cerys Jones</div><div class="rl">Chef · 40 hrs</div></div></div><div class="c"><div class="chip kit"><b>11 – 7</b><span>Kitchen</span></div></div><div class="c"><div class="chip kit"><b>11 – 7</b><span>Kitchen</span></div></div><div class="c"><div class="chip kit"><b>11 – 7</b><span>Kitchen</span></div></div><div class="c"></div><div class="c"><div class="chip kit"><b>11 – 8</b><span>Kitchen</span></div></div><div class="c"><div class="chip kit"><b>11 – 8</b><span>Kitchen</span></div></div><div class="c"></div><div class="who"><i class="av" style="background:#e9ecd5;color:#5c6420">OH</i><div><div class="nm">Owain Hughes</div><div class="rl">Kitchen · 26 hrs</div></div></div><div class="c"></div><div class="c"><div class="chip kit"><b>4 – 10</b><span>Kitchen</span></div></div><div class="c"><div class="chip kit"><b>4 – 10</b><span>Kitchen</span></div></div><div class="c"><div class="chip kit"><b>4 – 10</b><span>Kitchen</span></div></div><div class="c"></div><div class="c"><div class="chip kit"><b>12 – 8</b><span>Kitchen</span></div></div><div class="c"></div><div class="who"><i class="av" style="background:#dcefe2;color:#2c6b40">MD</i><div><div class="nm">Megan Davies</div><div class="rl">Floor · 18 hrs</div></div></div><div class="c"></div><div class="c"></div><div class="c"><div class="chip flr"><b>12 – 6</b><span>Floor</span></div></div><div class="c"></div><div class="c"><div class="chip flr"><b>5 – 11</b><span>Floor</span></div></div><div class="c"><div class="chip ask"><b>Time off requested</b><span>Waiting for you</span></div></div><div class="c"><div class="chip flr"><b>12 – 6</b><span>Floor</span></div></div><div class="who"><i class="av" style="background:#dde3f0;color:#3c4f7d">TE</i><div><div class="nm">Tom Evans</div><div class="rl">Cellar & Bar · 22 hrs</div></div></div><div class="c"><div class="chip bar"><b>10 – 2</b><span>Cellar</span></div></div><div class="c"></div><div class="c"></div><div class="c"><div class="chip bar"><b>10 – 2</b><span>Cellar</span></div></div><div class="c"><div class="chip bar"><b>5 – 11</b><span>Bar</span></div></div><div class="c"><div class="chip bar"><b>6 – 12</b><span>Bar</span></div></div><div class="c"></div><div class="cvh">Cover</div><div class="cv">3 bar · 1 kitchen</div><div class="cv">2 bar · 2 kitchen</div><div class="cv">2 bar · 2 kitchen</div><div class="cv">3 bar · 1 kitchen</div><div class="cv">3 bar · 1 kitchen</div><div class="cv"><span class="warn">⚠︎ No supervisor closing</span></div><div class="cv">2 bar · 1 floor</div></div>
+<div class="insp"><div class="panel"><h3>Needs Attention <span>3</span></h3>
+<div class="rq"><i class="av" style="background:#dcefe2;color:#2c6b40">MD</i><div><p><b>Megan</b> requested Sat 25 off<br><span>Family wedding · 2 days ago</span></p><div class="a"><span class="btn pri">Approve</span><span class="btn">Decline</span></div></div></div>
+<div class="rq"><i class="av" style="background:#d6e6f5;color:#2a5f8f">RM</i><div><p><b>Rhys</b> wants to swap Thursday with <b>Tom</b><br><span>Tom accepted</span></p><div class="a"><span class="btn pri">Allow</span><span class="btn">Decline</span></div></div></div>
+<div class="rq"><i class="av" style="background:#e9ecd5;color:#5c6420">OH</i><div><p><b>Owain</b> clocked in 14 minutes late<br><span>Tuesday at 4:14 PM</span></p></div></div></div>
+<div class="panel"><h3>Wages <span>This week</span></h3><div class="big">£1,842</div><div class="of">of £2,100 budget · 198 hours</div><div class="meter"><i></i></div></div></div>
+</div></div></body></html>

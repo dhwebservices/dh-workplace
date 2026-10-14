@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{zoom:.8333}
+:root{--label:#1d1d1f;--sec:#6e6e73;--sep:#e5e5ea;--fill:#f2f2f7;--brand:#1b86d1;--graphite:#2b2d30}
+body{width:1440px;height:946px;overflow:hidden;font-family:-apple-system,'SF Pro Display','SF Pro Text',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:var(--label);background:#fff}
+.nav{height:64px;display:flex;align-items:center;padding:0 56px;gap:34px;border-bottom:1px solid #f0f0f3}
+.logo{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.logo .lg{width:28px;height:28px;border-radius:8px;background:var(--graphite);display:grid;place-items:center}
+.logo small{font-size:12px;font-weight:500;color:var(--sec);margin-left:-3px}
+.nav a{font-size:14px;color:#3a3a3c;font-weight:500}
+.nav .r{margin-left:auto;display:flex;gap:22px;align-items:center}
+.btn{height:36px;padding:0 16px;border-radius:9px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;border:1px solid var(--sep);background:#fff;color:var(--label)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.lg{height:48px;padding:0 22px;font-size:16px;border-radius:12px}
+.hero{text-align:center;padding:56px 0 0}
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:#3a3a3c;background:var(--fill);border-radius:999px;padding:6px 14px 6px 6px}
+.pill b{background:#fff;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;color:#b45309;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+h1{font-size:68px;font-weight:700;letter-spacing:-.04em;line-height:1.02;margin:22px auto 0;max-width:900px}
+.lede{font-size:20px;line-height:1.5;color:var(--sec);max-width:660px;margin:20px auto 0;letter-spacing:-.01em}
+.cta{display:flex;gap:12px;justify-content:center;margin-top:30px}
+.fine{font-size:13.5px;color:var(--sec);margin-top:14px}
+.fine b{color:var(--label);font-weight:600}
+.stage{position:relative;width:1180px;margin:48px auto 0}
+.browser{border-radius:14px;border:1px solid var(--sep);overflow:hidden;box-shadow:0 40px 80px -40px rgba(20,30,50,.35),0 0 0 6px #f5f5f7}
+.chrome{height:34px;background:#f5f5f7;border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:7px;padding:0 14px}
+.chrome i{width:11px;height:11px;border-radius:50%;background:#dcdce0}
+.chrome span{margin:0 auto;font-size:12px;color:var(--sec);background:#fff;border-radius:6px;padding:3px 60px}
+.browser img{display:block;width:100%}
+.phone{position:absolute;right:-40px;top:110px;width:250px;filter:drop-shadow(0 30px 40px rgba(20,30,50,.35))}
+.feats{max-width:390px;margin-top:34px;padding-top:26px;border-top:1px solid var(--sep);display:grid;gap:20px}
+.ft{display:flex;gap:14px;align-items:flex-start} .fi{width:38px;height:38px;border-radius:10px;background:#e8f3fb;display:grid;place-items:center;flex:none}
+.ft b{font-size:15px;font-weight:600;letter-spacing:-.01em} .ft p{font-size:14px;color:var(--sec);margin-top:2px;line-height:1.45}
+.hero2{padding-top:70px!important}
+.credit2{margin-top:30px;font-size:12.5px;color:var(--sec);max-width:390px;line-height:1.5}
+.hero2{height:auto!important;padding-bottom:40px}
+.hero2{grid-template-columns:470px 1fr!important;align-items:center!important;height:898px!important;padding:0 0 0 120px!important;gap:60px!important}
+.hero2 h1{font-size:72px!important}
+.shot .browser{width:1060px!important}
+.shot .phone{left:10px!important;top:200px!important;width:270px!important}
+.credit2{margin-top:44px!important}
+</style><style>
+.gnav{height:48px;background:#1d1d1f}
+.gnav .in{max-width:1180px;margin:0 auto;height:100%;display:flex;align-items:center;gap:30px}
+.gnav .logo{display:flex;align-items:center;gap:8px;color:#fff;font-size:15px;font-weight:600;margin-right:14px}
+.gnav a{font-size:12.5px;color:#d2d2d7;letter-spacing:-.005em} .gnav .sp{flex:1}
+.hero2{display:grid;grid-template-columns:500px 1fr;gap:56px;padding:84px 0 0 130px;height:760px;overflow:hidden}
+.hero2 h1{font-size:64px;font-weight:700;letter-spacing:-.04em;line-height:1.02;margin:0;max-width:none;text-align:left}
+.hero2 .lede{margin:22px 0 0;text-align:left;font-size:19px}
+.cta2{display:flex;gap:22px;align-items:center;margin-top:32px} .tl{font-size:17px;color:var(--brand);font-weight:500}
+.price{margin-top:18px;font-size:14px;color:var(--sec)}
+.shot{position:relative;margin-top:8px}
+.shot .browser{width:980px;border-radius:14px;border:1px solid var(--sep);overflow:hidden;box-shadow:0 40px 80px -40px rgba(20,30,50,.35),0 0 0 6px #f5f5f7}
+.shot .phone{position:absolute;left:-10px;top:170px;width:220px;filter:drop-shadow(0 30px 40px rgba(20,30,50,.35))}
+.credit{position:absolute;left:130px;bottom:26px;font-size:12.5px;color:var(--sec)}
+</style></head><body>
+<div class="gnav"><div class="in"><div class="logo"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M1 2h6.2c1.6 0 2.4 1.6 2.6 4.4H1z" fill="#c9cbcf"/><path d="M9 2h5.4v3.2c0 .7-.5 1.2-1.2 1.2H9.8C9.6 4.3 9.3 2.8 9 2z" fill="#ffffff"/><path d="M1 9.6h8.8c-.2 2.8-1 4.4-2.6 4.4H2.2A1.2 1.2 0 0 1 1 12.8z" fill="#c9cbcf"/><path d="M9.8 9.6h4.6v3.2c0 .7-.5 1.2-1.2 1.2H9c.4-.8.7-2.3.8-4.4z" fill="#ffffff"/></svg><span>Workplace</span></div>
+<a>Rotas</a><a>Clock-in</a><a>Time Off</a><a>Pay</a><a>Pricing</a><a>For Business</a><span class="sp"></span><a>Sign In</a></div></div>
+<div class="hero2"><div class="copy">
+<h1>Rotas your team will actually read.</h1>
+<p class="lede">Build next week in minutes. See who's turned up. Sort holidays without the 11pm WhatsApp messages. Made in Pontypridd for pubs, cafés, salons and care teams.</p>
+<div class="cta2"><span class="btn pri lg">Start free for 14 days</span><a class="tl">See how it works ›</a></div>
+<div class="price">£5 per person, per month. No card to start.</div><div class="credit2">Designed and built by DH Website Services, Web Design Service of the Year at the Wales Prestige Awards 2027/28.</div></div>
+<div class="shot"><div class="browser"><div class="chrome"><i></i><i></i><i></i></div><img src="shot-desk3.jpg"></div><img class="phone" src="shot-phone.png"></div></div>
+
+</body></html>
