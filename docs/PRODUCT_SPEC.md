@@ -40,6 +40,14 @@ Rules:
 - Every grant and removal is written to the activity log.
 - Grants can have an end date (e.g. covering a manager's holiday).
 
+## Sign-in
+
+- v1:
+  - email and password;
+  - sign-in link by email;
+  - **Sign in with Microsoft** (any Microsoft work or personal account), alongside not instead of the others.
+- Later: per-business single sign-on into the customer's own domain (SAML), e.g. everyone at @bridgeinn.co.uk signs in through their company's identity provider, with an option to make it required. The database already has `sso_domain`, `sso_provider_id` and `sso_required` on businesses for this.
+
 ## v1 features
 
 1. **Sign-up and setup:**
@@ -98,7 +106,7 @@ Announcements and messaging, tips and tronc, wage forecasting, direct Xero sync,
 ## Build order
 
 1. Fresh Supabase project (London). Schema for businesses, sites, departments, people, roles and permission grants. RLS and isolation tests first.
-2. Auth (email and password, magic link) and invites. Stripe per-seat billing with trial.
+2. Auth (email and password, magic link, Sign in with Microsoft) and invites. Stripe per-seat billing with trial.
 3. Setup wizard and team.
 4. Rota (web), then publish and notifications.
 5. Staff app: today, rota, clock-in, time off.
