@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { supabase } from './supabase'
+import { friendlyError, supabase, withTimeout } from './supabase'
 
 const WorkspaceContext = createContext(null)
 const STORAGE_KEY = 'workplace.business'
@@ -19,12 +19,13 @@ export function WorkspaceProvider({ children }) {
   const [businessId, setBusinessId] = useState(readStoredBusiness())
   const [permissions, setPermissions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setAuthReady(true)
-    })
+    withTimeout(supabase.auth.getSession(), 10000)
+      .then(({ data }) => setSession(data.session))
+      .catch(() => setSession(null))
+      .finally(() => setAuthReady(true))
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
     return () => data.subscription.unsubscribe()
   }, [])
@@ -36,10 +37,20 @@ export function WorkspaceProvider({ children }) {
       return
     }
     setLoading(true)
-    // Link any invites waiting for this email before listing businesses.
-    await supabase.rpc('claim_invites')
-    const { data } = await supabase.rpc('my_businesses')
-    const list = data || []
+    setLoadError('')
+    let list = []
+    try {
+      // Link any invites waiting for this email before listing businesses.
+      const claim = await withTimeout(supabase.rpc('claim_invites'), 15000)
+      if (claim.error) throw claim.error
+      const { data, error } = await withTimeout(supabase.rpc('my_businesses'), 15000)
+      if (error) throw error
+      list = data || []
+    } catch (error) {
+      setLoadError(friendlyError(error))
+      setLoading(false)
+      return
+    }
     setBusinesses(list)
     setBusinessId((current) =>
       list.some((b) => b.business_id === current) ? current : list[0]?.business_id || null,
@@ -61,7 +72,7 @@ export function WorkspaceProvider({ children }) {
     } catch {
       // Private browsing: the switcher just won't remember the last venue.
     }
-    supabase.rpc('my_permissions', { p_business: businessId }).then(({ data }) => setPermissions(data || []))
+    supabase.rpc('my_permissions', { p_business: businessId }).then(({ data }) => setPermissions(data || []), () => setPermissions([]))
   }, [businessId])
 
   const value = useMemo(() => {
@@ -71,6 +82,7 @@ export function WorkspaceProvider({ children }) {
       user: session?.user || null,
       authReady,
       loading,
+      loadError,
       businesses,
       business,
       businessId,
@@ -80,7 +92,7 @@ export function WorkspaceProvider({ children }) {
       refresh,
       signOut: () => supabase.auth.signOut(),
     }
-  }, [session, authReady, loading, businesses, businessId, permissions, refresh])
+  }, [session, authReady, loading, loadError, businesses, businessId, permissions, refresh])
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { friendlyError, supabase } from '../../lib/supabase'
+import { friendlyError, supabase, withTimeout } from '../../lib/supabase'
 import { useWorkspace } from '../../lib/workspace'
 import AuthFrame from './AuthFrame'
 
@@ -17,17 +17,23 @@ export default function SignUp() {
     event.preventDefault()
     setStatus('busy')
     setError('')
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: { data: { full_name: form.name }, emailRedirectTo: `${location.origin}/` },
-    })
+    let data
+    let signUpError
+    try {
+      ;({ data, error: signUpError } = await withTimeout(supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { data: { full_name: form.name }, emailRedirectTo: `${location.origin}/` },
+      })))
+    } catch (e) {
+      signUpError = e
+    }
     if (signUpError) {
       setError(friendlyError(signUpError))
       setStatus('idle')
       return
     }
-    setStatus(data.session ? 'idle' : 'check-email')
+    setStatus(data?.session ? 'idle' : 'check-email')
   }
 
   return (
@@ -52,7 +58,7 @@ export default function SignUp() {
             <input className="input" type="password" autoComplete="new-password" minLength={8} required value={form.password} onChange={update('password')} />
           </label>
           {error && <p className="form-error">{error}</p>}
-          <button className="btn primary lg block" disabled={status === 'busy'}>Create Account</button>
+          <button className="btn primary lg block" disabled={status === 'busy'}>{status === 'busy' ? 'Creating your account…' : 'Create Account'}</button>
         </form>
       )}
       <p className="form-note">Been invited by your manager? Sign up with the email they used and you’ll join their rota automatically.</p>

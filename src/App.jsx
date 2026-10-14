@@ -15,19 +15,37 @@ function Loading() {
   return <div className="center">Loading…</div>
 }
 
+function Problem({ message }) {
+  const { refresh, signOut } = useWorkspace()
+  return (
+    <div className="center">
+      <div className="empty-state">
+        <h2>Workplace can’t load right now</h2>
+        <p>{message}</p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button className="btn primary lg" type="button" onClick={refresh}>Try Again</button>
+          <button className="btn lg" type="button" onClick={signOut}>Sign Out</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Signed out → sign in. Signed in with no business yet → setup wizard. Otherwise the app.
 function Gate({ children }) {
-  const { authReady, user, loading, businesses } = useWorkspace()
+  const { authReady, user, loading, loadError, businesses } = useWorkspace()
   if (!authReady || (user && loading)) return <Loading />
   if (!user) return <Navigate to="/signin" replace />
+  if (loadError) return <Problem message={loadError} />
   if (!businesses.length) return <Navigate to="/setup" replace />
   return children
 }
 
 function SetupGate() {
-  const { authReady, user, loading } = useWorkspace()
+  const { authReady, user, loading, loadError } = useWorkspace()
   if (!authReady || (user && loading)) return <Loading />
   if (!user) return <Navigate to="/signin" replace />
+  if (loadError) return <Problem message={loadError} />
   return <Setup />
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { friendlyError, supabase } from '../../lib/supabase'
+import { friendlyError, supabase, withTimeout } from '../../lib/supabase'
 import { useWorkspace } from '../../lib/workspace'
 import AuthFrame from './AuthFrame'
 
@@ -18,9 +18,14 @@ export default function SignIn() {
     event.preventDefault()
     setStatus('busy')
     setError('')
-    const result = mode === 'password'
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/` } })
+    let result
+    try {
+      result = await withTimeout(mode === 'password'
+        ? supabase.auth.signInWithPassword({ email, password })
+        : supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/` } }))
+    } catch (e) {
+      result = { error: e }
+    }
     if (result.error) {
       setError(friendlyError(result.error))
       setStatus('idle')
