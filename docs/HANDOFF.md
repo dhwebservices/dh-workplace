@@ -1,5 +1,34 @@
 # DH Workplace: handoff (read first)
 
+## Build status (15 Oct 2026, build agent): all app work on branch `rebuild`, never main
+
+- **Database (portal project xtunnfdwltfesscmpove, schema `workplace`), applied:**
+  - foundation;
+  - rota;
+  - rota_hide_drafts.
+
+  Migrations are in supabase/migrations.
+- **Tests:** supabase/tests/isolation.sql (39 checks) and supabase/tests/rota.sql (21 checks), all passing. Run each through execute_sql: the results come back as the error message and everything is rolled back.
+- **App (src/), new, in the approved design:**
+  - sign in (password, email link, Microsoft button);
+  - sign up;
+  - 3-step setup wizard (business, departments, invite team);
+  - dark header with business switcher;
+  - Rota week grid: quick entry ("5-11"), drafts, publish, copy last week, open shifts, cover row;
+  - Team (People with an add-person dialog, Departments) with a side menu;
+  - staff Today screen.
+
+  Clock-ins, Time Off and Pay show "Not ready yet".
+- **Invites need no service key:** invite_person stores the email, and claim_invites links the account when that email signs in (confirmed emails only).
+- **Blocked on David (dashboard):**
+  - expose the `workplace` schema to the API;
+  - confirm emails must be ON;
+  - add redirect URLs;
+  - enable the Azure provider if wanted.
+
+  Details are in the final report and project_dh_workplace.md.
+
+
 Last updated 15 October 2026, ~02:50, at the end of a long Claude Code session with David.
 
 ## Where things stand

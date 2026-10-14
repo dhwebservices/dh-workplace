@@ -1,90 +1,78 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { sbGet, supabase } from '../../utils/supabase'
+import { Link, Navigate } from 'react-router-dom'
+import { friendlyError, supabase } from '../../lib/supabase'
+import { useWorkspace } from '../../lib/workspace'
+import AuthFrame from './AuthFrame'
 
 export default function SignIn() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(location.state?.message || '')
+  const { user } = useWorkspace()
+  const [mode, setMode] = useState('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState('idle')
+  const [error, setError] = useState('')
 
-  const submit = async (e) => {
-    e.preventDefault()
-    setLoading(true); setError('')
-    const { data, error: err } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
-    if (err) { setError(err.message); setLoading(false); return }
+  if (user) return <Navigate to="/" replace />
 
-    try {
-      const authUser = data?.user
-      if (authUser) {
-        const [tenantUser, platformAdmin] = await Promise.all([
-          sbGet('tenant_users', `user_id=eq.${authUser.id}`),
-          sbGet('platform_admins', `user_id=eq.${authUser.id}`),
-        ])
-
-        if (tenantUser && !platformAdmin) {
-          const tenant = await sbGet('tenants', `id=eq.${tenantUser.tenant_id}`)
-          if (tenant?.status === 'blocked' || tenant?.status === 'suspended') {
-            await supabase.auth.signOut()
-            setError('This workspace has been blocked. Please contact DH Workplace support.')
-            setLoading(false)
-            return
-          }
-          if (tenant?.status === 'cancelled') {
-            await supabase.auth.signOut()
-            setError('This workspace is no longer active. Please contact support if you believe this is a mistake.')
-            setLoading(false)
-            return
-          }
-        }
-
-        if (platformAdmin) {
-          navigate('/superadmin')
-          setLoading(false)
-          return
-        }
-      }
-    } catch (checkError) {
-      await supabase.auth.signOut()
-      setError('We could not verify your workspace access. Please try again.')
-      setLoading(false)
-      return
+  async function submit(event) {
+    event.preventDefault()
+    setStatus('busy')
+    setError('')
+    const result = mode === 'password'
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/` } })
+    if (result.error) {
+      setError(friendlyError(result.error))
+      setStatus('idle')
+    } else {
+      setStatus(mode === 'link' ? 'sent' : 'idle')
     }
+  }
 
-    navigate('/')
+  async function microsoft() {
+    setError('')
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: { scopes: 'email', redirectTo: `${location.origin}/` },
+    })
+    if (oauthError) setError(friendlyError(oauthError))
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-      <div style={{ width:'100%', maxWidth:400 }}>
-        <div style={{ textAlign:'center', marginBottom:32 }}>
-          <div style={{ fontFamily:'var(--font-display)', fontSize:28, color:'var(--text)' }}>DH Workplace</div>
-          <div style={{ fontSize:13, color:'var(--faint)', marginTop:4 }}>Sign in to your workspace</div>
-        </div>
-        <div className="card card-pad">
-          <form onSubmit={submit}>
-            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-              <div>
-                <label className="lbl">Email</label>
-                <input className="inp" type="email" placeholder="you@company.co.uk" value={form.email} onChange={e => setForm(p => ({...p, email: e.target.value}))} />
-              </div>
-              <div>
-                <label className="lbl">Password</label>
-                <input className="inp" type="password" placeholder="Your password" value={form.password} onChange={e => setForm(p => ({...p, password: e.target.value}))} />
-              </div>
-              {error && <div style={{ fontSize:13, color:'var(--red)', background:'var(--red-soft)', padding:'10px 14px', borderRadius:8 }}>{error}</div>}
-              <button className="btn btn-primary" type="submit" disabled={loading} style={{ width:'100%', justifyContent:'center' }}>
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
-              <Link to="/forgot" style={{ textAlign:'center', fontSize:13, color:'var(--faint)', textDecoration:'none' }}>Forgot password?</Link>
-            </div>
-          </form>
-        </div>
-        <div style={{ textAlign:'center', marginTop:20, fontSize:13, color:'var(--faint)' }}>
-          Don't have an account? <Link to="/signup" style={{ color:'var(--blue)', textDecoration:'none' }}>Create workspace</Link>
-        </div>
+    <AuthFrame>
+      <div>
+        <h1>Sign in</h1>
+        <p className="sub">Rotas, clock-in and time off for your team.</p>
       </div>
-    </div>
+      {status === 'sent' ? (
+        <div className="banner info" style={{ margin: 0 }}>
+          We’ve emailed a sign-in link to <b>{email}</b>. Open it on this device.
+        </div>
+      ) : (
+        <form className="stack" onSubmit={submit}>
+          <label className="field"><span>Email</span>
+            <input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          {mode === 'password' && (
+            <label className="field"><span>Password</span>
+              <input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </label>
+          )}
+          {error && <p className="form-error">{error}</p>}
+          <button className="btn primary lg block" disabled={status === 'busy'}>
+            {mode === 'password' ? 'Sign In' : 'Email Me a Sign-in Link'}
+          </button>
+          <button type="button" className="link-btn" onClick={() => setMode(mode === 'password' ? 'link' : 'password')}>
+            {mode === 'password' ? 'Use a sign-in link instead' : 'Use a password instead'}
+          </button>
+        </form>
+      )}
+      <div className="divider">or</div>
+      <button type="button" className="btn lg block" onClick={microsoft}>
+        <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true"><rect width="10" height="10" fill="#f25022" /><rect x="11" width="10" height="10" fill="#7fba00" /><rect y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" /></svg>
+        Sign in with Microsoft
+      </button>
+      <p className="form-note">New to Workplace? <Link to="/signup">Create an account</Link></p>
+    </AuthFrame>
   )
 }

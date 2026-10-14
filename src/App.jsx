@@ -1,179 +1,60 @@
-import { Suspense, lazy } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext'
-import { isAccessBlocked } from './utils/entitlements'
-import { shouldShowOnboarding } from './utils/onboarding'
-import { canAccessPath } from './utils/permissions'
-import { resolveDefaultLandingPath } from './utils/portalPreferences'
-import ProtectedRoute from './components/ProtectedRoute'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { useWorkspace } from './lib/workspace'
+import AppLayout from './components/AppLayout'
+import SignIn from './pages/auth/SignIn'
+import SignUp from './pages/auth/SignUp'
+import Setup from './pages/setup/Setup'
+import Today from './pages/Today'
+import Rota from './pages/Rota'
+import TeamLayout from './pages/team/TeamLayout'
+import People from './pages/team/People'
+import Departments from './pages/team/Departments'
+import Later from './pages/Later'
 
-const SignUp = lazy(() => import('./pages/auth/SignUp'))
-const SignIn = lazy(() => import('./pages/auth/SignIn'))
-const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
-const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
-const AuthCallback = lazy(() => import('./pages/auth/AuthCallback'))
-const NotificationsPage = lazy(() => import('./pages/Notifications'))
-const SearchPage = lazy(() => import('./pages/Search'))
-const PortalPreferencesPage = lazy(() => import('./pages/PortalPreferences'))
-const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
-const AcceptPlatformAdmin = lazy(() => import('./pages/auth/AcceptPlatformAdmin'))
-const DemoWorkspace = lazy(() => import('./pages/demo/DemoWorkspace'))
-const OnboardingWizard = lazy(() => import('./pages/onboarding/OnboardingWizard'))
-const AppShell = lazy(() => import('./components/layout/AppShell'))
-const Dashboard = lazy(() => import('./pages/Dashboard'))
-const PaymentWall = lazy(() => import('./pages/PaymentWall'))
-const StaffDirectory = lazy(() => import('./pages/hr/StaffDirectory'))
-const OrgChart = lazy(() => import('./pages/hr/OrgChart'))
-const StaffProfile = lazy(() => import('./pages/hr/StaffProfile'))
-const LeaveRequests = lazy(() => import('./pages/hr/LeaveRequests'))
-const Documents = lazy(() => import('./pages/hr/Documents'))
-const Policies = lazy(() => import('./pages/hr/Policies'))
-const Timesheets = lazy(() => import('./pages/hr/Timesheets'))
-const Onboarding = lazy(() => import('./pages/hr/Onboarding'))
-const Clients = lazy(() => import('./pages/crm/Clients'))
-const ClientProfile = lazy(() => import('./pages/crm/ClientProfile'))
-const Tasks = lazy(() => import('./pages/crm/Tasks'))
-const Pipeline = lazy(() => import('./pages/crm/Pipeline'))
-const Outreach = lazy(() => import('./pages/crm/Outreach'))
-const Settings = lazy(() => import('./pages/admin/Settings'))
-const Team = lazy(() => import('./pages/admin/Team'))
-const Billing = lazy(() => import('./pages/admin/Billing'))
-const Banners = lazy(() => import('./pages/admin/Banners'))
-const Reports = lazy(() => import('./pages/admin/Reports'))
-const Safeguards = lazy(() => import('./pages/admin/Safeguards'))
-const Automations = lazy(() => import('./pages/admin/Automations'))
-const AuditLog = lazy(() => import('./pages/admin/AuditLog'))
-const Integrations = lazy(() => import('./pages/admin/Integrations'))
-const SuperDashboard = lazy(() => import('./pages/superadmin/SuperDashboard'))
-const SuperTenants = lazy(() => import('./pages/superadmin/SuperTenants'))
-const SuperTenant = lazy(() => import('./pages/superadmin/SuperTenant'))
-const SuperBilling = lazy(() => import('./pages/superadmin/SuperBilling'))
-const SuperAccess = lazy(() => import('./pages/superadmin/SuperAccess'))
-
-function AppLoader() {
-  return <div className="spin-wrap"><div className="spin" /></div>
+function Loading() {
+  return <div className="center">Loading…</div>
 }
 
-function RequireAuth({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return <div className="spin-wrap"><div className="spin"/></div>
+// Signed out → sign in. Signed in with no business yet → setup wizard. Otherwise the app.
+function Gate({ children }) {
+  const { authReady, user, loading, businesses } = useWorkspace()
+  if (!authReady || (user && loading)) return <Loading />
   if (!user) return <Navigate to="/signin" replace />
+  if (!businesses.length) return <Navigate to="/setup" replace />
   return children
 }
 
-function RequireOnboarded({ children }) {
-  const { user, tenant, tenantUser, employeeRecord, employeePermissions, isPlatformAdmin, loading } = useAuth()
-  if (loading) return <div className="spin-wrap"><div className="spin"/></div>
-  if (isPlatformAdmin && !tenant) return <Navigate to="/superadmin" replace />
-  if (!tenant) return <Navigate to="/signin" replace />
-  if (user?.id && shouldShowOnboarding(user.id)) return <Navigate to="/onboarding" replace />
-  const selfStaffPaths = [employeeRecord?.id, employeeRecord?.tenant_user_id, tenantUser?.id, user?.id]
-    .filter(Boolean)
-    .map(identifier => `/staff/${identifier}`)
-  if (!canAccessPath(window.location.pathname, { permissionRecord: employeePermissions, fallbackRole: tenantUser?.role, selfStaffPaths })) {
-    return <Navigate to="/onboarding-hr" replace />
-  }
-  if (isAccessBlocked(tenant)) return <PaymentWall />
-  return children
-}
-
-function RequireInitialOnboarding({ children }) {
-  const { user, tenant, isPlatformAdmin, loading } = useAuth()
-  if (loading) return <div className="spin-wrap"><div className="spin"/></div>
+function SetupGate() {
+  const { authReady, user, loading } = useWorkspace()
+  if (!authReady || (user && loading)) return <Loading />
   if (!user) return <Navigate to="/signin" replace />
-  if (isPlatformAdmin && !tenant) return <Navigate to="/superadmin" replace />
-  if (!shouldShowOnboarding(user.id)) return <Navigate to="/" replace />
-  return children
+  return <Setup />
 }
 
-function WorkspaceHome() {
-  const { user, tenantUser, employeeRecord, employeePermissions, portalPreferences } = useAuth()
-  const selfStaffPaths = [employeeRecord?.id, employeeRecord?.tenant_user_id, tenantUser?.id, user?.id]
-    .filter(Boolean)
-    .map(identifier => `/staff/${identifier}`)
-  const nextPath = resolveDefaultLandingPath(portalPreferences, {
-    permissionRecord: employeePermissions,
-    fallbackRole: tenantUser?.role,
-    selfStaffPaths,
-  })
-
-  if (nextPath && nextPath !== '/') return <Navigate to={nextPath} replace />
-  return <Dashboard />
-}
-
-function RequireSuperAdmin({ children }) {
-  const { tenantUser, isPlatformAdmin, loading } = useAuth()
-  if (loading) return <div className="spin-wrap"><div className="spin"/></div>
-  if (!isPlatformAdmin && tenantUser?.role !== 'superadmin') return <Navigate to="/" replace />
-  return children
+function Home() {
+  const { can } = useWorkspace()
+  return <Navigate to={can('rota.view_all') ? '/rota' : '/today'} replace />
 }
 
 export default function App() {
   return (
-    <Suspense fallback={<AppLoader />}>
-      <Routes>
-        {/* Public */}
-        <Route path="/signup"  element={<SignUp />} />
-        <Route path="/signin"  element={<SignIn />} />
-        <Route path="/forgot"  element={<ForgotPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/notifications" element={<RequireAuth><RequireOnboarded><AppShell /></RequireOnboarded></RequireAuth>}>
-          <Route index element={<NotificationsPage />} />
+    <Routes>
+      <Route path="/signin" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
+      <Route path="/setup" element={<SetupGate />} />
+      <Route element={<Gate><AppLayout /></Gate>}>
+        <Route index element={<Home />} />
+        <Route path="today" element={<Today />} />
+        <Route path="rota" element={<Rota />} />
+        <Route path="team" element={<TeamLayout />}>
+          <Route index element={<People />} />
+          <Route path="departments" element={<Departments />} />
         </Route>
-        <Route path="/invite/:token" element={<AcceptInvite />} />
-        <Route path="/platform-access/:token" element={<AcceptPlatformAdmin />} />
-        <Route path="/demo/:slug" element={<DemoWorkspace />} />
-
-        {/* Onboarding */}
-        <Route path="/onboarding" element={<RequireInitialOnboarding><OnboardingWizard /></RequireInitialOnboarding>} />
-
-        {/* Super Admin */}
-        <Route path="/superadmin" element={<RequireSuperAdmin><AppShell superAdmin /></RequireSuperAdmin>}>
-          <Route index element={<SuperDashboard />} />
-          <Route path="tenants" element={<SuperTenants />} />
-          <Route path="tenants/:id" element={<SuperTenant />} />
-          <Route path="billing" element={<SuperBilling />} />
-          <Route path="access" element={<SuperAccess />} />
-        </Route>
-
-        {/* Main App */}
-        <Route path="/" element={<RequireAuth><RequireOnboarded><AppShell /></RequireOnboarded></RequireAuth>}>
-          <Route index element={<WorkspaceHome />} />
-          <Route path="search"            element={<SearchPage />} />
-          <Route path="portal"            element={<PortalPreferencesPage />} />
-
-          {/* HR */}
-          <Route path="staff"              element={<StaffDirectory />} />
-          <Route path="org-chart"          element={<OrgChart />} />
-          <Route path="staff/:userId"      element={<StaffProfile />} />
-          <Route path="leave"              element={<LeaveRequests />} />
-          <Route path="documents"          element={<Documents />} />
-          <Route path="policies"           element={<Policies />} />
-          <Route path="timesheets"         element={<Timesheets />} />
-          <Route path="onboarding-hr"      element={<Onboarding />} />
-
-          {/* CRM - Protected: Manager+ only */}
-          <Route path="clients"            element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-          <Route path="clients/:id"        element={<ProtectedRoute><ClientProfile /></ProtectedRoute>} />
-          <Route path="tasks"              element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
-          <Route path="pipeline"           element={<ProtectedRoute><Pipeline /></ProtectedRoute>} />
-          <Route path="outreach"           element={<ProtectedRoute><Outreach /></ProtectedRoute>} />
-
-          {/* Admin - Protected: Role-based */}
-          <Route path="settings"           element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="team"               element={<ProtectedRoute><Team /></ProtectedRoute>} />
-          <Route path="billing"            element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-          <Route path="banners"            element={<ProtectedRoute><Banners /></ProtectedRoute>} />
-          <Route path="reports"            element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-          <Route path="safeguards"         element={<ProtectedRoute><Safeguards /></ProtectedRoute>} />
-          <Route path="automations"        element={<ProtectedRoute><Automations /></ProtectedRoute>} />
-          <Route path="audit"              element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
-          <Route path="integrations"       element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-        </Route>
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+        <Route path="clock-ins" element={<Later title="Clock-ins" body="Phone and tablet clock-in comes in the next build, after the rota." />} />
+        <Route path="time-off" element={<Later title="Time Off" body="Holiday requests, approvals and UK entitlement come in a later build." />} />
+        <Route path="pay" element={<Later title="Pay" body="Timesheet exports for your payroll provider come in a later build." />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
