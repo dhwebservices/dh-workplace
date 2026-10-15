@@ -9,7 +9,10 @@ import Rota from './pages/Rota'
 import TeamLayout from './pages/team/TeamLayout'
 import People from './pages/team/People'
 import Departments from './pages/team/Departments'
-import Later from './pages/Later'
+import ClockIns from './pages/ClockIns'
+import Kiosk from './pages/Kiosk'
+import TimeOff from './pages/TimeOff'
+import Timesheets from './pages/Timesheets'
 
 function Loading() {
   return <div className="center">Loading…</div>
@@ -68,10 +71,11 @@ export default function App() {
           <Route index element={<People />} />
           <Route path="departments" element={<Departments />} />
         </Route>
-        <Route path="clock-ins" element={<Later title="Clock-ins" body="Phone and tablet clock-in comes in the next build, after the rota." />} />
-        <Route path="time-off" element={<Later title="Time Off" body="Holiday requests, approvals and UK entitlement come in a later build." />} />
-        <Route path="pay" element={<Later title="Pay" body="Timesheet exports for your payroll provider come in a later build." />} />
+        <Route path="clock-ins" element={<ClockIns />} />
+        <Route path="time-off" element={<TimeOff />} />
+        <Route path="pay" element={<Timesheets />} />
       </Route>
+      <Route path="/kiosk/:siteId" element={<Gate><Kiosk /></Gate>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

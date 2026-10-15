@@ -77,3 +77,28 @@ export function parseShiftInput(text, day) {
   if (endDate <= startDate) endDate.setDate(endDate.getDate() + 1)
   return { start: startDate, end: endDate }
 }
+
+// "4:58 PM", the way the staff app shows clock times.
+export function clockTime(value) {
+  return new Date(value).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase()
+}
+
+// "Tue 14 Oct"
+export function shortDate(value) {
+  return new Date(value).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+// "3 – 4 November", "24 December"
+export function dateSpan(from, to) {
+  const a = new Date(`${from}T12:00:00`)
+  const b = new Date(`${to}T12:00:00`)
+  if (from === to) return a.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+  if (a.getMonth() === b.getMonth()) return `${a.getDate()} – ${b.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+  return `${a.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${b.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+}
+
+// A date as YYYY-MM-DD in local time, for date inputs and date columns.
+export function isoDate(date) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
