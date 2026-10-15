@@ -1,15 +1,16 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useWorkspace } from '../lib/workspace'
+import { IS_DEMO } from '../lib/demo'
 import Avatar from './Avatar'
-import { BellIcon, ChevronDown, DHMark, HelpIcon, SearchIcon } from './Icons'
+import { BellIcon, CalendarIcon, ChevronDown, ClockIcon, DHMark, HelpIcon, HomeIcon, PayIcon, PeopleIcon, SearchIcon, SunIcon } from './Icons'
 
 const NAV = [
-  { to: '/today', label: 'Today' },
-  { to: '/rota', label: 'Rota' },
-  { to: '/clock-ins', label: 'Clock-ins', perm: 'clock.fix' },
-  { to: '/time-off', label: 'Time Off' },
-  { to: '/team', label: 'Team', perm: 'staff.view_details' },
-  { to: '/pay', label: 'Pay' },
+  { to: '/today', label: 'Today', icon: HomeIcon },
+  { to: '/rota', label: 'Rota', icon: CalendarIcon },
+  { to: '/clock-ins', label: 'Clock-ins', perm: 'clock.fix', icon: ClockIcon },
+  { to: '/time-off', label: 'Time Off', icon: SunIcon },
+  { to: '/team', label: 'Team', perm: 'staff.view_details', icon: PeopleIcon },
+  { to: '/pay', label: 'Pay', icon: PayIcon },
 ]
 
 function roleLabel(roles = []) {
@@ -44,6 +45,7 @@ export default function AppLayout() {
           ))}
         </nav>
         <div className="topbar-right">
+          {IS_DEMO && <span className="demo-note" title="Sample data. Nothing is saved.">Demo data</span>}
           <button className="icon-btn" type="button" aria-label="Search"><SearchIcon /></button>
           <button className="icon-btn" type="button" aria-label="Help"><HelpIcon /></button>
           <button className="icon-btn" type="button" aria-label="Notifications"><BellIcon /></button>
@@ -55,6 +57,12 @@ export default function AppLayout() {
         </div>
       </header>
       <Outlet />
+      {/* Phones get the bottom tab bar from the staff-app design instead of the top menu. */}
+      <nav className="tabbar">
+        {NAV.filter((item) => !item.perm || can(item.perm)).filter((item) => item.to !== '/clock-ins').slice(0, 5).map(({ to, label, icon: Icon }) => (
+          <NavLink key={to} to={to}><Icon size={22} /><span>{label}</span></NavLink>
+        ))}
+      </nav>
     </div>
   )
 }

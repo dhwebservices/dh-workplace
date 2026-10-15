@@ -18,6 +18,8 @@ export default function Rota() {
   const [draftText, setDraftText] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [rates, setRates] = useState({}) // person_id -> pence per hour
+  const [requests, setRequests] = useState([])
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart])
@@ -43,6 +45,17 @@ export default function Rota() {
       supabase.rpc('has_perm', { p_business: businessId, p_perm: 'rota.edit', p_site: null, p_department: d.id })
         .then(({ data }) => (data ? d.id : null))))
     setEditable(new Set(checks.filter(Boolean)))
+
+    // Optional extras: pay rates (only readable with pay.view) and pending time off.
+    // Errors are ignored so the rota still works before those tables exist.
+    const [payRes, offRes] = await Promise.all([
+      supabase.from('person_pay').select('person_id, hourly_rate_pence, effective_from').eq('business_id', businessId).order('effective_from'),
+      supabase.from('time_off_requests').select('id, person_id, starts_on, ends_on, reason, status').eq('business_id', businessId).eq('status', 'pending').order('starts_on'),
+    ])
+    const latest = {}
+    for (const r of payRes.data || []) latest[r.person_id] = r.hourly_rate_pence
+    setRates(payRes.error ? {} : latest)
+    setRequests(offRes.error ? [] : offRes.data || [])
   }, [businessId, weekStart, weekEnd])
 
   useEffect(() => { load() }, [load])
@@ -126,6 +139,11 @@ export default function Rota() {
     .reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at, s.break_minutes), 0)
   const totalHours = shifts.reduce((sum, s) => sum + hoursBetween(s.starts_at, s.ends_at, s.break_minutes), 0)
   const today = new Date()
+  const hasRates = Object.keys(rates).length > 0
+  const wagesPence = shifts.reduce((sum, s) => sum + (s.person_id && rates[s.person_id]
+    ? hoursBetween(s.starts_at, s.ends_at, s.break_minutes) * rates[s.person_id] : 0), 0)
+  const nameOf = (id) => people.find((p) => p.id === id)?.full_name || 'Someone'
+  const dayLabel = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
 
   function renderCell(personId, dept, dayIndex) {
     const cellShifts = shifts.filter((s) => s.department_id === dept.id && s.person_id === personId && sameDay(new Date(s.starts_at), days[dayIndex]))
@@ -215,6 +233,27 @@ export default function Rota() {
           </div>
 
           <aside className="inspector">
+            {requests.length > 0 && (
+              <div className="panel">
+                <h3>Needs Attention <span>{requests.length}</span></h3>
+                {requests.map((r) => (
+                  <div key={r.id} className="request">
+                    <Avatar name={nameOf(r.person_id)} size={28} />
+                    <div>
+                      <p><b>{nameOf(r.person_id).split(' ')[0]}</b> requested {r.starts_on === r.ends_on ? dayLabel(r.starts_on) : `${dayLabel(r.starts_on)} – ${dayLabel(r.ends_on)}`} off</p>
+                      {r.reason && <p className="muted">{r.reason}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {hasRates && (
+              <div className="panel">
+                <h3>Wages <span>This week</span></h3>
+                <div className="big-number">£{Math.round(wagesPence / 100).toLocaleString('en-GB')}</div>
+                <div className="muted" style={{ fontSize: 12.5 }}>{Math.round(totalHours)} hours, before holiday pay and NI</div>
+              </div>
+            )}
             <div className="panel">
               <h3>This Week <span>{weekLabel(weekStart)}</span></h3>
               <div className="big-number">{Math.round(totalHours)} hrs</div>

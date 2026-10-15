@@ -86,7 +86,7 @@ export default function People() {
           <button className="btn primary lg" type="button" onClick={() => setInviting(true)}>Add Person</button>
         </div>
       ) : (
-        <table className="list">
+        <table className="list people-table">
           <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Contract</th><th>Status</th></tr></thead>
           <tbody>
             {shown.map(({ person, detail, topRole, deptNames, contract }) => (

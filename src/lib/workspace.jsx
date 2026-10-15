@@ -20,6 +20,9 @@ export function WorkspaceProvider({ children }) {
   const [permissions, setPermissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  // Which signed-in user the business list belongs to. Until it matches, we're still loading,
+  // which stops a one-render flash where a signed-in owner looks like they have no business.
+  const [loadedFor, setLoadedFor] = useState(null)
 
   useEffect(() => {
     withTimeout(supabase.auth.getSession(), 10000)
@@ -48,10 +51,12 @@ export function WorkspaceProvider({ children }) {
       list = data || []
     } catch (error) {
       setLoadError(friendlyError(error))
+      setLoadedFor(session.user.id)
       setLoading(false)
       return
     }
     setBusinesses(list)
+    setLoadedFor(session.user.id)
     setBusinessId((current) =>
       list.some((b) => b.business_id === current) ? current : list[0]?.business_id || null,
     )
@@ -81,7 +86,7 @@ export function WorkspaceProvider({ children }) {
       session,
       user: session?.user || null,
       authReady,
-      loading,
+      loading: loading || Boolean(session && loadedFor !== session.user.id),
       loadError,
       businesses,
       business,
@@ -92,7 +97,7 @@ export function WorkspaceProvider({ children }) {
       refresh,
       signOut: () => supabase.auth.signOut(),
     }
-  }, [session, authReady, loading, loadError, businesses, businessId, permissions, refresh])
+  }, [session, authReady, loading, loadedFor, loadError, businesses, businessId, permissions, refresh])
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
 }

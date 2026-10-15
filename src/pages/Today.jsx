@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useWorkspace } from '../lib/workspace'
-import { addDays, hoursBetween, sameDay, shiftRange } from '../lib/dates'
+import { addDays, formatHours, hoursBetween, sameDay, shiftRange } from '../lib/dates'
 
 export default function Today() {
   const { businessId, business } = useWorkspace()
@@ -41,7 +41,7 @@ export default function Today() {
               </span>
             </div>
             <div className="time">{shiftRange(next.starts_at, next.ends_at)}</div>
-            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{hoursBetween(next.starts_at, next.ends_at, next.break_minutes)} hours</p>
+            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>{formatHours(hoursBetween(next.starts_at, next.ends_at, next.break_minutes))}</p>
           </div>
         ) : (
           <div className="card"><b>No shifts coming up</b><p className="muted" style={{ marginTop: 4 }}>When your manager publishes the rota, your shifts appear here.</p></div>
@@ -55,7 +55,7 @@ export default function Today() {
                 return (
                   <div className="item" key={s.id}>
                     <div className="cal"><small>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</small><b>{d.getDate()}</b></div>
-                    <div><b style={{ fontWeight: 500, fontSize: 15 }}>{deptName(s.department_id)}</b><div className="muted" style={{ fontSize: 13 }}>{shiftRange(s.starts_at, s.ends_at)} · {hoursBetween(s.starts_at, s.ends_at, s.break_minutes)} hrs</div></div>
+                    <div><b style={{ fontWeight: 500, fontSize: 15 }}>{deptName(s.department_id)}</b><div className="muted" style={{ fontSize: 13 }}>{shiftRange(s.starts_at, s.ends_at)} · {formatHours(hoursBetween(s.starts_at, s.ends_at, s.break_minutes))}</div></div>
                   </div>
                 )
               })}

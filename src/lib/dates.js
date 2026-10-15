@@ -37,6 +37,15 @@ export function weekLabel(weekStart) {
   return `${startText} – ${endText}`
 }
 
+// "6h", "5h 40m", "45m" for people to read; hoursBetween stays numeric for sums.
+export function formatHours(hours) {
+  const total = Math.round(hours * 60)
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (!h) return `${m}m`
+  return m ? `${h}h ${m}m` : `${h}h`
+}
+
 export function hoursBetween(start, end, breakMinutes = 0) {
   return Math.max(0, (new Date(end) - new Date(start)) / 3600000 - breakMinutes / 60)
 }

@@ -1,14 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
+import { IS_DEMO, demoClient } from './demo'
 
 // Public values only: the URL and publishable key are safe in the browser.
 // All data access is enforced by row-level security in the `workplace` schema.
 const url = import.meta.env.VITE_SUPABASE_URL || 'https://xtunnfdwltfesscmpove.supabase.co'
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_EGqHepeD-Opey2OLrg-dmg_dCIjYmrt'
 
-export const supabase = createClient(url, key, {
-  db: { schema: 'workplace' },
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-})
+// ?demo=1 swaps in an in-memory client with sample data; the real client is never created then.
+export const supabase = IS_DEMO
+  ? demoClient
+  : createClient(url, key, {
+    db: { schema: 'workplace' },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  })
 
 export const SCHEMA_OFF_MESSAGE =
   'Workplace isn’t switched on for this database yet. In Supabase, open Settings → Data API and add “workplace” to Exposed schemas.'
